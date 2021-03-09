@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "aligned-cmov",
+    "balanced-tree-index",
+    "mc-oblivious-map",
+    "mc-oblivious-ram",
+    "mc-oblivious-traits",
+    "test-helper",
+]
+
+exclude = [
+    "no-asm-tests",
+]
+
+# This is done to enable running larger tests and get better test coverage,
+# oblivious RAM is very slow in an opt-level = 0 build.
+[profile.test.package.mc-oblivious-ram]
+opt-level = 2
+debug = 2
+debug-assertions = true

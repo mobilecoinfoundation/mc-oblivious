@@ -1,0 +1,40 @@
+[package]
+name = "mc-oblivious-map"
+version = "1.0.0"
+description = "Implementation of Oblivious Hash Map data structures on top of Oblivious RAM"
+authors = ["MobileCoin"]
+license = "GPL-3.0"
+edition = "2018"
+readme = "README.md"
+repository = "https://github.com/mobilecoinofficial/mc-oblivious"
+keywords = ["cryptography", "crypto", "constant-time", "oblivious-ram"]
+categories = ["cryptography", "data-structures", "no-std"]
+
+[features]
+no_asm_insecure = ["aligned-cmov/no_asm_insecure"]
+
+[dependencies]
+aligned-array = { version = "1", features = ["subtle"] }
+aligned-cmov = { path = "../aligned-cmov", version = "1" }
+mc-oblivious-traits = { path = "../mc-oblivious-traits", version = "1" }
+
+generic-array = { version = "0.14", default-features = false }
+rand_core = { version = "0.5", default-features = false }
+siphasher = "0.3"
+
+[dev-dependencies]
+mc-oblivious-ram = { path = "../mc-oblivious-ram" }
+test-helper = { path = "../test-helper" }
+
+criterion = "0.3"
+
+# This is only needed by benchmarks... we should really put this on crates.io
+mc-crypto-rand = { git = "https://github.com/mobilecoinfoundation/mobilecoin", rev = "9e8ea5392f14eaf0840551abdd633ab6e8883fb4" }
+
+[[bench]]
+name = "ingest"
+harness = false
+
+[[bench]]
+name = "view"
+harness = false

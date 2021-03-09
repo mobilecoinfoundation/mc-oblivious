@@ -1,0 +1,19 @@
+[package]
+name = "balanced-tree-index"
+version = "1.0.0"
+description = "Utilities for constant-time manipulation of a complete binary tree with a flat in-memory representation."
+authors = ["MobileCoin"]
+license = "GPL-3.0"
+edition = "2018"
+readme = "README.md"
+repository = "https://github.com/mobilecoinofficial/mc-oblivious"
+keywords = ["binary-tree", "constant-time", "utilities", "no_std"]
+categories = ["cryptography", "data-structures"]
+
+[dependencies]
+aligned-cmov = { path = "../aligned-cmov", version = "1" }
+
+rand_core = { version = "0.5", default-features = false }
+
+[dev-dependencies]
+test-helper = { path = "../test-helper" }
