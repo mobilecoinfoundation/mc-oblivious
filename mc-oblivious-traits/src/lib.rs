@@ -111,6 +111,7 @@ pub trait ORAMStorage<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> {
 /// TODO: Should there be, perhaps, a separate trait for "resizable" ORAMs?
 /// We don't have a good way for the OMAP to take advantage of that right now.
 #[allow(clippy::len_without_is_empty)]
+#[allow(clippy::upper_case_acronyms)]
 pub trait ORAM<ValueSize: ArrayLength<u8>> {
     /// Get the number of values logically in the ORAM.
     /// This is also one more than the largest index that can be legally accessed.
