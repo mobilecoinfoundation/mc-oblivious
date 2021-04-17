@@ -143,8 +143,9 @@ where
     }
 }
 
-/// Creates U32 Position Maps, either the trivial one or recursively on top of ORAMs.
-/// The value size times the Z value determines the size of an ORAM bucket
+/// Creates U32 Position Maps, either the trivial one or recursively on top of
+/// ORAMs. The value size times the Z value determines the size of an ORAM
+/// bucket
 pub struct U32PositionMapCreator<
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + 'static,
     R: RngCore + CryptoRng + Send + Sync + 'static,
@@ -177,7 +178,10 @@ impl<
                 ),
             )
         } else {
-            panic!("height = {}, but we didn't implement u64 position map yet")
+            panic!(
+                "height = {}, but we didn't implement u64 position map yet",
+                height
+            )
         }
     }
 }

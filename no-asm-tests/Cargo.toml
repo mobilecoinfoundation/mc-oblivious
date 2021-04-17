@@ -1,6 +1,6 @@
 [package]
 name = "no-asm-tests"
-version = "1.0.0"
+version = "2.0.0"
 description = "A crate in another workspace which sets the no_asm_insecure flag and runs tests that way"
 authors = ["MobileCoin"]
 edition = "2018"
