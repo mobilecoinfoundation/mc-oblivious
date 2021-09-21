@@ -318,12 +318,12 @@ where
         src_meta: &mut A8Bytes<MetaSize>,
     ) {
         condition &= !meta_is_vacant(src_meta);
-        let lowest_legal_index = self.lowest_legal_index(*meta_leaf_num(src_meta));
+        let lowest_height_legal_index = self.lowest_height_legal_index(*meta_leaf_num(src_meta));
         Self::insert_into_branch_suffix(
             condition,
             src_data,
             src_meta,
-            lowest_legal_index,
+            lowest_height_legal_index,
             &mut self.data,
             &mut self.meta,
         );
@@ -349,13 +349,16 @@ where
 
                 // We use the _impl version here because we cannot borrow self
                 // while self.data and self.meta are borrowed
-                let lowest_legal_index =
-                    Self::lowest_legal_index_impl(*meta_leaf_num(src_meta), self.leaf, data_len);
+                let lowest_height_legal_index = Self::lowest_height_legal_index_impl(
+                    *meta_leaf_num(src_meta),
+                    self.leaf,
+                    data_len,
+                );
                 Self::insert_into_branch_suffix(
                     1.into(),
                     src_data,
                     src_meta,
-                    lowest_legal_index,
+                    lowest_height_legal_index,
                     lower_data,
                     lower_meta,
                 );
@@ -390,20 +393,20 @@ where
     }
 
     /// Given a tree-index value (a node in the tree)
-    /// Compute the lowest legal index of a bucket in this branch into which it can
+    /// Compute the lowest height (closest to the leaf) legal index of a bucket in this branch into which it can
     /// be placed. This depends on the common ancestor height of tree_index and self.leaf.
     ///
     /// This is required to give well-defined output even if tree_index is 0.
     /// It is not required to give well-defined output if self.leaf is 0.
-    fn lowest_legal_index(&self, query: u64) -> usize {
-        Self::lowest_legal_index_impl(query, self.leaf, self.data.len())
+    fn lowest_height_legal_index(&self, query: u64) -> usize {
+        Self::lowest_height_legal_index_impl(query, self.leaf, self.data.len())
     }
 
-    /// The internal logic of lowest_legal_index.
+    /// The internal logic of lowest_height_legal_index.
     /// This stand-alone version is needed to get around the borrow checker,
     /// because we cannot call functions that take &self as a parameter
     /// while data or meta are mutably borrowed.
-    fn lowest_legal_index_impl(mut query: u64, leaf: u64, data_len: usize) -> usize {
+    fn lowest_height_legal_index_impl(mut query: u64, leaf: u64, data_len: usize) -> usize {
         // Set query to point to root (1) if it is currently 0 (none / vacant)
         query.cmov(query.ct_eq(&0), &1);
         debug_assert!(
