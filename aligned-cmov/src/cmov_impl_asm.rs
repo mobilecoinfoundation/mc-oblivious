@@ -60,6 +60,45 @@ pub fn cmov_u64(condition: bool, src: &u64, dest: &mut u64) {
     *dest = temp;
 }
 
+// CMov for i32 values
+#[inline]
+pub fn cmov_i32(condition: bool, src: &i32, dest: &mut i32) {
+    // Create a temporary to be assigned to a register for cmov
+    let mut temp: i32 = *dest;
+    // Test condition ($1)
+    // cmovnz from src into temp ($2 to $0)
+    unsafe {
+        llvm_asm!("test $1, $1
+                   cmovnz $0, $2"
+                    :"+&r"(temp)
+                    : "r"(condition), "rm"(*src)
+                    : "cc"
+                    : "volatile", "intel");
+    }
+    // "cc" is because we are setting flags in test
+    // "volatile" is meant to discourage the optimizer from inspecting this
+    *dest = temp;
+}
+
+// CMov for u64 values
+#[inline]
+pub fn cmov_i64(condition: bool, src: &i64, dest: &mut i64) {
+    // Create a temporary to be assigned to a register for cmov
+    let mut temp: i64 = *dest;
+    // Test condition ($1)
+    // cmovnz from src into temp ($2 to $0)
+    unsafe {
+        llvm_asm!("test $1, $1
+                   cmovnz $0, $2"
+                    :"+&r"(temp)
+                    : "r"(condition), "rm"(*src)
+                    : "cc"
+                    : "volatile", "intel");
+    }
+    // "cc" is because we are setting flags in test
+    // "volatile" is meant to discourage the optimizer from inspecting this
+    *dest = temp;
+}
 // CMov for blocks aligned to 8-byte boundary
 #[inline]
 pub fn cmov_a8_bytes<N: ArrayLength<u8>>(condition: bool, src: &A8Bytes<N>, dest: &mut A8Bytes<N>) {

@@ -47,6 +47,20 @@ impl CMov for u64 {
     }
 }
 
+impl CMov for i32 {
+    #[inline]
+    fn cmov(&mut self, condition: Choice, src: &i32) {
+        cmov_impl::cmov_i32(condition.unwrap_u8() != 0, src, self)
+    }
+}
+
+impl CMov for i64 {
+    #[inline]
+    fn cmov(&mut self, condition: Choice, src: &i64) {
+        cmov_impl::cmov_i64(condition.unwrap_u8() != 0, src, self)
+    }
+}
+
 impl CMov for bool {
     #[inline]
     fn cmov(&mut self, condition: Choice, src: &bool) {
@@ -123,6 +137,44 @@ mod testing {
         let cfalse: Choice = Choice::from(0u8);
 
         let mut a = 0u64;
+        a.cmov(ctrue, &1);
+        assert_eq!(a, 1);
+
+        a.cmov(ctrue, &2);
+        assert_eq!(a, 2);
+
+        a.cmov(cfalse, &0);
+        assert_eq!(a, 2);
+
+        a.cmov(ctrue, &0);
+        assert_eq!(a, 0);
+    }
+
+    #[test]
+    fn test_cmov_i32() {
+        let ctrue: Choice = Choice::from(1u8);
+        let cfalse: Choice = Choice::from(0u8);
+
+        let mut a = 0i32;
+        a.cmov(ctrue, &1);
+        assert_eq!(a, 1);
+
+        a.cmov(ctrue, &2);
+        assert_eq!(a, 2);
+
+        a.cmov(cfalse, &0);
+        assert_eq!(a, 2);
+
+        a.cmov(ctrue, &0);
+        assert_eq!(a, 0);
+    }
+
+    #[test]
+    fn test_cmov_i64() {
+        let ctrue: Choice = Choice::from(1u8);
+        let cfalse: Choice = Choice::from(0u8);
+
+        let mut a = 0i64;
         a.cmov(ctrue, &1);
         assert_eq!(a, 1);
 
