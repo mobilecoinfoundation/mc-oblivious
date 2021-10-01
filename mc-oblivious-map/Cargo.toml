@@ -29,7 +29,7 @@ test-helper = { path = "../test-helper" }
 criterion = "0.3"
 
 # This is only needed by benchmarks... we should really put this on crates.io
-mc-crypto-rand = { git = "https://github.com/mobilecoinfoundation/mobilecoin", rev = "49b802f5932ce5ef379491259ea1b8b8e13df2b6" }
+mc-crypto-rand = { git = "https://github.com/mobilecoinfoundation/mobilecoin", rev = "9653694d5fcd8fb9438728547467518b634d6cf5" }
 
 [[bench]]
 name = "ingest"

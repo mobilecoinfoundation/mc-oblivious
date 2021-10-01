@@ -309,10 +309,10 @@ dependencies = [
 
 [[package]]
 name = "mc-crypto-rand"
-version = "1.0.1-pre1"
-source = "git+https://github.com/mobilecoinfoundation/mobilecoin?rev=49b802f5932ce5ef379491259ea1b8b8e13df2b6#49b802f5932ce5ef379491259ea1b8b8e13df2b6"
+version = "1.1.2"
+source = "git+https://github.com/mobilecoinfoundation/mobilecoin?rev=9653694d5fcd8fb9438728547467518b634d6cf5#9653694d5fcd8fb9438728547467518b634d6cf5"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "getrandom",
  "rand",
  "rand_core",
