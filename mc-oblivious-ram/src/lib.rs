@@ -1,5 +1,6 @@
 //! One of the main ideas in PathORAM is to use a position map, which is
-//! recursively an ORAM. The position map is built on top of an ORAM implementation.
+//! recursively an ORAM. The position map is built on top of an ORAM
+//! implementation.
 //!
 //! Tuning the characteristics of the position map is important for overall
 //! performance, and the PathORAM doesn't really care about those details.
@@ -8,9 +9,9 @@
 //!
 //! PositionMap also has slightly different initialization from ORAM.
 //! You want the PositionMap to begin in a random state, not a zeroed state.
-//! But writing random values to all the position maps on initialization is slow.
-//! To avoid the need for this, we "implicitly" initialize each position to a
-//! value which is the output of a secure block cipher.
+//! But writing random values to all the position maps on initialization is
+//! slow. To avoid the need for this, we "implicitly" initialize each position
+//! to a value which is the output of a secure block cipher.
 //!
 //! The core PathORAM implementation, using PositionMap as a block box,
 //! appears in the path_oram module. PathORAM must also use the ORAMStorage
@@ -34,8 +35,8 @@ pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCre
 mod path_oram;
 pub use path_oram::PathORAM;
 
-/// Creator for PathORAM based on 4096-sized blocks of storage and bucket size (Z) of 2,
-/// and a basic recursive position map implementation
+/// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
+/// (Z) of 2, and a basic recursive position map implementation
 ///
 /// XXX: This config is broken
 /// (Chris) I sometimes see stash overflow with this config, use Z=4
@@ -64,8 +65,8 @@ where
     }
 }
 
-/// Creator for PathORAM based on 4096-sized blocks of storage and bucket size (Z) of 4,
-/// and a basic recursive position map implementation
+/// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
+/// (Z) of 4, and a basic recursive position map implementation
 pub struct PathORAM4096Z4Creator<R, SC>
 where
     R: RngCore + CryptoRng + 'static,

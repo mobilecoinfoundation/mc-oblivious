@@ -1,4 +1,5 @@
-//! Implements PathORAM on top of a generic ORAMStorage and a generic PositionMap.
+//! Implements PathORAM on top of a generic ORAMStorage and a generic
+//! PositionMap.
 //!
 //! In this implementation, the bucket size (Z in paper) is configurable.
 //!
@@ -28,30 +29,32 @@ use mc_oblivious_traits::{
 use rand_core::{CryptoRng, RngCore};
 
 /// In this implementation, a value is expected to be an aligned 4096 byte page.
-/// The metadata associated to a value is two u64's (block num and leaf), so 16 bytes.
-/// It is stored separately from the value so as not to break alignment.
+/// The metadata associated to a value is two u64's (block num and leaf), so 16
+/// bytes. It is stored separately from the value so as not to break alignment.
 /// In many cases block-num and leaf can be u32's. But I suspect that there will
-/// be other stuff in this metadata as well in the end so the savings isn't much.
+/// be other stuff in this metadata as well in the end so the savings isn't
+/// much.
 type MetaSize = U16;
 
-// A metadata object is always associated to any Value in the PathORAM structure.
-// A metadata consists of two fields: leaf_num and block_num
+// A metadata object is always associated to any Value in the PathORAM
+// structure. A metadata consists of two fields: leaf_num and block_num
 // A metadata has the status of being "vacant" or "not vacant".
 //
-// The block_num is the number in range 0..len that corresponds to the user's query.
-// every block of data in the ORAM has an associated block number.
+// The block_num is the number in range 0..len that corresponds to the user's
+// query. every block of data in the ORAM has an associated block number.
 // There should be only one non-vacant data with a given block number at a time,
 // if none is found then it will be initialized lazily on first query.
 //
-// The leaf_num is the "target" of this data in the tree, according to Path ORAM algorithm.
-// It represents a TreeIndex value. In particular it is not zero.
+// The leaf_num is the "target" of this data in the tree, according to Path ORAM
+// algorithm. It represents a TreeIndex value. In particular it is not zero.
 //
-// The leaf_num attached to a block_num should match pos[block_num], it is a cache of that value,
-// which enables us to perform efficient eviction and packing in a branch.
+// The leaf_num attached to a block_num should match pos[block_num], it is a
+// cache of that value, which enables us to perform efficient eviction and
+// packing in a branch.
 //
 // A metadata is defined to be "vacant" if leaf_num IS zero.
-// This indicates that the metadata and its corresponding value can be overwritten
-// with a real item.
+// This indicates that the metadata and its corresponding value can be
+// overwritten with a real item.
 
 /// Get the leaf num of a metadata
 fn meta_leaf_num(src: &A8Bytes<MetaSize>) -> &u64 {
@@ -115,9 +118,10 @@ where
 {
     /// New function creates this ORAM given a position map creator and a
     /// storage type creator and an Rng creator.
-    /// The main thing that is going on here is, given the size, we are determining
-    /// what the height will be, which will be like log(size) - log(bucket_size)
-    /// Then we are making sure that all the various creators use this number.
+    /// The main thing that is going on here is, given the size, we are
+    /// determining what the height will be, which will be like log(size) -
+    /// log(bucket_size) Then we are making sure that all the various
+    /// creators use this number.
     pub fn new<
         PMC: PositionMapCreator<RngType>,
         SC: ORAMStorageCreator<Prod<Z, ValueSize>, Prod<Z, MetaSize>, Output = StorageType>,
@@ -250,7 +254,8 @@ where
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
-    /// The leaf of branch that is currently checked-out. 0 if no existing checkout.
+    /// The leaf of branch that is currently checked-out. 0 if no existing
+    /// checkout.
     leaf: u64,
     /// The scratch-space for checked-out branch data
     data: Vec<A64Bytes<Prod<Z, ValueSize>>>,
@@ -310,7 +315,8 @@ where
         }
     }
 
-    /// Try to insert an item into the branch, as low as it can go, consistent with the invariant.
+    /// Try to insert an item into the branch, as low as it can go, consistent
+    /// with the invariant.
     pub fn ct_insert(
         &mut self,
         mut condition: Choice,
@@ -393,8 +399,9 @@ where
     }
 
     /// Given a tree-index value (a node in the tree)
-    /// Compute the lowest height (closest to the leaf) legal index of a bucket in this branch into which it can
-    /// be placed. This depends on the common ancestor height of tree_index and self.leaf.
+    /// Compute the lowest height (closest to the leaf) legal index of a bucket
+    /// in this branch into which it can be placed. This depends on the
+    /// common ancestor height of tree_index and self.leaf.
     ///
     /// This is required to give well-defined output even if tree_index is 0.
     /// It is not required to give well-defined output if self.leaf is 0.
@@ -422,7 +429,8 @@ where
     /// Low-level helper function: Insert an item into (a portion of) the branch
     /// - No inspection of the src_meta is performed
     /// - The first free spot in a bucket of index >= insert_after_index is used
-    /// - The destination slices need not be the whole branch, they could be a prefix
+    /// - The destination slices need not be the whole branch, they could be a
+    ///   prefix
     fn insert_into_branch_suffix(
         condition: Choice,
         src_data: &A64Bytes<ValueSize>,
@@ -448,16 +456,18 @@ where
 mod details {
     use super::*;
 
-    /// ct_find_and_remove tries to find and remove an item with a particular block num from a mutable sequence,
-    /// and store it in dest_data and dest_meta.
+    /// ct_find_and_remove tries to find and remove an item with a particular
+    /// block num from a mutable sequence, and store it in dest_data and
+    /// dest_meta.
     ///
-    /// The condition value that is passed must be true or no move will actually happen.
-    /// When the operation succeeds in finding an item, dest_meta will not be vacant
-    /// and will have the desired block_num, and that item will be set vacant in the mutable sequence.
+    /// The condition value that is passed must be true or no move will actually
+    /// happen. When the operation succeeds in finding an item, dest_meta
+    /// will not be vacant and will have the desired block_num, and that
+    /// item will be set vacant in the mutable sequence.
     ///
     /// Semantics: If dest is vacant, and condition is true,
-    ///            scan across src and find the first non-vacant item with desired block_num
-    ///            then cmov that to dest.
+    ///            scan across src and find the first non-vacant item with
+    ///            desired block_num then cmov that to dest.
     ///            Also set source to vacant.
     ///
     /// The whole operation must be constant time.
@@ -489,7 +499,8 @@ mod details {
     /// It takes the source data and source metadata, (the item being inserted),
     /// and slices corresponding to the destination data and metadata.
     /// It also takes a boolean "condition", if the condition is false,
-    /// then all the memory accesses will be done but no side-effects will occur.
+    /// then all the memory accesses will be done but no side-effects will
+    /// occur.
     ///
     /// Semantics: If source is not vacant, and condition is true,
     ///            scan across destination and find the first vacant slot,
