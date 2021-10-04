@@ -1,8 +1,8 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
 //! HeapORAMStorage just uses a Vec to provide access to block storage in the
-//! simplest way possible. It does not do any memory encryption or talk to untrusted.
-//! It does not have any oblivious properties itself.
+//! simplest way possible. It does not do any memory encryption or talk to
+//! untrusted. It does not have any oblivious properties itself.
 //! This is suitable for tests, or ORAMs that fit entirely in the enclave.
 
 use super::*;
@@ -79,7 +79,8 @@ impl<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> ORAMStorage<BlockSiz
     }
 }
 
-/// HeapORAMStorage simply allocates a vector, and requires no special initialization support
+/// HeapORAMStorage simply allocates a vector, and requires no special
+/// initialization support
 pub struct HeapORAMStorageCreator {}
 
 impl<BlockSize: ArrayLength<u8> + 'static, MetaSize: ArrayLength<u8> + 'static>

@@ -1,7 +1,7 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
-//! This module defines several "factory traits" that e.g. create recursive ORAMS
-//! and control the configuration of recursive children etc.
+//! This module defines several "factory traits" that e.g. create recursive
+//! ORAMS and control the configuration of recursive children etc.
 //!
 //! Factories are useful, as opposed to "new_from_..." traits, because a single
 //! generic implementation may be often configured in one of several ways.
@@ -19,7 +19,8 @@ use alloc::boxed::Box;
 use rand_core::SeedableRng;
 
 /// A factory which creates an ORAM of arbitrary size using recursive strategy.
-/// The result is required to have the 'static lifetime, and not be tied to the factory.
+/// The result is required to have the 'static lifetime, and not be tied to the
+/// factory.
 pub trait ORAMCreator<ValueSize: ArrayLength<u8>, RngType: RngCore + CryptoRng> {
     type Output: ORAM<ValueSize> + Send + Sync + 'static;
 
@@ -48,8 +49,8 @@ pub trait PositionMapCreator<RngType: RngCore + CryptoRng> {
 ///
 /// The result is required to have the 'static lifetime, there is no in-enclave
 /// "manager" object which these objects can refer to. Instead they are either
-/// wrapping a vector, or e.g. they hold integer handles which they use when they make
-/// OCALL's to untrusted.
+/// wrapping a vector, or e.g. they hold integer handles which they use when
+/// they make OCALL's to untrusted.
 /// So there is no manager object in the enclave which they cannot outlive.
 pub trait ORAMStorageCreator<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> {
     /// The storage type produced
@@ -85,8 +86,8 @@ pub trait OMapCreator<KeySize: ArrayLength<u8>, ValueSize: ArrayLength<u8>, R: R
 
 /// A helper which takes an Rng implementing SeedableRng and returns a lambda
 /// which returns newly seeded Rng's with seeds derived from this one.
-/// This matches the `rng_maker` constraints in the above traits, and can be used
-/// in tests when we want all the Rng's to be seeded.
+/// This matches the `rng_maker` constraints in the above traits, and can be
+/// used in tests when we want all the Rng's to be seeded.
 pub fn rng_maker<R: RngCore + CryptoRng + SeedableRng + 'static>(
     mut source: R,
 ) -> impl FnMut() -> R + 'static {
