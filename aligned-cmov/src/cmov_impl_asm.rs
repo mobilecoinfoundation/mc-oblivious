@@ -35,6 +35,8 @@ pub fn cmov_u32(condition: bool, src: &u32, dest: &mut u32) {
                     : "cc"
                     : "volatile", "intel");
     }
+    // "cc" is because we are setting flags in test
+    // "volatile" is meant to discourage the optimizer from inspecting this
     *dest = temp;
 }
 
@@ -53,6 +55,8 @@ pub fn cmov_u64(condition: bool, src: &u64, dest: &mut u64) {
                     : "cc"
                     : "volatile", "intel");
     }
+    // "cc" is because we are setting flags in test
+    // "volatile" is meant to discourage the optimizer from inspecting this
     *dest = temp;
 }
 
