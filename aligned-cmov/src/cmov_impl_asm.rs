@@ -20,14 +20,11 @@
 
 use super::{A64Bytes, A8Bytes, ArrayLength};
 
-// Generic CMov for numeric values
+// CMov for u32 values
 #[inline]
-fn cmov_numeric<T>(condition: bool, src: &T, dest: &mut T)
-where
-    T: Copy,
-{
+pub fn cmov_u32(condition: bool, src: &u32, dest: &mut u32) {
     // Create a temporary to be assigned to a register for cmov
-    let mut temp: T = *dest;
+    let mut temp: u32 = *dest;
     // Test condition ($1)
     // cmovnz from src into temp ($2 to $0)
     unsafe {
@@ -41,28 +38,40 @@ where
     *dest = temp;
 }
 
-// CMov for u32 values
-#[inline]
-pub fn cmov_u32(condition: bool, src: &u32, dest: &mut u32) {
-    cmov_numeric(condition, src, dest);
-}
-
 // CMov for u64 values
 #[inline]
 pub fn cmov_u64(condition: bool, src: &u64, dest: &mut u64) {
-    cmov_numeric(condition, src, dest);
+    // Create a temporary to be assigned to a register for cmov
+    let mut temp: u64 = *dest;
+    // Test condition ($1)
+    // cmovnz from src into temp ($2 to $0)
+    unsafe {
+        llvm_asm!("test $1, $1
+                   cmovnz $0, $2"
+                    :"+&r"(temp)
+                    : "r"(condition), "rm"(*src)
+                    : "cc"
+                    : "volatile", "intel");
+    }
+    *dest = temp;
 }
 
 // CMov for i32 values
 #[inline]
 pub fn cmov_i32(condition: bool, src: &i32, dest: &mut i32) {
-    cmov_numeric(condition, src, dest);
+    let src_transmuted = unsafe { core::mem::transmute::<&i32, &u32>(src) };
+    let dest_transmuted = unsafe { core::mem::transmute::<&mut i32, &mut u32>(dest) };
+
+    cmov_u32(condition, src_transmuted, dest_transmuted);
 }
 
 // CMov for u64 values
 #[inline]
 pub fn cmov_i64(condition: bool, src: &i64, dest: &mut i64) {
-    cmov_numeric(condition, src, dest);
+    let src_transmuted = unsafe { core::mem::transmute::<&i64, &u64>(src) };
+    let dest_transmuted = unsafe { core::mem::transmute::<&mut i64, &mut u64>(dest) };
+
+    cmov_u64(condition, src_transmuted, dest_transmuted);
 }
 
 // CMov for blocks aligned to 8-byte boundary
