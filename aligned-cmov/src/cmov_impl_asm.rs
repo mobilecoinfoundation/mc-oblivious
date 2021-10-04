@@ -13,9 +13,9 @@
 //! The u32, u64, and A8Bytes versions all use some form of CMOV instruction,
 //! and the 64-byte alignment version uses AVX2 VPMASKMOV instruction.
 //!
-//! We could possibly do the AVX2 stuff using intrinsics instead of inline assembly,
-//! but AFAIK we cannot get the CMOV instruction without inline assembly, because
-//! there are no intrinsics for that.
+//! We could possibly do the AVX2 stuff using intrinsics instead of inline
+//! assembly, but AFAIK we cannot get the CMOV instruction without inline
+//! assembly, because there are no intrinsics for that.
 //! For now it seems simplest to use inline assembly for all of it.
 
 use super::{A64Bytes, A8Bytes, ArrayLength};
@@ -145,26 +145,28 @@ unsafe fn cmov_byte_slice_a8(condition: bool, src: *const u64, dest: *mut u64, m
     // before entering the loop.
     let mut temp: u64 = condition as u64;
 
-    // The idea here is to test once before we enter the loop and reuse the test result
-    // for every cmov.
+    // The idea here is to test once before we enter the loop and reuse the test
+    // result for every cmov.
     // The loop is a dec, jnz loop.
     // Because the semantics of x86 loops are, decrement, then test for 0, and
-    // not test for 0 and then decrement, the values of the loop variable of 1..count
-    // and not 0..count - 1. We adjust for this by subtracting 8 when indexing.
-    // Because dec will clobber ZF, we can't use cmovnz. We store
+    // not test for 0 and then decrement, the values of the loop variable of
+    // 1..count and not 0..count - 1. We adjust for this by subtracting 8 when
+    // indexing. Because dec will clobber ZF, we can't use cmovnz. We store
     // the result of outer test in CF which is not clobbered by dec.
     // cmovc is contingent on CF
     // negb is used to set CF to 1 iff the condition value was 1.
     // Pity, we cannot cmov directly to memory
     //
-    // temp is a "register output" because this is the way to obtain a scratch register
-    // when we don't care what actual register is used and we want the compiler to pick.
+    // temp is a "register output" because this is the way to obtain a scratch
+    // register when we don't care what actual register is used and we want the
+    // compiler to pick.
     //
     // count is modified by the assembly -- for this reason it has to be labelled
     // as an input and an output, otherwise its illegal to modify it.
     //
     // The condition is passed in through temp, then neg moves the value to CF.
-    // After that we don't need condition in a register, so temp register can be reused.
+    // After that we don't need condition in a register, so temp register can be
+    // reused.
     llvm_asm!("neg $0
                loop_body_${:uid}:
                  mov $0, [$3 + 8*$1 - 8]
@@ -184,8 +186,8 @@ unsafe fn cmov_byte_slice_a8(condition: bool, src: *const u64, dest: *mut u64, m
 
 // Should be a constant time function equivalent to:
 // if condition { memcpy(dest, src, num_bytes) }
-// for pointers aligned to *64* byte boundary. Will fault if that is not the case.
-// Assumes num_bytes > 0, and num_bytes divisible by 64!
+// for pointers aligned to *64* byte boundary. Will fault if that is not the
+// case. Assumes num_bytes > 0, and num_bytes divisible by 64!
 // This version uses AVX2 256-bit moves
 #[cfg(target_feature = "avx2")]
 #[inline]
@@ -199,17 +201,18 @@ unsafe fn cmov_byte_slice_a64(condition: bool, src: *const u64, dest: *mut u64, 
         num_bytes % 64 == 0,
         "num_bytes must be divisible by 64, caller must handle that"
     );
-    // Similarly as before, we want to test once and use the test result for the whole loop.
+    // Similarly as before, we want to test once and use the test result for the
+    // whole loop.
     //
-    // Before we enter the loop, we want to set ymm1 to all 0s or all 1s, depending on condition.
-    // We use neg to make it all 0s or all 1s 64bit, then vmovq to move that to xmm2, then vbroadcastsd
-    // to fill ymm1 with 1s or zeros.
+    // Before we enter the loop, we want to set ymm1 to all 0s or all 1s, depending
+    // on condition. We use neg to make it all 0s or all 1s 64bit, then vmovq to
+    // move that to xmm2, then vbroadcastsd to fill ymm1 with 1s or zeros.
     //
     // This time the cmov mechanism is:
     // - VMOVDQA to load the source into a ymm register,
     // - VPMASKMOVQ to move that to memory, after masking it with ymm1.
-    // An alternative approach which I didn't test is, MASKMOV to another ymm register,
-    // then move that register to memory.
+    // An alternative approach which I didn't test is, MASKMOV to another ymm
+    // register, then move that register to memory.
     //
     // Notes:
     // temp = $0 is the scratch register
@@ -218,8 +221,9 @@ unsafe fn cmov_byte_slice_a64(condition: bool, src: *const u64, dest: *mut u64, 
     // So, num_bytes is an in/out register, and we pass condition in via
     // the scratch register, instead of a dedicated register.
     //
-    // Once we have the mask in ymm1 we don't need the condition in a register anymore.
-    // Then, $0 is the loop variable, counting down from num_bytes in steps of 64
+    // Once we have the mask in ymm1 we don't need the condition in a register
+    // anymore. Then, $0 is the loop variable, counting down from num_bytes in
+    // steps of 64
     //
     // The values of $0 in the loop are num_bytes, num_bytes - 64, ... 64,
     // rather than num_bytes - 64 ... 0. This is because the semantics of the loop
@@ -255,5 +259,6 @@ unsafe fn cmov_byte_slice_a64(condition: bool, src: *const u64, dest: *mut u64, 
     // of this block, the memory side-effects are.
 }
 
-// TODO: In avx512 there is vmovdqa which takes a mask register, and kmovq to move register to mask register
-// which seems like a good candidate to speed this up for 64-byte aligned chunks
+// TODO: In avx512 there is vmovdqa which takes a mask register, and kmovq to
+// move register to mask register which seems like a good candidate to speed
+// this up for 64-byte aligned chunks

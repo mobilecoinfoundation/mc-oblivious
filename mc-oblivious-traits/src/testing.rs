@@ -10,8 +10,8 @@ use alloc::{
 };
 use rand_core::{CryptoRng, RngCore};
 
-/// Exercise an ORAM by writing, reading, and rewriting, a progressively larger set of
-/// random locations
+/// Exercise an ORAM by writing, reading, and rewriting, a progressively larger
+/// set of random locations
 pub fn exercise_oram<BlockSize, O, R>(mut num_rounds: usize, oram: &mut O, rng: &mut R)
 where
     BlockSize: ArrayLength<u8>,
@@ -44,8 +44,8 @@ where
     }
 }
 
-/// Exercise an OMAP by writing, reading, accessing, and removing a progressively larger set
-/// of random locations
+/// Exercise an OMAP by writing, reading, accessing, and removing a
+/// progressively larger set of random locations
 pub fn exercise_omap<KeySize, ValSize, O, R>(mut num_rounds: usize, omap: &mut O, rng: &mut R)
 where
     KeySize: ArrayLength<u8>,
@@ -236,7 +236,8 @@ where
     }
 }
 
-/// Exercise an OMAP used as an oblivious counter table via the access_and_insert operation
+/// Exercise an OMAP used as an oblivious counter table via the
+/// access_and_insert operation
 pub fn exercise_omap_counter_table<KeySize, O, R>(mut num_rounds: usize, omap: &mut O, rng: &mut R)
 where
     KeySize: ArrayLength<u8>,

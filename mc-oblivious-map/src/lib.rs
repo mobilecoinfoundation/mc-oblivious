@@ -29,11 +29,11 @@ use typenum::{PartialDiv, Sum, U8};
 mod build_hasher;
 use build_hasher::SipBuildHasher;
 
-/// In this implementation, the cuckoo hashing step is permitted to repeat at most 6 times
-/// before we give up. In experiments this lead to about ~75% memory utilitzation.
-/// This will depend on a lot of factors such as how big is the block size relative
-/// to key-size + value-size, and possibly also on the capacity.
-/// In the future we might want to make this configurable.
+/// In this implementation, the cuckoo hashing step is permitted to repeat at
+/// most 6 times before we give up. In experiments this lead to about ~75%
+/// memory utilitzation. This will depend on a lot of factors such as how big is
+/// the block size relative to key-size + value-size, and possibly also on the
+/// capacity. In the future we might want to make this configurable.
 const MAX_EVICTION_RETRIES: usize = 6;
 
 /// A bucketed cuckoo hash table built on top of oblivious storage.
@@ -88,9 +88,10 @@ where
         M: 'static + FnMut() -> RngType,
     {
         assert!(Self::BUCKET_CAPACITY > 0, "Block size is insufficient to store even one item. For good performance it should be enough to store several items.");
-        // We will have two ORAM arenas, and two hash functions. num_buckets is the number of buckets
-        // that one of the arenas should have, to achieve total desired capacity across both arenas,
-        // then rounded up to a power of two.
+        // We will have two ORAM arenas, and two hash functions. num_buckets is the
+        // number of buckets that one of the arenas should have, to achieve
+        // total desired capacity across both arenas, then rounded up to a power
+        // of two.
         let num_buckets = 1u64 << log2_ceil((desired_capacity / Self::BUCKET_CAPACITY) / 2);
         debug_assert!(
             num_buckets & (num_buckets - 1) == 0,
@@ -141,8 +142,8 @@ where
     }
 
     // Given a block (stored in ORAM), which we think of as a hash-table bucket,
-    // check if any of the entries have key matching query, and count how many are zeroes
-    // This function is constant-time
+    // check if any of the entries have key matching query, and count how many are
+    // zeroes This function is constant-time
     fn count_before_insert(query: &A8Bytes<KeySize>, block: &A64Bytes<BlockSize>) -> (Choice, u32) {
         let mut found = Choice::from(0);
         let mut empty_count = 0u32;
@@ -161,8 +162,8 @@ where
     // branchlessly insert key-value pair into it, if condition is true
     //
     // - Interpret block as aligned KeySize + ValueSize chunks
-    // - Find the first one if any that has key of all zeroes or matching query,
-    //   and cmov value on top of that.
+    // - Find the first one if any that has key of all zeroes or matching query, and
+    //   cmov value on top of that.
     fn insert_to_block(
         condition: Choice,
         query: &A8Bytes<KeySize>,
@@ -177,8 +178,8 @@ where
                 <&mut A8Bytes<Sum<KeySize, ValueSize>> as Split<u8, KeySize>>::split(pair);
             let test = condition & (key.ct_eq(query) | key.ct_eq(&A8Bytes::<KeySize>::default()));
             key.cmov(test, &key_buf);
-            // This ensures that if we find the key a second time, or, after finding an empty space,
-            // the cell is zeroed to make space for other things
+            // This ensures that if we find the key a second time, or, after finding an
+            // empty space, the cell is zeroed to make space for other things
             key_buf.cmov(test, &A8Bytes::default());
             value.cmov(test, new_value);
         }
@@ -210,8 +211,9 @@ where
     /// Load the corresponding blocks from ORAM (one at a time)
     /// Interpret block as [(KeySize, ValueSize)]
     /// Ct-compare the found key with the query
-    /// If successful, cmov OMAP_FOUND onto result_code and cmov value onto result.
-    /// Return result_code and result after scanning both loaded blocks
+    /// If successful, cmov OMAP_FOUND onto result_code and cmov value onto
+    /// result. Return result_code and result after scanning both loaded
+    /// blocks
     fn read(&mut self, query: &A8Bytes<KeySize>, output: &mut A8Bytes<ValueSize>) -> u32 {
         // Early return for invalid key
         if bool::from(query.ct_eq(&A8Bytes::<KeySize>::default())) {
@@ -243,7 +245,8 @@ where
 
     /// For access:
     /// Access must be fully oblivious, unlike write
-    /// - Checkout both buckets, scan them for the query, copying onto a stack buffer
+    /// - Checkout both buckets, scan them for the query, copying onto a stack
+    ///   buffer
     /// - Run callback at the stack buffer
     /// - Scan the buckets again and overwrite the old buffer
     fn access<F: FnOnce(u32, &mut A8Bytes<ValueSize>)>(&mut self, query: &A8Bytes<KeySize>, f: F) {
@@ -322,17 +325,16 @@ where
 
     /// For writing:
     /// The insertion algorithm is, hash the item twice and load its buckets.
-    /// We always add to the less loaded of the two buckets, breaking ties to the right,
-    /// that is, prefering to write to oram2.
-    /// If BOTH buckets overflow, then we choose an item at random from oram1 bucket
-    /// and kick it out, then we hash that item and insert it into the other
-    /// bucket where it can go, repeating the process if necessary.
-    /// If after a few tries it doesn't work, we give up, roll everything back,
-    /// and return OMAP_OVERFLOW.
+    /// We always add to the less loaded of the two buckets, breaking ties to
+    /// the right, that is, prefering to write to oram2.
+    /// If BOTH buckets overflow, then we choose an item at random from oram1
+    /// bucket and kick it out, then we hash that item and insert it into
+    /// the other bucket where it can go, repeating the process if
+    /// necessary. If after a few tries it doesn't work, we give up, roll
+    /// everything back, and return OMAP_OVERFLOW.
     ///
     /// The access function is an alternative that allows modifying values in
     /// the map without taking a variable amount of time.
-    ///
     fn vartime_write_extended(
         &mut self,
         query: &A8Bytes<KeySize>,
@@ -349,15 +351,18 @@ where
         let mut result_code = OMAP_NOT_FOUND;
 
         // If after access we have to evict something, it is stored temporarily here
-        // Its bucket is pushed to eviction_from, and its index in the bucket to eviction_indices
+        // Its bucket is pushed to eviction_from, and its index in the bucket to
+        // eviction_indices
         let mut evicted_key = A8Bytes::<KeySize>::default();
         let mut evicted_val = A8Bytes::<ValueSize>::default();
 
         // The number of times we will try evicting before giving up
         let mut eviction_retries = MAX_EVICTION_RETRIES;
-        // The buckets (hashes) from which we evicted items came, so that we can go back and restore them if we give up.
+        // The buckets (hashes) from which we evicted items came, so that we can go back
+        // and restore them if we give up.
         let mut eviction_from = Vec::<u64>::with_capacity(eviction_retries);
-        // The indices at which we evict items, so that we can go back and restore them if we give up.
+        // The indices at which we evict items, so that we can go back and restore them
+        // if we give up.
         let mut eviction_indices = Vec::<usize>::with_capacity(eviction_retries);
 
         // Compute the hashes for this query
@@ -391,8 +396,8 @@ where
                     // watch the case that hashes[0] == hashes[1] !
                     // in that case we prefer to modify block2 (in oram2), arbitrarily.
                     // So, if block2_found, we should be false, even if block1_found.
-                    // And if not found in either place and block1_empty_count == block2_empty_count,
-                    // prefer block2.
+                    // And if not found in either place and block1_empty_count ==
+                    // block2_empty_count, prefer block2.
                     let write_to_block1 = !block2_found
                         & (block1_found | block1_empty_count.ct_gt(&block2_empty_count));
 
@@ -427,7 +432,8 @@ where
                     let (key, val): (&mut A8Bytes<KeySize>, &mut A8Bytes<ValueSize>) = pair.split();
                     evicted_key = key.clone();
                     evicted_val = val.clone();
-                    // Note: This is a side-effect but we don't reach this line if allow_sideeffects is false
+                    // Note: This is a side-effect but we don't reach this line if allow_sideeffects
+                    // is false
                     debug_assert!(bool::from(allow_sideeffects_and_eviction));
                     *key = query.clone();
                     *val = new_value.clone();
@@ -440,8 +446,9 @@ where
             if eviction_retries > 0 {
                 let last_evicted_from = eviction_from[eviction_from.len() - 1];
 
-                // We always start evicting from bucket 1, and alternate, per cuckoo hashing algo,
-                // so the next_oram (minus one) is eviction_from.len() % 2.
+                // We always start evicting from bucket 1, and alternate, per cuckoo hashing
+                // algo, so the next_oram (minus one) is eviction_from.len() %
+                // 2.
                 let next_oram = eviction_from.len() % 2;
 
                 let hashes = self.hash_query(&evicted_key);
@@ -452,7 +459,8 @@ where
                 // Access what is hopefully a block with a vacant spot
                 let rng = &mut self.rng;
                 // Get a reference to the oram we will insert to. This is a branch,
-                // but the access patterns are completely predicatable based on number of passes through this loop.
+                // but the access patterns are completely predicatable based on number of passes
+                // through this loop.
                 let oram = if next_oram == 0 {
                     &mut self.oram1
                 } else {
@@ -474,7 +482,8 @@ where
                             "evicted key should not be present anywhere"
                         );
                         let is_vacant = key.ct_eq(&A8Bytes::<KeySize>::default());
-                        // Note: This is a side-effect, but this code is unreachable if allow_sideeffects is false.
+                        // Note: This is a side-effect, but this code is unreachable if
+                        // allow_sideeffects is false.
                         debug_assert!(bool::from(allow_sideeffects_and_eviction));
                         let cond = !found_vacant & is_vacant;
                         key.cmov(cond, &evicted_key);
@@ -482,7 +491,8 @@ where
                         found_vacant |= is_vacant;
                     }
 
-                    // If we found a vacant spot, then the result is not OMAP_OVERFLOW anymore, we are done
+                    // If we found a vacant spot, then the result is not OMAP_OVERFLOW anymore, we
+                    // are done
                     if bool::from(found_vacant) {
                         // This will cause us to exit the while loop
                         result_code = OMAP_NOT_FOUND;
@@ -511,8 +521,9 @@ where
                 // We have given up trying to evict things, we will now roll back
                 debug_assert!(eviction_from.len() == eviction_indices.len());
                 while !eviction_indices.is_empty() {
-                    // We always start evicting from bucket 1, and alternate, per cuckoo hashing algo,
-                    // so the next_oram we WOULD insert to (minus one) is eviction_from.len() % 2.
+                    // We always start evicting from bucket 1, and alternate, per cuckoo hashing
+                    // algo, so the next_oram we WOULD insert to (minus one) is
+                    // eviction_from.len() % 2.
                     let next_oram = eviction_from.len() % 2;
 
                     // Note: these unwraps are "okay" because we test is_empty(),
@@ -526,7 +537,8 @@ where
                         "The evicted key doesn't hash to the spot we thought we evicted it from"
                     );
                     // Get a reference to the oram we took this item from. This is a branch,
-                    // but the access patterns are completely predicatable based on number of passes through this loop.
+                    // but the access patterns are completely predicatable based on number of passes
+                    // through this loop.
                     let oram = if next_oram == 0 {
                         &mut self.oram2
                     } else {
@@ -549,8 +561,9 @@ where
                 }
 
                 debug_assert!(&evicted_key == query, "After rolling back evictions, we didn't end up with the initially inserted item coming back");
-                // At this point the evicted_key should be the item we initially inserted, if rollback worked.
-                // We can now return OMAP_OVERFLOW because the semantics of the map didn't change, we simply
+                // At this point the evicted_key should be the item we initially inserted, if
+                // rollback worked. We can now return OMAP_OVERFLOW because the
+                // semantics of the map didn't change, we simply
                 // failed to insert.
                 return OMAP_OVERFLOW;
             }
@@ -1048,8 +1061,8 @@ mod testing {
         });
     }
 
-    // Test that the omap has correct roll-back semantics around overflow, for 16384 items
-    // To see ratio at which hashmap overflow begins, run
+    // Test that the omap has correct roll-back semantics around overflow, for 16384
+    // items To see ratio at which hashmap overflow begins, run
     // cargo test --release -p mc-oblivious-map -- overflow --nocapture
     #[test]
     #[cfg(not(debug_assertions))]
@@ -1071,8 +1084,8 @@ mod testing {
         })
     }
 
-    // Test that the omap has correct roll-back semantics around overflow, for 32768 items
-    // To see ratio at which hashmap overflow begins, run
+    // Test that the omap has correct roll-back semantics around overflow, for 32768
+    // items To see ratio at which hashmap overflow begins, run
     // cargo test --release -p mc-oblivious-map -- overflow --nocapture
     #[test]
     #[cfg(not(debug_assertions))]
@@ -1094,8 +1107,8 @@ mod testing {
         })
     }
 
-    // Test that the omap has correct roll-back semantics around overflow, for 65536 items
-    // To see ratio at which hashmap overflow begins, run
+    // Test that the omap has correct roll-back semantics around overflow, for 65536
+    // items To see ratio at which hashmap overflow begins, run
     // cargo test --release -p mc-oblivious-map -- overflow --nocapture
     #[test]
     #[cfg(not(debug_assertions))]

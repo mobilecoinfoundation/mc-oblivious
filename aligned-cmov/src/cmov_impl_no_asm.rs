@@ -1,7 +1,8 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
 //! Naive implementation of cmov using a branch
-//! This is not secure, and is meant for testing the *correctness* of large orams quickly.
+//! This is not secure, and is meant for testing the *correctness* of large
+//! orams quickly.
 
 use super::{A64Bytes, A8Bytes, ArrayLength};
 

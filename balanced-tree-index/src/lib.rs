@@ -4,15 +4,16 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
-//! Defines an interface for a type that represents an index into a memory-mapped
-//! complete balanced binary tree.
+//! Defines an interface for a type that represents an index into a
+//! memory-mapped complete balanced binary tree.
 //!
-//! The operations that we define mostly help with finding parents or common ancestors
-//! in the tree structure.
+//! The operations that we define mostly help with finding parents or common
+//! ancestors in the tree structure.
 //!
 //! This type is usually u32 or u64, and these operations are usually performed
-//! using bit-twiddling tricks. Coding against this API means that people reading
-//! ORAM code don't necessarily have to understand all the bit-twiddling tricks.
+//! using bit-twiddling tricks. Coding against this API means that people
+//! reading ORAM code don't necessarily have to understand all the bit-twiddling
+//! tricks.
 
 use aligned_cmov::{
     subtle::{ConstantTimeEq, ConstantTimeLess},
@@ -27,7 +28,8 @@ use rand_core::RngCore;
 /// All operations here should be constant time, leaking nothing about the input
 /// and &self, unless otherwise stated.
 pub trait TreeIndex: Copy + Eq + PartialEq + CMov {
-    /// The Zero index that is unused and does not actually refer to a node in the tree.
+    /// The Zero index that is unused and does not actually refer to a node in
+    /// the tree.
     const NONE: Self;
 
     /// The index of the root of the tree, logically 1.
@@ -44,9 +46,10 @@ pub trait TreeIndex: Copy + Eq + PartialEq + CMov {
 
     /// For two nodes promised to be "peers" i.e. at the same height,
     /// compute the distance from (either) to their common ancestor in the tree.
-    /// This is the number of times you have to compute "parent" before they are equal.
-    /// It is illegal to call this if the height of the two arguments is not the same.
-    /// Should not reveal anything else about the arguments.
+    /// This is the number of times you have to compute "parent" before they are
+    /// equal. It is illegal to call this if the height of the two arguments
+    /// is not the same. Should not reveal anything else about the
+    /// arguments.
     fn common_ancestor_distance_of_peers(&self, other: &Self) -> u32;
 
     /// Compute the height of the common ancestor of any two nodes.
@@ -77,7 +80,8 @@ pub trait TreeIndex: Copy + Eq + PartialEq + CMov {
     /// Random child at a given height.
     /// This height must be the same or less than the height of the given node,
     /// otherwise the call is illegal.
-    /// It is legal to call this on the NONE value, it will be as if ROOT was passed.
+    /// It is legal to call this on the NONE value, it will be as if ROOT was
+    /// passed.
     fn random_child_at_height<R: RngCore>(&self, height: u32, rng: &mut R) -> Self;
 
     /// Iterate over the parents of this node, including self.
@@ -149,9 +153,10 @@ macro_rules! implement_tree_index_for_primitive {
                 debug_assert!(height >= myself.height());
                 let num_bits_needed = height.wrapping_sub(myself.height());
 
-                // Note: Would be nice to use mc_util_from_random here instead of (next_u64 as $uint)
-                // Here we are taking the u64, casting to self, then masking it with bit mask for low order bits
-                // equal to number of random bits needed.
+                // Note: Would be nice to use mc_util_from_random here instead of (next_u64 as
+                // $uint) Here we are taking the u64, casting to self, then masking it
+                // with bit mask for low order bits equal to number of random bits
+                // needed.
                 let randomness =
                     (rng.next_u64() as $uint) & (((1 as $uint) << num_bits_needed) - 1);
 
@@ -429,7 +434,8 @@ mod testing {
         counter
     }
 
-    // Test that common_ancestor_distance_of_peers agrees with the naive implementation
+    // Test that common_ancestor_distance_of_peers agrees with the naive
+    // implementation
     #[test]
     fn common_ancestor_distance_conformance_u64() {
         test_helper::run_with_several_seeds(|mut rng| {
@@ -457,7 +463,8 @@ mod testing {
         })
     }
 
-    // Test that common_ancestor_distance_of_peers agrees with the naive implementation
+    // Test that common_ancestor_distance_of_peers agrees with the naive
+    // implementation
     #[test]
     fn common_ancestor_distance_conformance_u32() {
         test_helper::run_with_several_seeds(|mut rng| {
