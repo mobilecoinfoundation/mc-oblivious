@@ -21,6 +21,20 @@ pub fn cmov_u64(condition: bool, src: &u64, dest: &mut u64) {
 }
 
 #[inline]
+pub fn cmov_i32(condition: bool, src: &i32, dest: &mut i32) {
+    if condition {
+        *dest = *src
+    }
+}
+
+#[inline]
+pub fn cmov_i64(condition: bool, src: &i64, dest: &mut i64) {
+    if condition {
+        *dest = *src
+    }
+}
+
+#[inline]
 pub fn cmov_a8_bytes<N: ArrayLength<u8>>(condition: bool, src: &A8Bytes<N>, dest: &mut A8Bytes<N>) {
     if condition {
         *dest = src.clone()
