@@ -56,7 +56,7 @@ commands:
           command: |
             set -x
             command -v cargo-install-update >/dev/null || cargo install cargo-update
-            command -v cargo-trim >/dev/null || cargo install cargo-trim
+            command -v cargo-trim >/dev/null || (rustup run --install stable cargo install cargo-trim)
             cargo install-update --all
             # Configure cargo-trim with the project's Cargo.lock files
             mkdir -p ~/.config
