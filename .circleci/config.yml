@@ -243,7 +243,7 @@ jobs:
           condition:
             or:
              - { equal: [ << pipeline.git.branch >>, master ] }
-             - { equal: [ true, << pipeline.parameters.test_save_cache >>]}
+             - { equal: [ true, << parameters.test_save_cache >>]}
           steps: [ save-cargo-cache ]
 
 workflows:
