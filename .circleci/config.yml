@@ -219,10 +219,6 @@ jobs:
 
   # Build and lint in debug mode
   build-all-and-lint-debug:
-    parameters:
-      test_save_cache:
-        type: boolean
-        default: true
     executor: build-executor
     environment:
       << : *default-environment
@@ -243,7 +239,6 @@ jobs:
           condition:
             or:
              - { equal: [ << pipeline.git.branch >>, master ] }
-             - { equal: [ true, << parameters.test_save_cache >>]}
           steps: [ save-cargo-cache ]
 
 workflows:
