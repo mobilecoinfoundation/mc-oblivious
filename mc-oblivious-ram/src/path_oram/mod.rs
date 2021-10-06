@@ -225,7 +225,10 @@ where
         // Now do cleanup / eviction on this branch, before checking out
         {
             debug_assert!(self.branch.leaf == current_pos);
+            //
             self.branch.pack();
+            //Greedily place elements of the stash into the branch as close to the leaf as
+            // they can go.
             for idx in 0..self.stash_data.len() {
                 self.branch
                     .ct_insert(1.into(), &self.stash_data[idx], &mut self.stash_meta[idx]);
@@ -257,9 +260,11 @@ where
     /// The leaf of branch that is currently checked-out. 0 if no existing
     /// checkout.
     leaf: u64,
-    /// The scratch-space for checked-out branch data
+    /// The scratch-space for checked-out branch data. 0 corresponds to the
+    /// root.
     data: Vec<A64Bytes<Prod<Z, ValueSize>>>,
-    /// The scratch-space for checked-out branch metadata
+    /// The scratch-space for checked-out branch metadata. 0 corresponds to the
+    /// root.
     meta: Vec<A8Bytes<Prod<Z, MetaSize>>>,
     /// Phantom data for ValueSize
     _value_size: PhantomData<fn() -> ValueSize>,
@@ -337,6 +342,9 @@ where
 
     /// This is the Path ORAM branch packing procedure, which we implement
     /// obliviously in a naive way.
+    /// Iterates over the branch from root to leaf, and over each of the blocks
+    /// in those buckets and moves them greedily to the lowest (closest to leaf)
+    /// bucket.
     pub fn pack(&mut self) {
         debug_assert!(self.leaf != 0);
         debug_assert!(self.data.len() == self.meta.len());
