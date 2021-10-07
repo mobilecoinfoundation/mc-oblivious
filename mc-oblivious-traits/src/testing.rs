@@ -2,8 +2,6 @@
 
 //! Some generic tests that exercise objects implementing these traits
 
-use core::num;
-
 use crate::{ObliviousHashMap, OMAP_FOUND, OMAP_INVALID_KEY, OMAP_NOT_FOUND, OMAP_OVERFLOW, ORAM};
 use aligned_cmov::{subtle::Choice, typenum::U8, A64Bytes, A8Bytes, Aligned, ArrayLength};
 use alloc::{
