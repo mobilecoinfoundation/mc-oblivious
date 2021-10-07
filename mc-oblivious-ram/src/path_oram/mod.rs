@@ -167,7 +167,13 @@ where
         self.pos.len()
     }
     fn stash_size(&self) -> usize {
-        self.stash_meta.len()
+        let mut stash_count = 0usize;
+        for idx in 0..self.stash_data.len() {
+            if !bool::from(meta_is_vacant(&self.stash_meta[idx])) {
+                stash_count += 1;
+            }
+        }
+        return stash_count;
     }
     // TODO: We should try implementing a circuit-ORAM like approach also
     fn access<T, F: FnOnce(&mut A64Bytes<ValueSize>) -> T>(&mut self, key: u64, f: F) -> T {
