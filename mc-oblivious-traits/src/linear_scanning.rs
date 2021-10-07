@@ -21,6 +21,9 @@ impl<ValueSize: ArrayLength<u8>> ORAM<ValueSize> for LinearScanningORAM<ValueSiz
     fn len(&self) -> u64 {
         self.data.len() as u64
     }
+    fn stash_size(&self) -> usize {
+        0
+    }
     fn access<T, F: FnOnce(&mut A64Bytes<ValueSize>) -> T>(&mut self, query: u64, f: F) -> T {
         let mut temp: A64Bytes<ValueSize> = Default::default();
         for idx in 0..self.data.len() {
