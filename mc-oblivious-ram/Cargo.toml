@@ -22,3 +22,4 @@ rand_core = { version = "0.6", default-features = false }
 
 [dev-dependencies]
 test-helper = { path = "../test-helper" }
+GSL = "*"
