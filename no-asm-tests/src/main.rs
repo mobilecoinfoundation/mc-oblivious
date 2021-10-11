@@ -15,8 +15,8 @@ use test_helper::{CryptoRng, RngCore, RngType, SeedableRng};
 mod insecure_position_map;
 use insecure_position_map::InsecurePositionMapCreator;
 
-/// Create an ORAM and drive it until the stash overflows, then return the number of operations.
-/// Should be driven by a seeded Rng
+/// Create an ORAM and drive it until the stash overflows, then return the
+/// number of operations. Should be driven by a seeded Rng
 ///
 /// Arguments:
 /// * size: Size of ORAM. Must be a power of two.
@@ -91,9 +91,10 @@ pub fn main() {
     }
 }
 
-/// Creator for PathORAM based on 4096-sized blocks of storage and bucket size (Z) of 4,
-/// and the insecure position map implementation.
-/// This is used to determine how to calibrate stash size appropriately via stress tests.
+/// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
+/// (Z) of 4, and the insecure position map implementation.
+/// This is used to determine how to calibrate stash size appropriately via
+/// stress tests.
 pub struct InsecurePathORAM4096Z4Creator<SC: ORAMStorageCreator<U4096, U64>> {
     _sc: PhantomData<fn() -> SC>,
 }
@@ -114,8 +115,13 @@ impl<SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, RngType>
 
 #[cfg(test)]
 mod tests {
+    extern crate rgsl;
+    extern crate std;
+
+    use core::convert::TryInto;
     use mc_oblivious_ram::PathORAM4096Z4Creator;
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAMCreator};
+    use std::vec;
     use test_helper::{run_with_several_seeds, RngType};
 
     // Run the exercise oram tests for 200,000 rounds in 131072 sized z4 oram
@@ -143,6 +149,52 @@ mod tests {
                 262144, stash_size, &mut maker,
             );
             testing::exercise_oram(400_000, &mut oram, &mut rng);
+        });
+    }
+
+    // Run the analysis oram tests similar to CircuitOram section 5. Warm up with
+    // 2^25 accesses, then run for 2^33 accesses cycling through all N logical
+    // addresses. N=2^10. This choice is arbitrary because stash size should not
+    // depend on N. Measure the number of times that the stash is above any
+    // given size.
+    #[test]
+    fn analysis_path_oram_z4_8192() {
+        const STASH_SIZE: usize = 16;
+        run_with_several_seeds(|rng| {
+            let base: u64 = 2;
+            let num_rounds: u64 = base.pow(20);
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                base.pow(10),
+                STASH_SIZE,
+                &mut maker,
+            );
+            let stash_stats = testing::measure_oram_stash_size_distribution(
+                base.pow(5).try_into().unwrap(),
+                num_rounds.try_into().unwrap(),
+                &mut oram,
+                &mut rng,
+            );
+            let mut x_axis: vec::Vec<f64> = vec::Vec::new();
+            let mut y_axis: vec::Vec<f64> = vec::Vec::new();
+            for stash_count in 1..STASH_SIZE {
+                if let Some(stash_count_probability) = stash_stats.get(&stash_count) {
+                    std::eprintln!(
+                        "key: {}, has_value: {}",
+                        stash_count,
+                        stash_count_probability
+                    );
+                    y_axis.push((num_rounds as f64 / *stash_count_probability as f64).log2());
+                    x_axis.push(stash_count as f64);
+                } else {
+                    std::eprintln!("Key: {}, has no value", stash_count);
+                }
+            }
+
+            let correlation = rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
+            std::eprintln!("Correlation: {}", correlation);
+            assert!(correlation > 0.9);
         });
     }
 }

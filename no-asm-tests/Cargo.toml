@@ -12,3 +12,4 @@ balanced-tree-index = { path = "../balanced-tree-index" }
 mc-oblivious-traits = { path = "../mc-oblivious-traits" }
 mc-oblivious-ram = { path = "../mc-oblivious-ram" }
 test-helper = { path = "../test-helper" }
+GSL = "*"
