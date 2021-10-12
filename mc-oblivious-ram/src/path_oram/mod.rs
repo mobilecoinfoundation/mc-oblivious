@@ -259,7 +259,7 @@ where
 /// call malloc with every checkout.
 ///
 /// This is mainly just an organizational thing.
-struct BranchCheckout<ValueSize, Z>
+pub struct BranchCheckout<ValueSize, Z>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -359,6 +359,7 @@ where
         debug_assert!(self.data.len() == self.meta.len());
         let data_len = self.data.len();
         for bucket_num in 1..self.data.len() {
+            //lower contains from [0..bucket_num), upper contains from [bucket_num..len)
             let (lower_data, upper_data) = self.data.split_at_mut(bucket_num);
             let (lower_meta, upper_meta) = self.meta.split_at_mut(bucket_num);
 
@@ -543,5 +544,138 @@ mod details {
             meta_set_vacant(test, src_meta);
             condition &= !test;
         }
+    }
+}
+
+/// Evictor functions
+mod evictor {
+    use super::*;
+    use core::convert::TryFrom;
+    const FLOOR_INDEX: u64 = 0;
+    const STASH_INDEX: u64 = 1;
+    const BRANCH_OFFSET: u64 = 2;
+
+    /*Make a root-to-leaf linear metadata scan to prepare the deepest array.
+    After this algorithm, deepest[i] stores the source level of the deepest block in path[0..i − 1] that can
+    legally reside in path[i], offset by BranchOffset s.t. 0 corresponds to a special floor value, and the stash is the 1st level */
+    pub fn prepare_deepest<ValueSize, Z>(
+        deepest_meta: &mut [u64],
+        stash_data: &mut [A64Bytes<ValueSize>],
+        stash_meta: &mut [A8Bytes<MetaSize>],
+        branch: &BranchCheckout<ValueSize, Z>,
+    ) where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        debug_assert!(stash_data.len() == stash_meta.len());
+        debug_assert!(
+            deepest_meta.len() == (branch.meta.len() + usize::try_from(BRANCH_OFFSET).unwrap())
+        );
+        let mut goal: u64 = FLOOR_INDEX;
+        let mut src: u64 = FLOOR_INDEX;
+        //Iterate over the stash to find the element that can go deepest.
+        for stash_elem in stash_meta {
+            let elem_destination: u64 = BRANCH_OFFSET
+                + u64::try_from(branch.lowest_height_legal_index(*meta_leaf_num(stash_elem)))
+                    .unwrap();
+            let is_elem_deeper = goal.ct_lt(&elem_destination);
+            goal.cmov(is_elem_deeper, &elem_destination);
+            src.cmov(is_elem_deeper, &STASH_INDEX);
+        }
+        //Iterate over the branch to find the element that can go the deepest.
+        let data_len = branch.meta.len();
+        for bucket_num in 1..data_len {
+            let adjusted_bucket_num: u64 = u64::try_from(bucket_num).unwrap() + BRANCH_OFFSET;
+            let bucket_meta: &[A8Bytes<MetaSize>] = branch.meta[bucket_num].as_aligned_chunks();
+            for idx in 0..bucket_meta.len() {
+                let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
+                let should_take_src_for_deepest = adjusted_bucket_num.ct_lt(&goal);
+                deepest_meta[adjusted_bucket_num as usize].cmov(should_take_src_for_deepest, &src);
+
+                let elem_destination: u64 = BRANCH_OFFSET
+                    + u64::try_from(branch.lowest_height_legal_index(*meta_leaf_num(src_meta)))
+                        .unwrap();
+                let is_elem_deeper = goal.ct_lt(&elem_destination);
+                goal.cmov(is_elem_deeper, &elem_destination);
+                src.cmov(is_elem_deeper, &adjusted_bucket_num);
+            }
+        }
+    }
+
+    /*Make a leaf-to-root linear metadata scan to prepare the target array.
+    This prepares the circuit oram such that if target[i] 6 is not -1, then one block shall be moved from path[i] to path[target[i]] */
+    pub fn prepare_target<ValueSize, Z>(
+        target_meta: &mut [u64],
+        deepest_meta: &mut [u64],
+        stash_data: &mut [A64Bytes<ValueSize>],
+        stash_meta: &mut [A8Bytes<MetaSize>],
+        branch: &BranchCheckout<ValueSize, Z>,
+    ) where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        debug_assert!(stash_data.len() == stash_meta.len());
+        debug_assert!(
+            deepest_meta.len() == (branch.meta.len() + usize::try_from(BRANCH_OFFSET).unwrap())
+        );
+        debug_assert!(target_meta.len() == deepest_meta.len());
+        let mut dest: u64 = FLOOR_INDEX;
+        let mut src: u64 = FLOOR_INDEX;
+        //Iterate over the branch from leaf to root to find the elements that will be
+        // moved from path[i] to path[target[i]]
+        let data_len = branch.meta.len();
+        for bucket_num in (1..data_len).rev() {
+            let adjusted_bucket_num = BRANCH_OFFSET + u64::try_from(bucket_num).unwrap();
+            let bucket_meta: &[A8Bytes<MetaSize>] = branch.meta[bucket_num].as_aligned_chunks();
+            //If we encounter the src for the element, we save it to the target array and
+            // floor out the dest and src.
+            let should_set_target = adjusted_bucket_num.ct_eq(&src);
+            target_meta[adjusted_bucket_num as usize].cmov(should_set_target, &dest);
+            dest.cmov(should_set_target, &FLOOR_INDEX);
+            src.cmov(should_set_target, &FLOOR_INDEX);
+            //Check to see if there is an empty space in the bucket
+            let mut bucket_has_empty_slot: Choice = 0.into();
+            for idx in 0..bucket_meta.len() {
+                let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
+                bucket_has_empty_slot |= meta_is_vacant(src_meta);
+            }
+            let is_this_a_future_target = (dest.ct_eq(&FLOOR_INDEX) & bucket_has_empty_slot)
+                | (!target_meta[adjusted_bucket_num as usize].ct_eq(&FLOOR_INDEX)
+                    & !deepest_meta[adjusted_bucket_num as usize].ct_eq(&FLOOR_INDEX));
+            src.cmov(
+                is_this_a_future_target,
+                &deepest_meta[adjusted_bucket_num as usize],
+            );
+            dest.cmov(is_this_a_future_target, &adjusted_bucket_num);
+        }
+        // Treat the stash as an extension of the branch.
+        target_meta[STASH_INDEX as usize].cmov(STASH_INDEX.ct_eq(&src), &dest);
+    }
+    #[allow(dead_code)]
+    pub fn circuit_oram_evict<ValueSize, Z>(
+        stash_data: &mut [A64Bytes<ValueSize>],
+        stash_meta: &mut [A8Bytes<MetaSize>],
+        branch: &mut BranchCheckout<ValueSize, Z>,
+    ) where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        let adjusted_data_len = branch.meta.len() + BRANCH_OFFSET as usize;
+        let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
+        let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
+        prepare_deepest(&mut deepest_meta, stash_data, stash_meta, branch);
+        prepare_target(
+            &mut target_meta,
+            &mut deepest_meta,
+            stash_data,
+            stash_meta,
+            branch,
+        );
     }
 }
