@@ -153,13 +153,13 @@ mod tests {
     }
 
     // Run the analysis oram tests similar to CircuitOram section 5. Warm up with
-    // 2^25 accesses, then run for 2^33 accesses cycling through all N logical
+    // 2^10 accesses, then run for 2^20 accesses cycling through all N logical
     // addresses. N=2^10. This choice is arbitrary because stash size should not
     // depend on N. Measure the number of times that the stash is above any
     // given size.
     #[test]
     fn analysis_path_oram_z4_8192() {
-        const STASH_SIZE: usize = 16;
+        const STASH_SIZE: usize = 32;
         run_with_several_seeds(|rng| {
             let base: u64 = 2;
             let num_rounds: u64 = base.pow(20);
@@ -171,7 +171,7 @@ mod tests {
                 &mut maker,
             );
             let stash_stats = testing::measure_oram_stash_size_distribution(
-                base.pow(5).try_into().unwrap(),
+                base.pow(10).try_into().unwrap(),
                 num_rounds.try_into().unwrap(),
                 &mut oram,
                 &mut rng,
