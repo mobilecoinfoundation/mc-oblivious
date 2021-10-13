@@ -235,13 +235,18 @@ where
         {
             debug_assert!(self.branch.leaf == current_pos);
             //
-            self.branch.pack();
-            //Greedily place elements of the stash into the branch as close to the leaf as
-            // they can go.
-            for idx in 0..self.stash_data.len() {
-                self.branch
-                    .ct_insert(1.into(), &self.stash_data[idx], &mut self.stash_meta[idx]);
-            }
+            // self.branch.pack();
+            // //Greedily place elements of the stash into the branch as close to the leaf
+            // as // they can go.
+            // for idx in 0..self.stash_data.len() {
+            //     self.branch
+            //         .ct_insert(1.into(), &self.stash_data[idx], &mut
+            // self.stash_meta[idx]); }
+            evictor::circuit_oram_evict(
+                &mut self.stash_data,
+                &mut self.stash_meta,
+                &mut self.branch,
+            );
         }
 
         debug_assert!(self.branch.leaf == current_pos);
@@ -331,6 +336,7 @@ where
 
     /// Try to insert an item into the branch, as low as it can go, consistent
     /// with the invariant.
+    #[allow(dead_code)]
     pub fn ct_insert(
         &mut self,
         mut condition: Choice,
@@ -354,6 +360,7 @@ where
     /// Iterates over the branch from root to leaf, and over each of the blocks
     /// in those buckets and moves them greedily to the lowest (closest to leaf)
     /// bucket.
+    #[allow(dead_code)]
     pub fn pack(&mut self) {
         debug_assert!(self.leaf != 0);
         debug_assert!(self.data.len() == self.meta.len());
@@ -449,6 +456,7 @@ where
     /// - The first free spot in a bucket of index >= insert_after_index is used
     /// - The destination slices need not be the whole branch, they could be a
     ///   prefix
+    #[allow(dead_code)]
     fn insert_into_branch_suffix(
         condition: Choice,
         src_data: &A64Bytes<ValueSize>,
@@ -751,7 +759,7 @@ mod evictor {
 
             debug_assert!(bucket_data.len() == bucket_meta.len());
             let mut deepest_target_for_level = FLOOR_INDEX;
-            for idx in 0..stash_meta.len() - 1 {
+            for idx in 0..bucket_data.len() - 1 {
                 let src_data: &mut A64Bytes<ValueSize> = &mut bucket_data[idx];
                 let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
                 let elem_destination: u64 = BRANCH_OFFSET
