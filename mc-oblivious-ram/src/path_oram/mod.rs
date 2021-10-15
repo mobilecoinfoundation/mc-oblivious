@@ -13,7 +13,6 @@
 //! Height of storage tree is set as log size - log bucket_size
 //! This is informed by Gentry et al.
 use alloc::vec;
-use core::convert::TryFrom;
 // use bit_reverse::ParallelReverse;
 
 use aligned_cmov::{
@@ -216,22 +215,7 @@ where
                 meta_block_num(&meta) == &key || meta_is_vacant(&meta).into(),
                 "Hmm, we didn't find the expected item something else"
             );
-            let found_element_is_vacant = bool::try_from(meta_is_vacant(&meta)).unwrap();
-            if found_element_is_vacant {
-                for bucket_num in 0..self.branch.data.len() {
-                    let bucket_meta: &[A8Bytes<MetaSize>] =
-                        self.branch.meta[bucket_num].as_aligned_chunks();
-                    for idx in 0..bucket_meta.len() {
-                        let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
-                        std::println!(
-                            "bucket_id:{}, block_num:{}, leaf_num: {}",
-                            bucket_num,
-                            meta_block_num(src_meta),
-                            meta_leaf_num(src_meta)
-                        )
-                    }
-                }
-            }
+
             debug_assert!(self.branch.leaf == current_pos);
 
             // Call the callback, then store the result
@@ -264,7 +248,6 @@ where
             //     self.branch
             //         .ct_insert(1.into(), &self.stash_data[idx], &mut
             // self.stash_meta[idx]); }
-            let old_stash_size = self.stash_size();
             evictor::circuit_oram_evict(
                 &mut self.stash_data,
                 &mut self.stash_meta,
@@ -288,7 +271,6 @@ where
             //     self.branch
             //         .ct_insert(1.into(), &self.stash_data[idx], &mut
             // self.stash_meta[idx]); }
-            let old_stash_size = self.stash_size();
             evictor::circuit_oram_evict(
                 &mut self.stash_data,
                 &mut self.stash_meta,
@@ -309,7 +291,6 @@ where
             //     self.branch
             //         .ct_insert(1.into(), &self.stash_data[idx], &mut
             // self.stash_meta[idx]); }
-            let old_stash_size = self.stash_size();
             evictor::circuit_oram_evict(
                 &mut self.stash_data,
                 &mut self.stash_meta,
@@ -628,9 +609,8 @@ mod details {
 /// Evictor functions
 mod evictor {
 
-    use crate::path_oram::details::ct_insert;
-    extern crate std;
     use super::*;
+    use crate::path_oram::details::ct_insert;
     use core::convert::TryFrom;
     const FLOOR_INDEX: u64 = u64::MAX;
     const STASH_INDEX: u64 = u64::MAX - 1;
@@ -737,6 +717,7 @@ mod evictor {
         target_meta[data_len].cmov(STASH_INDEX.ct_eq(&src), &dest);
     }
 
+    #[allow(dead_code)]
     pub fn meta_content_size(meta: &[A8Bytes<MetaSize>]) -> usize {
         let mut count = 0usize;
         for idx in 0..meta.len() {
@@ -798,7 +779,6 @@ mod evictor {
             deepest_target_id_for_level.cmov(is_elem_deeper, &idx);
             deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
         }
-        let pre_move = meta_content_size(&stash_meta);
         held_data.cmov(
             should_take_an_element_for_level,
             &stash_data[deepest_target_id_for_level],
@@ -811,8 +791,6 @@ mod evictor {
             should_take_an_element_for_level,
             &mut stash_meta[deepest_target_id_for_level],
         );
-        let post_move = meta_content_size(&stash_meta);
-        std::println!("Pre StashMove: {}, Post StashMove: {}", pre_move, post_move);
 
         //Go through the branch from root to leaf, holding up to one element, swapping
         // held blocks into destinations closer to the leaf.
