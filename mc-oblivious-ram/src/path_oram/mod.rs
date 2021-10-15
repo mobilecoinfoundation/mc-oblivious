@@ -709,7 +709,9 @@ mod evictor {
                 let elem_destination: u64 =
                     u64::try_from(branch.lowest_height_legal_index(*meta_leaf_num(src_meta)))
                         .unwrap();
-                let is_elem_deeper = elem_destination.ct_lt(&goal) & !meta_is_vacant(src_meta);
+                let is_elem_deeper = elem_destination.ct_lt(&goal)
+                    & elem_destination.ct_lt(&bucket_num_64)
+                    & !meta_is_vacant(src_meta);
                 goal.cmov(is_elem_deeper, &elem_destination);
                 src.cmov(is_elem_deeper, &bucket_num_64);
             }
@@ -762,7 +764,7 @@ mod evictor {
                 bucket_has_empty_slot |= meta_is_vacant(src_meta);
                 std::println!(
                     "PrepareTarget: bucket_num:{}, block_num: {}, bucket_has_empty_slot: {}",
-                    idx,
+                    bucket_num,
                     meta_block_num(src_meta),
                     bool::try_from(bucket_has_empty_slot).unwrap()
                 );
