@@ -12,7 +12,6 @@
 //!
 //! Height of storage tree is set as log size - log bucket_size
 //! This is informed by Gentry et al.
-extern crate std;
 use alloc::vec;
 use core::convert::TryFrom;
 // use bit_reverse::ParallelReverse;
@@ -217,16 +216,7 @@ where
                 meta_block_num(&meta) == &key || meta_is_vacant(&meta).into(),
                 "Hmm, we didn't find the expected item something else"
             );
-            std::println!("Accessing: {}", key);
             let found_element_is_vacant = bool::try_from(meta_is_vacant(&meta)).unwrap();
-            std::println!(
-                "Found element at: {}, key is: {}, is vacant: {}, old_pos: {}, new_pos: {}",
-                meta_block_num(&meta),
-                key,
-                found_element_is_vacant,
-                current_pos,
-                new_pos
-            );
             if found_element_is_vacant {
                 for bucket_num in 0..self.branch.data.len() {
                     let bucket_meta: &[A8Bytes<MetaSize>] =
@@ -280,11 +270,6 @@ where
                 &mut self.stash_meta,
                 &mut self.branch,
             );
-            std::println!(
-                "Stash size before evict:{}, afterevict: {}",
-                old_stash_size,
-                self.stash_size()
-            );
         }
 
         debug_assert!(self.branch.leaf == current_pos);
@@ -309,11 +294,6 @@ where
                 &mut self.stash_meta,
                 &mut self.branch,
             );
-            std::println!(
-                "Stash size before evict:{}, afterevict: {}",
-                old_stash_size,
-                self.stash_size()
-            );
         }
         self.branch.checkin(&mut self.storage);
         self.t = (self.t + 1) % n;
@@ -334,11 +314,6 @@ where
                 &mut self.stash_data,
                 &mut self.stash_meta,
                 &mut self.branch,
-            );
-            std::println!(
-                "Stash size before evict:{}, afterevict: {}",
-                old_stash_size,
-                self.stash_size()
             );
         }
         // debug_assert!(self.branch.leaf == current_pos);
@@ -612,9 +587,6 @@ mod details {
             // Zero out the src[meta] if we moved it
             meta_set_vacant(test, &mut src_meta[idx]);
             condition &= !test;
-            if bool::try_from(test).unwrap() {
-                std::println!("Found element at: {} for key: {}", idx, query);
-            }
         }
     }
 
@@ -692,7 +664,6 @@ mod evictor {
             goal.cmov(is_elem_deeper, &elem_destination);
             src.cmov(is_elem_deeper, &STASH_INDEX);
         }
-        std::println!("Prepare Deepest after stash: src: {}, goal:{}", src, goal);
         //Iterate over the branch from root to leaf to find the element that can go the
         // deepest.
         let data_len = branch.meta.len();
@@ -715,14 +686,7 @@ mod evictor {
                 goal.cmov(is_elem_deeper, &elem_destination);
                 src.cmov(is_elem_deeper, &bucket_num_64);
             }
-            std::println!(
-                "Prepare Deepest after bucket:{} src: {}, goal:{}",
-                bucket_num,
-                src,
-                goal
-            );
         }
-        std::println!("deepest: {:?}", deepest_meta);
     }
 
     /*Make a leaf-to-root linear metadata scan to prepare the target array.
@@ -762,32 +726,15 @@ mod evictor {
             for idx in 0..bucket_meta.len() {
                 let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
                 bucket_has_empty_slot |= meta_is_vacant(src_meta);
-                std::println!(
-                    "PrepareTarget: bucket_num:{}, block_num: {}, bucket_has_empty_slot: {}",
-                    bucket_num,
-                    meta_block_num(src_meta),
-                    bool::try_from(bucket_has_empty_slot).unwrap()
-                );
             }
             let is_this_a_future_target = ((dest.ct_eq(&FLOOR_INDEX) & bucket_has_empty_slot)
                 | !target_meta[bucket_num].ct_eq(&FLOOR_INDEX))
                 & !deepest_meta[bucket_num].ct_eq(&FLOOR_INDEX);
             src.cmov(is_this_a_future_target, &deepest_meta[bucket_num]);
             dest.cmov(is_this_a_future_target, &bucket_num_64);
-            std::println!(
-                "Prepare Target after bucket:{} src: {}, dest:{}, bucket_has_empty_slot:{}, is_this_a_future_target:{}, target_meta:{}, deepest_meta:{}",
-                bucket_num,
-                src,
-                dest,
-                bool::try_from(bucket_has_empty_slot).unwrap(),
-                bool::try_from(is_this_a_future_target).unwrap(),
-                target_meta[bucket_num],
-                deepest_meta[bucket_num]
-            );
         }
         // Treat the stash as an extension of the branch.
         target_meta[data_len].cmov(STASH_INDEX.ct_eq(&src), &dest);
-        std::println!("deepest: {:?}, target: {:?}", deepest_meta, target_meta);
     }
 
     pub fn meta_content_size(meta: &[A8Bytes<MetaSize>]) -> usize {
@@ -850,11 +797,6 @@ mod evictor {
                 elem_destination.ct_lt(&deepest_target_for_level) & !meta_is_vacant(src_meta);
             deepest_target_id_for_level.cmov(is_elem_deeper, &idx);
             deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
-            std::println!(
-                "Stash, block_num: {}, leaf_num:{}",
-                meta_block_num(src_meta),
-                meta_leaf_num(src_meta)
-            );
         }
         let pre_move = meta_content_size(&stash_meta);
         held_data.cmov(
@@ -924,20 +866,7 @@ mod evictor {
                     elem_destination.ct_lt(&deepest_target_for_level) & !meta_is_vacant(src_meta);
                 deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
                 deepest_target_id_for_level.cmov(is_elem_deeper, &idx);
-                std::println!(
-                    "bucket_num:{} , block_num: {}, leaf_num: {}",
-                    bucket_num,
-                    meta_block_num(src_meta),
-                    meta_leaf_num(src_meta)
-                );
             }
-            std::println!(
-                "bucket_num: {}, dest: {}, take_elem_for_level:{}, set_to_write: {}",
-                bucket_num,
-                dest,
-                bool::try_from(should_take_an_element_for_level).unwrap(),
-                bool::try_from(held_elem_is_not_vacant_and_bucket_num_is_at_dest).unwrap()
-            );
 
             held_data.cmov(
                 should_take_an_element_for_level,
@@ -963,18 +892,6 @@ mod evictor {
                 bucket_data,
                 bucket_meta,
             );
-            if bool::try_from(held_elem_is_not_vacant_and_bucket_num_is_at_dest).unwrap() {
-                std::println!("to_write_meta: {}", meta_block_num(to_write_meta));
-                for idx in 0..bucket_data.len() {
-                    let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
-                    std::println!(
-                        "bucket_id:{}, block_num:{}, leaf_num: {}",
-                        idx,
-                        meta_block_num(src_meta),
-                        meta_leaf_num(src_meta)
-                    )
-                }
-            }
         }
     }
 }
