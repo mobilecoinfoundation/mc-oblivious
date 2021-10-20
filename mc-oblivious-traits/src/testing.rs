@@ -104,7 +104,7 @@ where
                     rng.fill_bytes(new_val.as_mut_slice());
                     let result_code = omap.vartime_write(query, &new_val, Choice::from(1));
 
-                    if expected.contains_key(&query) {
+                    if expected.contains_key(query) {
                         assert_eq!(result_code, OMAP_FOUND);
                     } else {
                         assert_eq!(result_code, OMAP_NOT_FOUND);
@@ -121,7 +121,7 @@ where
                     rng.fill_bytes(new_val.as_mut_slice());
                     let result_code = omap.vartime_write(query, &new_val, Choice::from(0));
 
-                    if expected.contains_key(&query) {
+                    if expected.contains_key(query) {
                         assert_eq!(result_code, OMAP_FOUND);
                     } else {
                         assert_eq!(result_code, OMAP_NOT_FOUND);
@@ -131,7 +131,7 @@ where
                 }
                 5 => {
                     // In this case we ACCESS the omap
-                    omap.access(&query, |result_code, val| {
+                    omap.access(query, |result_code, val| {
                         match expected.entry(query.clone()) {
                             Entry::Vacant(_) => {
                                 assert_eq!(result_code, OMAP_NOT_FOUND);
