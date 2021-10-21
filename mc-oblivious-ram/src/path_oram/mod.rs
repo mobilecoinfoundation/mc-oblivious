@@ -259,7 +259,8 @@ where
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
         let n = self.len();
-        let mut random_pos = 1u64.random_child_at_height(self.height, &mut self.rng);
+        //Randomly choose a left child of root.
+        let mut random_pos = 2u64.random_child_at_height(self.height, &mut self.rng);
         self.branch.checkout(&mut self.storage, random_pos);
         {
             // debug_assert!(self.branch.leaf == current_pos);
@@ -279,7 +280,8 @@ where
         }
         self.branch.checkin(&mut self.storage);
         self.t = (self.t + 1) % n;
-        random_pos = 1u64.random_child_at_height(self.height, &mut self.rng);
+        //Randomly choose a right child of root.
+        random_pos = 3u64.random_child_at_height(self.height, &mut self.rng);
         self.branch.checkout(&mut self.storage, random_pos);
         {
             // debug_assert!(self.branch.leaf == current_pos);
