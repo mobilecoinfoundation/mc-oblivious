@@ -614,14 +614,13 @@ mod evictor {
     use super::*;
     use crate::path_oram::details::ct_insert;
     use core::convert::TryFrom;
-    const FLOOR_INDEX: u64 = u64::MAX;
-    const STASH_INDEX: u64 = u64::MAX - 1;
+    const FLOOR_INDEX: usize = usize::MAX;
 
     /*Make a root-to-leaf linear metadata scan to prepare the deepest array.
     After this algorithm, deepest[i] stores the source level of the deepest block in path[0..i − 1] that can
     legally reside in path[i], offset by BranchOffset s.t. 0 corresponds to a special floor value, and the stash is the 1st level */
     pub fn prepare_deepest<ValueSize, Z>(
-        deepest_meta: &mut [u64],
+        deepest_meta: &mut [usize],
         stash_meta: &mut [A8Bytes<MetaSize>],
         branch: &BranchCheckout<ValueSize, Z>,
     ) where
@@ -632,21 +631,22 @@ mod evictor {
     {
         //Need one extra for the stash.
         debug_assert!(deepest_meta.len() == (branch.meta.len() + 1));
-        let mut goal: u64 = FLOOR_INDEX;
-        let mut src: u64 = FLOOR_INDEX;
+        let data_len = branch.meta.len();
+        let mut goal: usize = FLOOR_INDEX;
+        let mut src: usize = FLOOR_INDEX;
         //Iterate over the stash to find the element that can go deepest.
         for stash_elem in stash_meta {
-            let elem_destination: u64 =
-                u64::try_from(branch.lowest_height_legal_index(*meta_leaf_num(stash_elem)))
-                    .unwrap();
+            let elem_destination: usize =
+                branch.lowest_height_legal_index(*meta_leaf_num(stash_elem));
+            let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
             //lower is closer to the leaf.
-            let is_elem_deeper = elem_destination.ct_lt(&goal) & !meta_is_vacant(stash_elem);
+            let is_elem_deeper = elem_destination_64.ct_lt(&u64::try_from(goal).unwrap())
+                & !meta_is_vacant(stash_elem);
             goal.cmov(is_elem_deeper, &elem_destination);
-            src.cmov(is_elem_deeper, &STASH_INDEX);
+            src.cmov(is_elem_deeper, &data_len);
         }
         //Iterate over the branch from root to leaf to find the element that can go the
         // deepest.
-        let data_len = branch.meta.len();
         for bucket_num in (0..data_len).rev() {
             let bucket_num_64 = u64::try_from(bucket_num).unwrap();
             let bucket_meta: &[A8Bytes<MetaSize>] = branch.meta[bucket_num].as_aligned_chunks();
@@ -654,17 +654,20 @@ mod evictor {
                 let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
                 //We should take the src and insert into deepest if our current bucket num is
                 // at the same level as our goal or closer to the root.
-                let should_take_src_for_deepest = !bucket_num_64.ct_lt(&goal);
+                let should_take_src_for_deepest =
+                    !bucket_num_64.ct_lt(&u64::try_from(goal).unwrap());
                 deepest_meta[bucket_num].cmov(should_take_src_for_deepest, &src);
 
-                let elem_destination: u64 =
-                    u64::try_from(branch.lowest_height_legal_index(*meta_leaf_num(src_meta)))
-                        .unwrap();
-                let is_elem_deeper = elem_destination.ct_lt(&goal)
-                    & elem_destination.ct_lt(&bucket_num_64)
+                let elem_destination: usize =
+                    branch.lowest_height_legal_index(*meta_leaf_num(src_meta));
+                let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
+                //This element is only taken if it can go deeper than the current level and is
+                // deeper than the currently held element.
+                let is_elem_deeper = elem_destination_64.ct_lt(&u64::try_from(goal).unwrap())
+                    & elem_destination_64.ct_lt(&bucket_num_64)
                     & !meta_is_vacant(src_meta);
                 goal.cmov(is_elem_deeper, &elem_destination);
-                src.cmov(is_elem_deeper, &bucket_num_64);
+                src.cmov(is_elem_deeper, &bucket_num);
             }
         }
     }
@@ -672,8 +675,8 @@ mod evictor {
     /*Make a leaf-to-root linear metadata scan to prepare the target array.
     This prepares the circuit oram such that if target[i] 6 is not -1, then one block shall be moved from path[i] to path[target[i]] */
     pub fn prepare_target<ValueSize, Z>(
-        target_meta: &mut [u64],
-        deepest_meta: &mut [u64],
+        target_meta: &mut [usize],
+        deepest_meta: &mut [usize],
         branch: &BranchCheckout<ValueSize, Z>,
     ) where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -684,17 +687,16 @@ mod evictor {
         //Need 1 more for stash.
         debug_assert!(deepest_meta.len() == (branch.meta.len() + 1));
         debug_assert!(target_meta.len() == deepest_meta.len());
-        let mut dest: u64 = FLOOR_INDEX;
-        let mut src: u64 = FLOOR_INDEX;
+        let mut dest: usize = FLOOR_INDEX;
+        let mut src: usize = FLOOR_INDEX;
         //Iterate over the branch from leaf to root to find the elements that will be
         // moved from path[i] to path[target[i]]
         let data_len = branch.meta.len();
         for bucket_num in 0..data_len {
-            let bucket_num_64 = u64::try_from(bucket_num).unwrap();
             let bucket_meta: &[A8Bytes<MetaSize>] = branch.meta[bucket_num].as_aligned_chunks();
             //If we encounter the src for the element, we save it to the target array and
             // floor out the dest and src.
-            let should_set_target = bucket_num_64.ct_eq(&src);
+            let should_set_target = bucket_num.ct_eq(&src);
             target_meta[bucket_num].cmov(should_set_target, &dest);
             dest.cmov(should_set_target, &FLOOR_INDEX);
             src.cmov(should_set_target, &FLOOR_INDEX);
@@ -708,10 +710,10 @@ mod evictor {
                 | !target_meta[bucket_num].ct_eq(&FLOOR_INDEX))
                 & !deepest_meta[bucket_num].ct_eq(&FLOOR_INDEX);
             src.cmov(is_this_a_future_target, &deepest_meta[bucket_num]);
-            dest.cmov(is_this_a_future_target, &bucket_num_64);
+            dest.cmov(is_this_a_future_target, &bucket_num);
         }
         // Treat the stash as an extension of the branch.
-        target_meta[data_len].cmov(STASH_INDEX.ct_eq(&src), &dest);
+        target_meta[data_len].cmov(data_len.ct_eq(&src), &dest);
     }
 
     #[allow(dead_code)]
@@ -763,10 +765,12 @@ mod evictor {
         let mut deepest_target_id_for_level = 0usize;
         for idx in 0..stash_meta.len() {
             let src_meta: &mut A8Bytes<MetaSize> = &mut stash_meta[idx];
-            let elem_destination: u64 =
-                u64::try_from(branch.lowest_height_legal_index(*meta_leaf_num(&src_meta))).unwrap();
-            let is_elem_deeper =
-                elem_destination.ct_lt(&deepest_target_for_level) & !meta_is_vacant(src_meta);
+            let elem_destination: usize =
+                branch.lowest_height_legal_index(*meta_leaf_num(src_meta));
+            let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
+            let is_elem_deeper = elem_destination_64
+                .ct_lt(&u64::try_from(deepest_target_for_level).unwrap())
+                & !meta_is_vacant(src_meta);
             deepest_target_id_for_level.cmov(is_elem_deeper, &idx);
             deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
         }
@@ -787,8 +791,6 @@ mod evictor {
         // held blocks into destinations closer to the leaf.
         let data_len = branch.data.len();
         for bucket_num in (0..data_len).rev() {
-            let bucket_num_64 = u64::try_from(bucket_num).unwrap();
-
             //lower contains from [0..bucket_num), upper contains from [bucket_num..len).
             // lower is the side closer to the leaf, while upper is the side closer to the
             // root.
@@ -807,7 +809,7 @@ mod evictor {
             //If held element is not vacant and bucket_num is dest. We will write this elem
             // so zero out the held/dest.
             let held_elem_is_not_vacant_and_bucket_num_is_at_dest =
-                !meta_is_vacant(&mut held_meta) & bucket_num_64.ct_eq(&dest);
+                !meta_is_vacant(&mut held_meta) & bucket_num.ct_eq(&dest);
 
             to_write_data.cmov(held_elem_is_not_vacant_and_bucket_num_is_at_dest, held_data);
             to_write_meta.cmov(held_elem_is_not_vacant_and_bucket_num_is_at_dest, held_meta);
@@ -823,16 +825,17 @@ mod evictor {
             deepest_target_id_for_level = 0;
             for idx in 0..bucket_data.len() {
                 let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
-                let elem_destination: u64 = u64::try_from(
+                let elem_destination: usize =
                     BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
                         *meta_leaf_num(&src_meta),
                         branch.leaf,
                         data_len,
-                    ),
-                )
-                .unwrap();
-                let is_elem_deeper =
-                    elem_destination.ct_lt(&deepest_target_for_level) & !meta_is_vacant(src_meta);
+                    );
+                let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
+
+                let is_elem_deeper = elem_destination_64
+                    .ct_lt(&u64::try_from(deepest_target_for_level).unwrap())
+                    & !meta_is_vacant(src_meta);
                 deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
                 deepest_target_id_for_level.cmov(is_elem_deeper, &idx);
             }
