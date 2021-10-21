@@ -622,7 +622,6 @@ mod evictor {
     legally reside in path[i], offset by BranchOffset s.t. 0 corresponds to a special floor value, and the stash is the 1st level */
     pub fn prepare_deepest<ValueSize, Z>(
         deepest_meta: &mut [u64],
-        stash_data: &mut [A64Bytes<ValueSize>],
         stash_meta: &mut [A8Bytes<MetaSize>],
         branch: &BranchCheckout<ValueSize, Z>,
     ) where
@@ -631,7 +630,6 @@ mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
-        debug_assert!(stash_data.len() == stash_meta.len());
         //Need one extra for the stash.
         debug_assert!(deepest_meta.len() == (branch.meta.len() + 1));
         let mut goal: u64 = FLOOR_INDEX;
@@ -676,8 +674,6 @@ mod evictor {
     pub fn prepare_target<ValueSize, Z>(
         target_meta: &mut [u64],
         deepest_meta: &mut [u64],
-        stash_data: &mut [A64Bytes<ValueSize>],
-        stash_meta: &mut [A8Bytes<MetaSize>],
         branch: &BranchCheckout<ValueSize, Z>,
     ) where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -685,7 +681,6 @@ mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
-        debug_assert!(stash_data.len() == stash_meta.len());
         //Need 1 more for stash.
         debug_assert!(deepest_meta.len() == (branch.meta.len() + 1));
         debug_assert!(target_meta.len() == deepest_meta.len());
@@ -745,14 +740,8 @@ mod evictor {
         let adjusted_data_len = branch.meta.len() + 1;
         let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
         let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
-        prepare_deepest(&mut deepest_meta, stash_data, stash_meta, branch);
-        prepare_target(
-            &mut target_meta,
-            &mut deepest_meta,
-            stash_data,
-            stash_meta,
-            branch,
-        );
+        prepare_deepest(&mut deepest_meta, stash_meta, branch);
+        prepare_target(&mut target_meta, &mut deepest_meta, branch);
 
         let mut dummy_held_data: A64Bytes<ValueSize> = Default::default();
         let mut dummy_held_meta: A8Bytes<MetaSize> = Default::default();
