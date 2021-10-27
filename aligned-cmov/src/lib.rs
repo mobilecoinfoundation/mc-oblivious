@@ -61,10 +61,11 @@ impl CMov for i64 {
     }
 }
 
+#[cfg(target_pointer_width = "64")]
 impl CMov for usize {
     #[inline]
     fn cmov(&mut self, condition: Choice, src: &usize) {
-        cmov_impl::cmov_usize(condition.unwrap_u8() != 0, src, self)
+        cmov_impl::cmov_usize_64(condition.unwrap_u8() != 0, src, self)
     }
 }
 

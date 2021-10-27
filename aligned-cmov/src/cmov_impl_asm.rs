@@ -78,9 +78,9 @@ pub fn cmov_i64(condition: bool, src: &i64, dest: &mut i64) {
     cmov_u64(condition, src_transmuted, dest_transmuted);
 }
 
-// CMov for u64 values
+// CMov for usize on u64 architecture
 #[inline]
-pub fn cmov_usize(condition: bool, src: &usize, dest: &mut usize) {
+pub fn cmov_usize_64(condition: bool, src: &usize, dest: &mut usize) {
     let src_transmuted = unsafe { core::mem::transmute::<&usize, &u64>(src) };
     let dest_transmuted = unsafe { core::mem::transmute::<&mut usize, &mut u64>(dest) };
 
