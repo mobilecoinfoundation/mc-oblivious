@@ -56,6 +56,24 @@ type MetaSize = U16;
 // This indicates that the metadata and its corresponding value can be
 // overwritten with a real item.
 
+/// Reverse the bits for a particular number up to num_bits_needed. s.t.
+/// bit_reverse(0001, 3) returns 0100.
+fn bit_reverse(num: u64, num_bits_needed: u32) -> u64 {
+    let mut reversed = num;
+    let mut source = num;
+    let mut length = num_bits_needed;
+    source >>= 1;
+    length -= 1;
+    while length > 0 {
+        reversed <<= 1;
+        reversed |= source & 1;
+        source >>= 1;
+        length -= 1;
+    }
+    reversed &= ((1u64) << num_bits_needed) - 1;
+    reversed
+}
+
 /// Get the leaf num of a metadata
 fn meta_leaf_num(src: &A8Bytes<MetaSize>) -> &u64 {
     &src.as_ne_u64_slice()[0]
@@ -865,5 +883,43 @@ mod evictor {
                 bucket_meta,
             );
         }
+    }
+}
+
+#[cfg(test)]
+pub mod internal_tests {
+    use super::*;
+    #[test]
+    // Check that bit_reverse correctly reverses values
+    fn test_bit_reverse() {
+        assert_eq!(bit_reverse(2, 2), 1);
+        assert_eq!(bit_reverse(3, 2), 3);
+        assert_eq!(bit_reverse(1, 2), 2);
+        assert_eq!(bit_reverse(3, 1), 1);
+        assert_eq!(bit_reverse(2, 1), 0);
+        assert_eq!(bit_reverse(4, 2), 0);
+        assert_eq!(bit_reverse(5, 2), 2);
+    }
+    #[test]
+    // Check that deterministic oram correctly chooses leaf values
+    fn test_deterministic_oram() {
+        let size = 16;
+        let num_bits_needed = log2_ceil(size).saturating_sub(log2_ceil(1)) - 1;
+        assert_eq!(num_bits_needed, 3);
+        let t = 0;
+        let leaf_significant_index = 1 << (num_bits_needed);
+        let test_position: u64 =
+            bit_reverse((2 * t) % leaf_significant_index, num_bits_needed) + leaf_significant_index; //(2
+        assert_eq!(test_position, 8);
+        let test_position: u64 = bit_reverse((2 * t + 1) % leaf_significant_index, num_bits_needed)
+            + leaf_significant_index; //(2
+        assert_eq!(test_position, 12);
+        let t = 1;
+        let test_position: u64 =
+            bit_reverse((2 * t) % leaf_significant_index, num_bits_needed) + leaf_significant_index; //(2
+        assert_eq!(test_position, 10);
+        let test_position: u64 = bit_reverse((2 * t + 1) % leaf_significant_index, num_bits_needed)
+            + leaf_significant_index; //(2
+        assert_eq!(test_position, 14);
     }
 }
