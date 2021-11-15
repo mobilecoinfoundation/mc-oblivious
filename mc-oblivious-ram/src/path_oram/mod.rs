@@ -746,6 +746,152 @@ mod evictor {
     }
 
     #[allow(dead_code)]
+    pub fn circuit_oram_nonoblivious_evict<ValueSize, Z>(
+        stash_data: &mut [A64Bytes<ValueSize>],
+        stash_meta: &mut [A8Bytes<MetaSize>],
+        branch: &mut BranchCheckout<ValueSize, Z>,
+    ) where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        let data_len = branch.meta.len();
+        let mut bucket_num = 0;
+        while bucket_num < data_len {
+            let (_, working_data) = branch.data.split_at(bucket_num);
+            let (_, working_meta) = branch.meta.split_at(bucket_num);
+
+            let bucket_data: &[A64Bytes<ValueSize>] = working_data[0].as_aligned_chunks();
+            let bucket_meta: &[A8Bytes<MetaSize>] = working_meta[0].as_aligned_chunks();
+            let mut bucket_has_vacancy = false;
+            let mut vacant_chunk = 0;
+            for idx in 0..bucket_data.len() {
+                let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
+                if meta_is_vacant(src_meta).into() {
+                    bucket_has_vacancy = true;
+                    vacant_chunk = idx;
+                    // std::println!("There is a vacancy at bucket:{}, and chunk:{}", bucket_num,
+                    // vacant_chunk);
+                    break;
+                }
+            }
+            if bucket_has_vacancy {
+                let mut deepest_target_for_level = FLOOR_INDEX;
+                let mut source_bucket_for_deepest = FLOOR_INDEX;
+                let mut source_chunk_for_deepest = 0usize;
+
+                //Try to search through the other buckets to find the deepest block that can
+                // live in this vacancy.
+                for search_bucketnum in 1..(data_len - bucket_num) {
+                    let search_bucket_meta: &[A8Bytes<MetaSize>] =
+                        working_meta[search_bucketnum].as_aligned_chunks();
+                    for search_idx in 0..search_bucket_meta.len() {
+                        let src_meta: &A8Bytes<MetaSize> = &search_bucket_meta[search_idx];
+                        let elem_destination: usize =
+                            BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                                *meta_leaf_num(&src_meta),
+                                branch.leaf,
+                                data_len,
+                            );
+                        if bool::try_from(!meta_is_vacant(src_meta)).unwrap()
+                            && elem_destination < deepest_target_for_level
+                        {
+                            deepest_target_for_level = elem_destination;
+                            source_bucket_for_deepest = search_bucketnum;
+                            source_chunk_for_deepest = search_idx;
+                        }
+                    }
+                }
+                //Try to search through the stash to fid the deepest block that can live in
+                // this vacancy.
+                for search_idx in 0..stash_meta.len() {
+                    let src_meta: &A8Bytes<MetaSize> = &stash_meta[search_idx];
+                    let elem_destination: usize =
+                        BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                            *meta_leaf_num(&src_meta),
+                            branch.leaf,
+                            data_len,
+                        );
+                    if bool::try_from(!meta_is_vacant(src_meta)).unwrap()
+                        && elem_destination < deepest_target_for_level
+                    {
+                        deepest_target_for_level = elem_destination;
+                        source_bucket_for_deepest = data_len;
+                        source_chunk_for_deepest = search_idx;
+                    }
+                }
+                if deepest_target_for_level > bucket_num {
+                    //if you found a block to fill the space, go immediately to that source level.
+                    // Otherwise, just go to the next level.
+                    // std::println!("There is no target for this level {}", bucket_num);
+                    bucket_num += 1;
+                } else {
+                    //Check to see if you're getting the source is from the normal bucket
+                    if source_bucket_for_deepest < data_len {
+                        // std::println!("The deepest target for level {} is {} it is not in a
+                        // stash. The source is bucket:{}, and chunk:{}", bucket_num,
+                        // deepest_target_for_level, source_bucket_for_deepest,
+                        // source_chunk_for_deepest);
+
+                        //The source is a normal bucket
+                        let (lower_data, upper_data) = branch
+                            .data
+                            .split_at_mut(source_bucket_for_deepest + bucket_num);
+                        let (lower_meta, upper_meta) = branch
+                            .meta
+                            .split_at_mut(source_bucket_for_deepest + bucket_num);
+                        let insertion_bucket_data: &mut [A64Bytes<ValueSize>] =
+                            lower_data[bucket_num].as_mut_aligned_chunks();
+                        let insertion_bucket_meta: &mut [A8Bytes<MetaSize>] =
+                            lower_meta[bucket_num].as_mut_aligned_chunks();
+                        let source_bucket_data: &mut [A64Bytes<ValueSize>] =
+                            upper_data[0].as_mut_aligned_chunks();
+                        let source_bucket_meta: &mut [A8Bytes<MetaSize>] =
+                            upper_meta[0].as_mut_aligned_chunks();
+                        let insertion_data: &mut A64Bytes<ValueSize> =
+                            &mut insertion_bucket_data[vacant_chunk];
+                        let insertion_meta: &mut A8Bytes<MetaSize> =
+                            &mut insertion_bucket_meta[vacant_chunk];
+                        let source_data: &mut A64Bytes<ValueSize> =
+                            &mut source_bucket_data[source_chunk_for_deepest];
+                        let source_meta: &mut A8Bytes<MetaSize> =
+                            &mut source_bucket_meta[source_chunk_for_deepest];
+                        let test: Choice = 1.into();
+                        insertion_meta.cmov(test, source_meta);
+                        insertion_data.cmov(test, source_data);
+                        meta_set_vacant(test, source_meta);
+                    } else {
+                        //The source is the stash
+                        std::println!("The deepest target for level {} is {} it is in the stash. The source is bucket:{}, and chunk:{}", bucket_num, deepest_target_for_level, source_bucket_for_deepest, source_chunk_for_deepest);
+                        let (_, working_data) = branch.data.split_at_mut(bucket_num);
+                        let (_, working_meta) = branch.meta.split_at_mut(bucket_num);
+                        let bucket_data: &mut [A64Bytes<ValueSize>] =
+                            working_data[0].as_mut_aligned_chunks();
+                        let bucket_meta: &mut [A8Bytes<MetaSize>] =
+                            working_meta[0].as_mut_aligned_chunks();
+                        let insertion_data: &mut A64Bytes<ValueSize> =
+                            &mut bucket_data[vacant_chunk];
+                        let insertion_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[vacant_chunk];
+                        let source_data: &mut A64Bytes<ValueSize> =
+                            &mut stash_data[source_chunk_for_deepest];
+                        let source_meta: &mut A8Bytes<MetaSize> =
+                            &mut stash_meta[source_chunk_for_deepest];
+                        let test: Choice = 1.into();
+                        insertion_meta.cmov(test, source_meta);
+                        insertion_data.cmov(test, source_data);
+                        meta_set_vacant(test, source_meta);
+                    }
+                    bucket_num = source_bucket_for_deepest;
+                }
+            } else {
+                //if there is no vacancy, just go to the next bucket.
+                bucket_num += 1;
+            }
+        }
+    }
+
+    #[allow(dead_code)]
     pub fn circuit_oram_evict<ValueSize, Z>(
         stash_data: &mut [A64Bytes<ValueSize>],
         stash_meta: &mut [A8Bytes<MetaSize>],
