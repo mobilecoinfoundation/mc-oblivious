@@ -22,6 +22,8 @@
 #![deny(unsafe_code)]
 
 extern crate alloc;
+extern crate rgsl;
+extern crate std;
 
 use aligned_cmov::typenum::{U1024, U2, U2048, U32, U4, U4096, U64};
 use core::marker::PhantomData;
@@ -95,7 +97,10 @@ where
 mod testing {
     use super::*;
     use aligned_cmov::{A64Bytes, A8Bytes, ArrayLength};
+    use alloc::collections::BTreeMap;
+    use core::convert::TryInto;
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAM};
+    use std::vec;
     use test_helper::{run_with_several_seeds, RngType};
 
     const STASH_SIZE: usize = 16;
@@ -340,7 +345,6 @@ mod testing {
 
     // Run the exercise oram tests for 50,000 rounds in 32768 sized z4 oram
     #[test]
-    #[cfg(not(debug_assertions))]
     fn exercise_path_oram_z4_32768() {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
@@ -352,9 +356,21 @@ mod testing {
         });
     }
 
+    // Run the exercise oram tests for 50,000 rounds in 32768 sized z2 oram
+    #[test]
+    fn exercise_path_oram_z2_32768() {
+        run_with_several_seeds(|rng| {
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = PathORAM4096Z2Creator::<RngType, HeapORAMStorageCreator>::create(
+                32768, STASH_SIZE, &mut maker,
+            );
+            testing::exercise_oram(50_000, &mut oram, &mut rng);
+        });
+    }
+
     // Run the exercise oram tests for 60,000 rounds in 131072 sized z4 oram
     #[test]
-    #[cfg(not(debug_assertions))]
     fn exercise_path_oram_z4_131072() {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
@@ -363,6 +379,100 @@ mod testing {
                 131072, STASH_SIZE, &mut maker,
             );
             testing::exercise_oram(60_000, &mut oram, &mut rng);
+        });
+    }
+
+    // Run the analysis oram tests similar to CircuitOram section 5. Warm up with
+    // 2^10 accesses, then run for 2^20 accesses cycling through all N logical
+    // addresses. N=2^10. This choice is arbitrary because stash size should not
+    // depend on N. Measure the number of times that the stash is above any
+    // given size.
+    #[test]
+    fn analysis_path_oram_z4_8192() {
+        const STASH_SIZE: usize = 32;
+        run_with_several_seeds(|rng| {
+            let base: u64 = 2;
+            let num_rounds: u64 = base.pow(30);
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = PathORAM4096Z2Creator::<RngType, HeapORAMStorageCreator>::create(
+                base.pow(10),
+                STASH_SIZE,
+                &mut maker,
+            );
+            let stash_stats = testing::measure_oram_stash_size_distribution(
+                base.pow(10).try_into().unwrap(),
+                num_rounds.try_into().unwrap(),
+                &mut oram,
+                &mut rng,
+            );
+            let mut x_axis: vec::Vec<f64> = vec::Vec::new();
+            let mut y_axis: vec::Vec<f64> = vec::Vec::new();
+            std::eprintln!("key: {}, has_value: {}", 0, stash_stats.get(&0).unwrap());
+            for stash_count in 1..STASH_SIZE {
+                if let Some(stash_count_probability) = stash_stats.get(&stash_count) {
+                    std::eprintln!(
+                        "key: {}, has_value: {}",
+                        stash_count,
+                        stash_count_probability
+                    );
+                    y_axis.push((num_rounds as f64 / *stash_count_probability as f64).log2());
+                    x_axis.push(stash_count as f64);
+                } else {
+                    std::eprintln!("Key: {}, has no value", stash_count);
+                }
+            }
+
+            let correlation = rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
+            std::eprintln!("Correlation: {}", correlation);
+            assert!(correlation > 0.9);
+        });
+    }
+
+    // Test for performance independence for changing N.
+    #[test]
+    fn test_oram_n_independence() {
+        const STASH_SIZE: usize = 32;
+        const BASE: u64 = 2;
+        const NUM_ROUNDS: u64 = BASE.pow(10);
+
+        run_with_several_seeds(|rng| {
+            let mut statistics_agregate = BTreeMap::<u32, BTreeMap<usize, usize>>::default();
+            let mut maker = rng_maker(rng);
+            for oram_power in (10..24).step_by(2) {
+                let mut rng = maker();
+                let mut oram = PathORAM4096Z2Creator::<RngType, HeapORAMStorageCreator>::create(
+                    BASE.pow(oram_power),
+                    STASH_SIZE,
+                    &mut maker,
+                );
+                let stash_stats = testing::measure_oram_stash_size_distribution(
+                    BASE.pow(10).try_into().unwrap(),
+                    NUM_ROUNDS.try_into().unwrap(),
+                    &mut oram,
+                    &mut rng,
+                );
+                statistics_agregate.insert(oram_power, stash_stats);
+            }
+            for stash_num in 1..STASH_SIZE {
+                let mut probability_of_stash_size = vec::Vec::new();
+                for stash_stats in &statistics_agregate {
+                    if let Some(stash_count) = stash_stats.1.get(&stash_num) {
+                        std::eprintln!("key: {}, has_value: {}", stash_num, stash_count);
+                        let stash_count_probability =
+                            (NUM_ROUNDS as f64 / *stash_count as f64).log2();
+                        probability_of_stash_size.push(stash_count_probability);
+                    } else {
+                        std::eprintln!("Key: {}, has no value", stash_num);
+                    }
+                }
+                let data_variance = rgsl::statistics::variance(
+                    &probability_of_stash_size,
+                    1,
+                    probability_of_stash_size.len(),
+                );
+                assert!(data_variance < 0.05);
+            }
         });
     }
 }

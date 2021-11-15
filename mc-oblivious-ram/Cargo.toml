@@ -19,6 +19,7 @@ balanced-tree-index = { path = "../balanced-tree-index", version = "2" }
 mc-oblivious-traits = { path = "../mc-oblivious-traits", version = "2" }
 
 rand_core = { version = "0.6", default-features = false }
+GSL = "*"
 
 [dev-dependencies]
 test-helper = { path = "../test-helper" }
