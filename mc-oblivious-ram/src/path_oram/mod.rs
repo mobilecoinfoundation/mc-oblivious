@@ -28,6 +28,8 @@ use mc_oblivious_traits::{
 };
 use rand_core::{CryptoRng, RngCore};
 
+use self::evictor::{Evictor, PathOramEvict};
+
 /// In this implementation, a value is expected to be an aligned 4096 byte page.
 /// The metadata associated to a value is two u64's (block num and leaf), so 16
 /// bytes. It is stored separately from the value so as not to break alignment.
@@ -123,6 +125,8 @@ where
     stash_meta: Vec<A8Bytes<MetaSize>>,
     /// Our currently checked-out branch if any
     branch: BranchCheckout<ValueSize, Z>,
+    /// Eviction strategy
+    evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
     /// Current iteration index
     t: u64,
 }
@@ -161,6 +165,7 @@ where
         let mut rng = rng_maker();
         let storage = SC::create(2u64 << height, &mut rng).expect("Storage failed");
         let pos = PMC::create(size, height, stash_size, rng_maker);
+        let evictor = Box::new(PathOramEvict::new());
         Self {
             height,
             storage,
@@ -169,6 +174,7 @@ where
             stash_data: vec![Default::default(); stash_size],
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
+            evictor: evictor,
             t: 0,
         }
     }
@@ -266,7 +272,7 @@ where
             //     self.branch
             //         .ct_insert(1.into(), &self.stash_data[idx], &mut
             // self.stash_meta[idx]); }
-            evictor::circuit_oram_evict(
+            self.evictor.evict_from_stash_to_branch(
                 &mut self.stash_data,
                 &mut self.stash_meta,
                 &mut self.branch,
@@ -290,7 +296,7 @@ where
             //     self.branch
             //         .ct_insert(1.into(), &self.stash_data[idx], &mut
             // self.stash_meta[idx]); }
-            evictor::circuit_oram_evict(
+            self.evictor.evict_from_stash_to_branch(
                 &mut self.stash_data,
                 &mut self.stash_meta,
                 &mut self.branch,
@@ -311,7 +317,7 @@ where
             //     self.branch
             //         .ct_insert(1.into(), &self.stash_data[idx], &mut
             // self.stash_meta[idx]); }
-            evictor::circuit_oram_evict(
+            self.evictor.evict_from_stash_to_branch(
                 &mut self.stash_data,
                 &mut self.stash_meta,
                 &mut self.branch,
@@ -634,10 +640,57 @@ mod evictor {
     use core::convert::TryFrom;
     const FLOOR_INDEX: usize = usize::MAX;
 
+    /// Evictor trait conceptually is a mechanism for moving stash elements into
+    /// the oram.
+    pub trait Evictor<ValueSize, Z>
+    where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        /// Method that takes a branch and a stash and moves elements from the
+        /// stash into the branch.
+        fn evict_from_stash_to_branch(
+            &self,
+            stash_data: &mut [A64Bytes<ValueSize>],
+            stash_meta: &mut [A8Bytes<MetaSize>],
+            branch: &mut BranchCheckout<ValueSize, Z>,
+        );
+    }
+    pub struct PathOramEvict {}
+    impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
+    where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        fn evict_from_stash_to_branch(
+            &self,
+            stash_data: &mut [A64Bytes<ValueSize>],
+            stash_meta: &mut [A8Bytes<MetaSize>],
+            branch: &mut BranchCheckout<ValueSize, Z>,
+        ) {
+            branch.pack();
+            //Greedily place elements of the stash into the branch as close to the leaf as
+            // they can go.
+            for idx in 0..stash_data.len() {
+                branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
+            }
+        }
+    }
+    impl PathOramEvict {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+    pub struct CircuitOramEvict {}
+    impl CircuitOramEvict {
     /*Make a root-to-leaf linear metadata scan to prepare the deepest array.
     After this algorithm, deepest[i] stores the source level of the deepest block in path[0..i − 1] that can
     legally reside in path[i], offset by BranchOffset s.t. 0 corresponds to a special floor value, and the stash is the 1st level */
-    pub fn prepare_deepest<ValueSize, Z>(
+        fn prepare_deepest<ValueSize, Z>(
         deepest_meta: &mut [usize],
         stash_meta: &mut [A8Bytes<MetaSize>],
         branch: &BranchCheckout<ValueSize, Z>,
@@ -692,7 +745,7 @@ mod evictor {
 
     /*Make a leaf-to-root linear metadata scan to prepare the target array.
     This prepares the circuit oram such that if target[i] 6 is not -1, then one block shall be moved from path[i] to path[target[i]] */
-    pub fn prepare_target<ValueSize, Z>(
+        fn prepare_target<ValueSize, Z>(
         target_meta: &mut [usize],
         deepest_meta: &mut [usize],
         branch: &BranchCheckout<ValueSize, Z>,
@@ -718,24 +771,28 @@ mod evictor {
             target_meta[bucket_num].cmov(should_set_target, &dest);
             dest.cmov(should_set_target, &FLOOR_INDEX);
             src.cmov(should_set_target, &FLOOR_INDEX);
-            //Check to see if there is an empty space in the bucket
+                //Check to see if there is an empty space in the bucket. Potential optimization
+                // to save the index to make the later check more efficient.
             let mut bucket_has_empty_slot: Choice = 0.into();
             for idx in 0..bucket_meta.len() {
                 let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
                 bucket_has_empty_slot |= meta_is_vacant(src_meta);
             }
+                //Try with making this use should_set_target. Originally:
+                // !target_meta[bucket_num].ct_eq(&FLOOR_INDEX)
             let is_this_a_future_target = ((dest.ct_eq(&FLOOR_INDEX) & bucket_has_empty_slot)
-                | !target_meta[bucket_num].ct_eq(&FLOOR_INDEX))
+                    | should_set_target)
                 & !deepest_meta[bucket_num].ct_eq(&FLOOR_INDEX);
             src.cmov(is_this_a_future_target, &deepest_meta[bucket_num]);
             dest.cmov(is_this_a_future_target, &bucket_num);
         }
         // Treat the stash as an extension of the branch.
         target_meta[data_len].cmov(data_len.ct_eq(&src), &dest);
+        }
     }
 
     #[allow(dead_code)]
-    pub fn meta_content_size(meta: &[A8Bytes<MetaSize>]) -> usize {
+    fn meta_content_size(meta: &[A8Bytes<MetaSize>]) -> usize {
         let mut count = 0usize;
         for idx in 0..meta.len() {
             if !bool::from(meta_is_vacant(&meta[idx])) {
@@ -744,9 +801,17 @@ mod evictor {
         }
         return count;
     }
-
+    pub struct CircuitOramNonobliviousEvict {}
+    impl<ValueSize, Z> Evictor<ValueSize, Z> for CircuitOramNonobliviousEvict
+    where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
     #[allow(dead_code)]
-    pub fn circuit_oram_nonoblivious_evict<ValueSize, Z>(
+        fn evict_from_stash_to_branch(
+            &self,
         stash_data: &mut [A64Bytes<ValueSize>],
         stash_meta: &mut [A8Bytes<MetaSize>],
         branch: &mut BranchCheckout<ValueSize, Z>,
@@ -771,8 +836,8 @@ mod evictor {
                 if meta_is_vacant(src_meta).into() {
                     bucket_has_vacancy = true;
                     vacant_chunk = idx;
-                    // std::println!("There is a vacancy at bucket:{}, and chunk:{}", bucket_num,
-                    // vacant_chunk);
+                        // std::println!("There is a vacancy at bucket:{}, and chunk:{}",
+                        // bucket_num, vacant_chunk);
                     break;
                 }
             }
@@ -822,8 +887,8 @@ mod evictor {
                     }
                 }
                 if deepest_target_for_level > bucket_num {
-                    //if you found a block to fill the space, go immediately to that source level.
-                    // Otherwise, just go to the next level.
+                        //if you found a block to fill the space, go immediately to that source
+                        // level. Otherwise, just go to the next level.
                     // std::println!("There is no target for this level {}", bucket_num);
                     bucket_num += 1;
                 } else {
@@ -872,7 +937,8 @@ mod evictor {
                             working_meta[0].as_mut_aligned_chunks();
                         let insertion_data: &mut A64Bytes<ValueSize> =
                             &mut bucket_data[vacant_chunk];
-                        let insertion_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[vacant_chunk];
+                            let insertion_meta: &mut A8Bytes<MetaSize> =
+                                &mut bucket_meta[vacant_chunk];
                         let source_data: &mut A64Bytes<ValueSize> =
                             &mut stash_data[source_chunk_for_deepest];
                         let source_meta: &mut A8Bytes<MetaSize> =
@@ -887,12 +953,20 @@ mod evictor {
             } else {
                 //if there is no vacancy, just go to the next bucket.
                 bucket_num += 1;
+                }
             }
         }
     }
 
-    #[allow(dead_code)]
-    pub fn circuit_oram_evict<ValueSize, Z>(
+    impl<ValueSize, Z> Evictor<ValueSize, Z> for CircuitOramEvict
+    where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        fn evict_from_stash_to_branch(
+            &self,
         stash_data: &mut [A64Bytes<ValueSize>],
         stash_meta: &mut [A8Bytes<MetaSize>],
         branch: &mut BranchCheckout<ValueSize, Z>,
@@ -906,8 +980,8 @@ mod evictor {
         let adjusted_data_len = branch.meta.len() + 1;
         let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
         let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
-        prepare_deepest(&mut deepest_meta, stash_meta, branch);
-        prepare_target(&mut target_meta, &mut deepest_meta, branch);
+            CircuitOramEvict::prepare_deepest(&mut deepest_meta, stash_meta, branch);
+            CircuitOramEvict::prepare_target(&mut target_meta, &mut deepest_meta, branch);
 
         let mut dummy_held_data: A64Bytes<ValueSize> = Default::default();
         let mut dummy_held_meta: A8Bytes<MetaSize> = Default::default();
@@ -983,7 +1057,7 @@ mod evictor {
             );
             meta_set_vacant(held_elem_is_not_vacant_and_bucket_num_is_at_dest, held_meta);
             should_take_an_element_for_level =
-                !(target_meta.get(bucket_num).unwrap()).ct_eq(&FLOOR_INDEX);
+                    !target_meta.get(bucket_num).unwrap().ct_eq(&FLOOR_INDEX);
             debug_assert!(bucket_data.len() == bucket_meta.len());
             deepest_target_for_level = FLOOR_INDEX;
             deepest_target_id_for_level = 0;
@@ -1028,6 +1102,7 @@ mod evictor {
                 bucket_data,
                 bucket_meta,
             );
+            }
         }
     }
 }
