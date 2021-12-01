@@ -340,7 +340,8 @@ mod testing {
         });
     }
 
-    // Run the exercise oram consecutive tests for 20,000 rounds in 8192 sized z4 oram
+    // Run the exercise oram consecutive tests for 20,000 rounds in 8192 sized z4
+    // oram
     #[test]
     fn exercise_consecutive_path_oram_z4_8192() {
         run_with_several_seeds(|rng| {
@@ -381,7 +382,8 @@ mod testing {
         });
     }
 
-    // Run the exercise oram consecutive tests for 100,000 rounds in 1024 sized z4 oram
+    // Run the exercise oram consecutive tests for 100,000 rounds in 1024 sized z4
+    // oram
     #[test]
     #[cfg(not(debug_assertions))]
     fn exercise_consecutive_path_oram_z4_1024() {

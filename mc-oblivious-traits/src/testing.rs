@@ -44,7 +44,8 @@ where
     }
 }
 
-/// Exercise an ORAM by writing, reading, and rewriting, all locations consecutively
+/// Exercise an ORAM by writing, reading, and rewriting, all locations
+/// consecutively
 pub fn exercise_oram_consecutive<BlockSize, O, R>(mut num_rounds: usize, oram: &mut O, rng: &mut R)
 where
     BlockSize: ArrayLength<u8>,
