@@ -44,6 +44,33 @@ where
     }
 }
 
+/// Exercise an ORAM by writing, reading, and rewriting, all locations
+/// consecutively
+pub fn exercise_oram_consecutive<BlockSize, O, R>(mut num_rounds: usize, oram: &mut O, rng: &mut R)
+where
+    BlockSize: ArrayLength<u8>,
+    O: ORAM<BlockSize>,
+    R: RngCore + CryptoRng,
+{
+    let len = oram.len();
+    assert!(len != 0, "len is zero");
+    assert_eq!(len & (len - 1), 0, "len is not a power of two");
+    let mut expected = BTreeMap::<u64, A64Bytes<BlockSize>>::default();
+
+    while num_rounds > 0 {
+        let query = num_rounds as u64 & (len - 1);
+        let expected_ent = expected.entry(query).or_default();
+
+        oram.access(query, |val| {
+            assert_eq!(val, expected_ent);
+            rng.fill_bytes(val);
+            expected_ent.clone_from_slice(val.as_slice());
+        });
+
+        num_rounds -= 1;
+    }
+}
+
 /// Exercise an OMAP by writing, reading, accessing, and removing a
 /// progressively larger set of random locations
 pub fn exercise_omap<KeySize, ValSize, O, R>(mut num_rounds: usize, omap: &mut O, rng: &mut R)

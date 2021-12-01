@@ -340,6 +340,20 @@ mod testing {
         });
     }
 
+    // Run the exercise oram consecutive tests for 20,000 rounds in 8192 sized z4
+    // oram
+    #[test]
+    fn exercise_consecutive_path_oram_z4_8192() {
+        run_with_several_seeds(|rng| {
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                8192, STASH_SIZE, &mut maker,
+            );
+            testing::exercise_oram_consecutive(20_000, &mut oram, &mut rng);
+        });
+    }
+
     // Run the exercise oram tests for 50,000 rounds in 32768 sized z4 oram
     #[test]
     #[cfg(not(debug_assertions))]
@@ -365,6 +379,21 @@ mod testing {
                 131072, STASH_SIZE, &mut maker,
             );
             testing::exercise_oram(60_000, &mut oram, &mut rng);
+        });
+    }
+
+    // Run the exercise oram consecutive tests for 100,000 rounds in 1024 sized z4
+    // oram
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn exercise_consecutive_path_oram_z4_1024() {
+        run_with_several_seeds(|rng| {
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                1024, STASH_SIZE, &mut maker,
+            );
+            testing::exercise_oram_consecutive(100_000, &mut oram, &mut rng);
         });
     }
 }
