@@ -61,6 +61,22 @@ impl CMov for i64 {
     }
 }
 
+#[cfg(target_pointer_width = "64")]
+impl CMov for usize {
+    #[inline]
+    fn cmov(&mut self, condition: Choice, src: &usize) {
+        cmov_impl::cmov_usize_64(condition.unwrap_u8() != 0, src, self)
+    }
+}
+
+#[cfg(target_pointer_width = "32")]
+impl CMov for usize {
+    #[inline]
+    fn cmov(&mut self, condition: Choice, src: &usize) {
+        cmov_impl::cmov_usize_32(condition.unwrap_u8() != 0, src, self)
+    }
+}
+
 impl CMov for bool {
     #[inline]
     fn cmov(&mut self, condition: Choice, src: &bool) {
@@ -185,6 +201,25 @@ mod testing {
         assert_eq!(a, 2);
 
         a.cmov(ctrue, &0);
+        assert_eq!(a, 0);
+    }
+
+    #[test]
+    fn test_cmov_usize() {
+        let ctrue: Choice = Choice::from(1u8);
+        let cfalse: Choice = Choice::from(0u8);
+
+        let mut a = 0usize;
+        a.cmov(ctrue, &1usize);
+        assert_eq!(a, 1);
+
+        a.cmov(ctrue, &2usize);
+        assert_eq!(a, 2);
+
+        a.cmov(cfalse, &0usize);
+        assert_eq!(a, 2);
+
+        a.cmov(ctrue, &0usize);
         assert_eq!(a, 0);
     }
 
