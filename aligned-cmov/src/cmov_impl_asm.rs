@@ -251,6 +251,10 @@ unsafe fn cmov_byte_slice_a64(condition: bool, src: *const u64, dest: *mut u64, 
         in(reg) src,
         in(reg) dest,
         in(reg) num_bytes,
+        // Temp registers.
+        out("ymm1") _,
+        out("ymm2") _,
+        out("ymm3") _,
     );
 }
 
