@@ -157,7 +157,7 @@ unsafe fn cmov_byte_slice_a8(condition: bool, src: *const u64, dest: *mut u64, c
     // indexing. Because dec will clobber ZF, we can't use cmovnz. We store
     // the result of outer test in CF which is not clobbered by dec.
     // cmovc is contingent on CF
-    // negb is used to set CF to 1 iff the condition value was 1.
+    // neg is used to set CF to 1 iff the condition value was 1.
     // Pity, we cannot cmov directly to memory
     //
     // count is modified by the assembly -- for this reason it has to be labelled
@@ -212,12 +212,12 @@ unsafe fn cmov_byte_slice_a64(condition: bool, src: *const u64, dest: *mut u64, 
     asm!(
         // Similarly to cmov_byte_slice_a8, we want to test once and use the
         // result for the whole loop.
-        // Sets CF=0 iff cond==0, 1 otherwise.
-        "neg {0}",
         // Before we enter the loop, we want to set ymm1 to all 0s or all 1s,
-        // depending on condition. We use neg to make it all 64 bits 0s or all
-        // 1s, then vmovq to move that to xmm2, then vbroadcastsd to fill ymm1
+        // depending on condition. We use neg to make all 64 bits 0s or all 1s
+        // (since neg(0) = 0 and neg(1) = -1 = 11111111b in two's complement),
+        // then vmovq to move that to xmm2, then vbroadcastsd to fill ymm1
         // with ones or zeros.
+        "neg {0}",
         "vmovq xmm2, {0}",
         "vbroadcastsd ymm1, xmm2",
         // Once we have the mask in ymm1 we don't need the condition in
