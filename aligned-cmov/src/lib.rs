@@ -1,7 +1,6 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
 #![no_std]
-#![feature(llvm_asm)]
 
 pub use aligned_array::{subtle, Aligned, AsAlignedChunks, AsNeSlice, A64, A8};
 pub use generic_array::{arr, typenum, ArrayLength, GenericArray};

@@ -1,6 +1,6 @@
 [package]
 name = "balanced-tree-index"
-version = "2.0.0"
+version = "2.1.0"
 description = "Utilities for constant-time manipulation of a complete binary tree with a flat in-memory representation."
 authors = ["MobileCoin"]
 license = "GPL-3.0"
@@ -11,7 +11,7 @@ keywords = ["binary-tree", "constant-time", "utilities", "no_std"]
 categories = ["cryptography", "data-structures"]
 
 [dependencies]
-aligned-cmov = { path = "../aligned-cmov", version = "2" }
+aligned-cmov = { path = "../aligned-cmov", version = "2.1" }
 
 rand_core = { version = "0.6", default-features = false }
 

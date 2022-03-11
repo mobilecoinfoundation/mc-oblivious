@@ -1,6 +1,6 @@
 [package]
 name = "no-asm-tests"
-version = "2.0.0"
+version = "2.1.0"
 description = "A crate in another workspace which sets the no_asm_insecure flag and runs tests that way"
 authors = ["MobileCoin"]
 edition = "2018"
@@ -9,6 +9,6 @@ readme = "README.md"
 [dependencies]
 aligned-cmov = { path = "../aligned-cmov", features = ["no_asm_insecure"] }
 balanced-tree-index = { path = "../balanced-tree-index" }
-mc-oblivious-traits = { path = "../mc-oblivious-traits" }
-mc-oblivious-ram = { path = "../mc-oblivious-ram" }
+mc-oblivious-traits = { path = "../mc-oblivious-traits", features = ["no_asm_insecure"] }
+mc-oblivious-ram = { path = "../mc-oblivious-ram", features = ["no_asm_insecure"] }
 test-helper = { path = "../test-helper" }
