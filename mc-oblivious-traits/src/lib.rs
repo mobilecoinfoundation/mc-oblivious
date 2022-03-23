@@ -121,6 +121,10 @@ pub trait ORAM<ValueSize: ArrayLength<u8>> {
     /// accessed.
     fn len(&self) -> u64;
 
+    /// Get the number of values in the ORAM's stash for diagnostics. In prod,
+    /// this number should be viewed as secret and not revealed.
+    fn stash_size(&self) -> usize;
+
     /// Access the ORAM at a position, calling a lambda with the recovered
     /// value, and returning the result of the lambda.
     /// This cannot fail, but will panic if index is out of bounds.
