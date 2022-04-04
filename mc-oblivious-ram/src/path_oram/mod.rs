@@ -15,6 +15,7 @@
 
 use alloc::vec;
 
+use self::evictor::{Evictor, PathOramEvict};
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
     typenum::{PartialDiv, Prod, Unsigned, U16, U64, U8},
@@ -27,7 +28,6 @@ use mc_oblivious_traits::{
     log2_ceil, ORAMStorage, ORAMStorageCreator, PositionMap, PositionMapCreator, ORAM,
 };
 use rand_core::{CryptoRng, RngCore};
-use self::evictor::{Evictor, PathOramEvict};
 
 /// In this implementation, a value is expected to be an aligned 4096 byte page.
 /// The metadata associated to a value is two u64's (block num and leaf), so 16
@@ -154,7 +154,6 @@ where
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
             evictor: evictor,
-            
         }
     }
 }
@@ -242,7 +241,11 @@ where
         }
 
         // Now do cleanup / eviction on this branch, before checking out
-        self.evictor.evict_from_stash_to_branch(&mut self.stash_data, &mut self.stash_meta, &mut self.branch);
+        self.evictor.evict_from_stash_to_branch(
+            &mut self.stash_data,
+            &mut self.stash_meta,
+            &mut self.branch,
+        );
 
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
