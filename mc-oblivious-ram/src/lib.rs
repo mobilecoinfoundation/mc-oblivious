@@ -21,6 +21,7 @@
 #![no_std]
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
+#![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 
 extern crate alloc;
 extern crate std;

@@ -27,6 +27,7 @@ use mc_oblivious_traits::{
     log2_ceil, ORAMStorage, ORAMStorageCreator, PositionMap, PositionMapCreator, ORAM,
 };
 use rand_core::{CryptoRng, RngCore};
+use self::evictor::{Evictor, PathOramEvict};
 
 /// In this implementation, a value is expected to be an aligned 4096 byte page.
 /// The metadata associated to a value is two u64's (block num and leaf), so 16
@@ -105,6 +106,8 @@ where
     stash_meta: Vec<A8Bytes<MetaSize>>,
     /// Our currently checked-out branch if any
     branch: BranchCheckout<ValueSize, Z>,
+    /// Eviction strategy
+    evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
 }
 
 impl<ValueSize, Z, StorageType, RngType> PathORAM<ValueSize, Z, StorageType, RngType>
@@ -141,6 +144,7 @@ where
         let mut rng = rng_maker();
         let storage = SC::create(2u64 << height, &mut rng).expect("Storage failed");
         let pos = PMC::create(size, height, stash_size, rng_maker);
+        let evictor = Box::new(PathOramEvict::new());
         Self {
             height,
             storage,
@@ -149,6 +153,8 @@ where
             stash_data: vec![Default::default(); stash_size],
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
+            evictor: evictor,
+            
         }
     }
 }
@@ -236,14 +242,7 @@ where
         }
 
         // Now do cleanup / eviction on this branch, before checking out
-        {
-            debug_assert!(self.branch.leaf == current_pos);
-            self.branch.pack();
-            for idx in 0..self.stash_data.len() {
-                self.branch
-                    .ct_insert(1.into(), &self.stash_data[idx], &mut self.stash_meta[idx]);
-            }
-        }
+        self.evictor.evict_from_stash_to_branch(&mut self.stash_data, &mut self.stash_meta, &mut self.branch);
 
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
@@ -260,7 +259,7 @@ where
 /// call malloc with every checkout.
 ///
 /// This is mainly just an organizational thing.
-struct BranchCheckout<ValueSize, Z>
+pub struct BranchCheckout<ValueSize, Z>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -538,6 +537,58 @@ mod details {
             dest_data[idx].cmov(test, src_data);
             meta_set_vacant(test, src_meta);
             condition &= !test;
+        }
+    }
+}
+
+/// Evictor functions
+pub mod evictor {
+
+    use super::*;
+
+    /// Evictor trait conceptually is a mechanism for moving stash elements into
+    /// the oram.
+    pub trait Evictor<ValueSize, Z>
+    where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        /// Method that takes a branch and a stash and moves elements from the
+        /// stash into the branch.
+        fn evict_from_stash_to_branch(
+            &self,
+            stash_data: &mut [A64Bytes<ValueSize>],
+            stash_meta: &mut [A8Bytes<MetaSize>],
+            branch: &mut BranchCheckout<ValueSize, Z>,
+        );
+    }
+    pub struct PathOramEvict {}
+    impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
+    where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        fn evict_from_stash_to_branch(
+            &self,
+            stash_data: &mut [A64Bytes<ValueSize>],
+            stash_meta: &mut [A8Bytes<MetaSize>],
+            branch: &mut BranchCheckout<ValueSize, Z>,
+        ) {
+            branch.pack();
+            //Greedily place elements of the stash into the branch as close to the leaf as
+            // they can go.
+            for idx in 0..stash_data.len() {
+                branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
+            }
+        }
+    }
+    impl PathOramEvict {
+        pub fn new() -> Self {
+            Self {}
         }
     }
 }
