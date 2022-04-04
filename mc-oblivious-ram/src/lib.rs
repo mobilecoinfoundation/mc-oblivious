@@ -351,7 +351,6 @@ mod testing {
         });
     }
 
-
     // Run the analysis oram tests similar to CircuitOram section 5. Warm up with
     // 2^10 accesses, then run for 2^20 accesses cycling through all N logical
     // addresses. N=2^10. This choice is arbitrary because stash size should not
@@ -400,7 +399,8 @@ mod testing {
         });
     }
 
-    // Test for stash performance independence for changing N (Oram size) without changing number of calls.
+    // Test for stash performance independence for changing N (Oram size) without
+    // changing number of calls.
     #[test]
     #[cfg(not(debug_assertions))]
     fn test_oram_n_independence() {
@@ -430,12 +430,21 @@ mod testing {
                 let mut probability_of_stash_size = vec::Vec::new();
                 for stash_stats in &statistics_agregate {
                     if let Some(stash_count) = stash_stats.1.get(&stash_num) {
-                        std::eprintln!("key: {}, has_value: {}, for oram_power: {}", stash_num, stash_count, stash_stats.0);
+                        std::eprintln!(
+                            "key: {}, has_value: {}, for oram_power: {}",
+                            stash_num,
+                            stash_count,
+                            stash_stats.0
+                        );
                         let stash_count_probability =
                             (NUM_ROUNDS as f64 / *stash_count as f64).log2();
                         probability_of_stash_size.push(stash_count_probability);
                     } else {
-                        std::eprintln!("Key: {}, has no value for oram_power: {}", stash_num, stash_stats.0);
+                        std::eprintln!(
+                            "Key: {}, has no value for oram_power: {}",
+                            stash_num,
+                            stash_stats.0
+                        );
                     }
                 }
                 let data_variance = rgsl::statistics::variance(
