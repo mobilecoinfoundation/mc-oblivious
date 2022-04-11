@@ -167,7 +167,6 @@ commands:
             cargo bench
 
 jobs:
-
   # Run all tests on a single container
   run-all-tests:
     executor: build-executor
