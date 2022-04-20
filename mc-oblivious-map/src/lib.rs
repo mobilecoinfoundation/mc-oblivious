@@ -1,6 +1,21 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
 //! Implementation of a cuckoo hash table where the arena is an oblivious RAM
+// A cuckoo hash is unlike normal hash tables in that it guarantees constant
+// time performance.
+
+// The trick is that a cuckoo hash table is actually 2 hash tables with 2
+// different hash functions. The key is always hashed twice for access, read,
+// and removal because we guarantee the element must only reside in the location
+// of its hash in one of the two tables. In our case, each hash bucket is
+// actually an oram that can hold several values.
+
+// Insertion requires variable time. In the event of collision, pick one of the
+// elements already in the oram which is colliding, and move it to the other
+// hash. This is amortized constant time, but not constant time due to this
+// relocation. The intuition is that the probability of a random chain being in
+// a cycle of length k is 1/n See the proof here:
+// https://cs.stanford.edu/~rishig/courses/ref/l13a.pdf
 
 #![no_std]
 #![deny(unsafe_code)]
