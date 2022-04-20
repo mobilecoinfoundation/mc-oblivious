@@ -4,18 +4,34 @@
 // A cuckoo hash is a hash table that guarantees constant
 // time read, removal and access.
 
-// The trick is that a cuckoo hash table is actually 2 hash tables with 2
-// different hash functions. The key is always hashed twice for access, read,
-// and removal because we guarantee the element must only reside in the location
-// of its hash in one of the two tables. In our case, each hash bucket is
-// actually an oram that can hold several values.
+// The trick is that our cuckoo hash table is actually 2 orams with 2 different
+// hash functions. The key is always hashed twice for access, read, and removal
+// because we guarantee the element must only reside in the location of its hash
+// in one of the two orams. In our case, each hash bucket is an oram bucket that
+// can hold multiple values. See https://www.ru.is/faculty/ulfar/CuckooHash.pdf
+// for a survey of cuckoo hash using varying numbers of hash functions and
+// bucket size.
 
-// Insertion requires variable time. In the event of collision, pick one of the
-// elements already in the oram which is colliding, and move it to the other
-// hash. This is amortized constant time, but not constant time due to this
-// relocation. The intuition is that the probability of a random chain being in
-// a cycle of length k is 1/n See the proof here:
+// Insertion requires variable time, but we maintain obliviousness. We derive
+// obliviousness both from inheriting it from the oram, and if siphasher is a
+// pseudo random function, the hash for a given query is indistinguishable from
+// the hash of a different query. This PRF property of the hash is important
+// because it means it is not possible for an outside observer to know the
+// collision behaviour of an element, which is important because the collision
+// behaviour results in a non constant runtime. In the event of collision, pick
+// one of the elements already in the oram which is colliding, and move it to
+// the other hash. This is amortized constant time, but not constant time due to
+// this relocation. The intuition is that if we treat the hash functons as
+// random functions, we can treat the graph connecting buckets that are both the
+// target of an element as a random graph. With high probability a sparse random
+// graph doesn't have any cycles. See the proof here:
 // https://cs.stanford.edu/~rishig/courses/ref/l13a.pdf
+
+// Additionally note that although the insertion behaviour of an element q and
+// q' which are both in or not in the map already is oblivious in the sense that
+// for elements q and q' an observer cannot distinguish their behaviour. It is
+// not the case for q in the map and q' not in the map. This must be mitigated
+// externally.
 
 #![no_std]
 #![deny(unsafe_code)]
