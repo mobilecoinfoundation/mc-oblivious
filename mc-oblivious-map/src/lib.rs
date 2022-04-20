@@ -1,8 +1,8 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
 //! Implementation of a cuckoo hash table where the arena is an oblivious RAM
-// A cuckoo hash is unlike normal hash tables in that it guarantees constant
-// time performance.
+// A cuckoo hash is a hash table that guarantees constant
+// time read, removal and access.
 
 // The trick is that a cuckoo hash table is actually 2 hash tables with 2
 // different hash functions. The key is always hashed twice for access, read,
