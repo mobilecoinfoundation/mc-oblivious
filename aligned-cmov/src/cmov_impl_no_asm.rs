@@ -35,7 +35,7 @@ pub fn cmov_i64(condition: bool, src: &i64, dest: &mut i64) {
 }
 
 #[inline]
-pub fn cmov_usize_64(condition: bool, src: &usize, dest: &mut usize) {
+pub fn cmov_usize(condition: bool, src: &usize, dest: &mut usize) {
     if condition {
         *dest = *src
     }

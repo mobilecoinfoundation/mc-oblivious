@@ -59,7 +59,7 @@ pub fn cmov_u64(condition: bool, src: &u64, dest: &mut u64) {
 // CMov for usize on 64 bit pointer size architecture
 #[inline]
 #[cfg(target_pointer_width = "64")]
-pub fn cmov_usize_64(condition: bool, src: &usize, dest: &mut usize) {
+pub fn cmov_usize(condition: bool, src: &usize, dest: &mut usize) {
     let src_transmuted = unsafe { core::mem::transmute::<&usize, &u64>(src) };
     let dest_transmuted = unsafe { core::mem::transmute::<&mut usize, &mut u64>(dest) };
 
@@ -69,7 +69,7 @@ pub fn cmov_usize_64(condition: bool, src: &usize, dest: &mut usize) {
 // CMov for usize on 32 bit pointer size architecture
 #[inline]
 #[cfg(target_pointer_width = "32")]
-pub fn cmov_usize_32(condition: bool, src: &usize, dest: &mut usize) {
+pub fn cmov_usize(condition: bool, src: &usize, dest: &mut usize) {
     let src_transmuted = unsafe { core::mem::transmute::<&usize, &u32>(src) };
     let dest_transmuted = unsafe { core::mem::transmute::<&mut usize, &mut u32>(dest) };
 
