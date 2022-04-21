@@ -96,22 +96,13 @@ where
 mod testing {
     use super::*;
 
-    use aligned_cmov::{A64Bytes, A8Bytes, ArrayLength};
+    use aligned_cmov::{A64Bytes, ArrayLength};
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAM};
     use test_helper::{run_with_several_seeds, RngType};
 
     const STASH_SIZE: usize = 16;
 
     // Helper to make tests more succinct
-    #[allow(unused)]
-    fn a8_bytes<N: ArrayLength<u8>>(src: u8) -> A8Bytes<N> {
-        let mut result = A8Bytes::<N>::default();
-        for byte in result.iter_mut() {
-            *byte = src;
-        }
-        result
-    }
-
     fn a64_bytes<N: ArrayLength<u8>>(src: u8) -> A64Bytes<N> {
         let mut result = A64Bytes::<N>::default();
         for byte in result.iter_mut() {
