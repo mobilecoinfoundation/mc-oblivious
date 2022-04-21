@@ -17,28 +17,8 @@
 //! Insertion requires variable time and is not usually oblivious. This is ok
 //! for use on things like fog view/ledger where nothing they are inserting is
 //! secret. It is possible to obtain obtain obliviousness for things like
-//! fog-ingest. We have obliviousness on the insertion behaviour of q and q'
-//! elements which share the property of being in the oram or not being in the
-//! oram. This is both from inheriting it from the oram, and from the pseudo
-//! random nature of the hash function making the hashes of q and q'
-//! indistinguishable. This PRF property of the hash is important because it
-//! means it is not possible for an outside observer to know the collision
-//! behaviour of an element, which is important because the collision behaviour
-//! results in a non constant runtime. In the event of collision, pick one of
-//! the elements already in the oram which is colliding, and move it to the
-//! other hash. This is amortized constant time, but not constant time due to
-//! this relocation. The intuition is that if we treat the hash functons as
-//! random functions, we can treat the graph connecting buckets that are both
-//! the target of an element as a random graph and with high probability a
-//! sparse random graph doesn't have any cycles. See the proof here:
-//! https://cs.stanford.edu/~rishig/courses/ref/l13a.pdf
-
-//! Note that although the insertion behaviour of an element q and q' which are
-//! both in or not in the map already is oblivious in the sense that for
-//! elements q and q' an observer cannot distinguish their behaviour. It is not
-//! the case for q in the map and q' not in the map. This must be mitigated
-//! externally. See: [`ObliviousHashMap::access_and_insert()`] which is used by
-//! ingest.
+//! fog-ingest. Please see documentation in [vartime_write_extended()] and
+//! [`ObliviousHashMap::access_and_insert()`]
 
 #![no_std]
 #![deny(unsafe_code)]
@@ -361,18 +341,40 @@ where
         result_code
     }
 
-    /// For writing:
-    /// The insertion algorithm is, hash the item twice and load its buckets.
-    /// We always add to the less loaded of the two buckets, breaking ties to
-    /// the right, that is, prefering to write to oram2.
-    /// If BOTH buckets overflow, then we choose an item at random from oram1
-    /// bucket and kick it out, then we hash that item and insert it into
-    /// the other bucket where it can go, repeating the process if
-    /// necessary. If after a few tries it doesn't work, we give up, roll
-    /// everything back, and return OMAP_OVERFLOW.
+    /// For writing: The insertion algorithm is, hash the item twice and load
+    /// its buckets. We always add to the less loaded of the two buckets,
+    /// breaking ties to the right, that is, prefering to write to oram2. If
+    /// BOTH buckets overflow, then we choose an item at random from oram1
+    /// bucket and kick it out, then we hash that item and insert it into the
+    /// other bucket where it can go, repeating the process if necessary. If
+    /// after a few tries it doesn't work, we give up, roll everything back, and
+    /// return OMAP_OVERFLOW.
     ///
     /// The access function is an alternative that allows modifying values in
     /// the map without taking a variable amount of time.
+    ///
+    /// We have obliviousness on the insertion behaviour of q and q' elements
+    /// which share the property of being in the oram or not being in the oram.
+    /// This is both from inheriting it from the oram, and from the pseudo
+    /// random nature of the hash function making the hashes of q and q'
+    /// indistinguishable. This PRF property of the hash is important because it
+    /// means it is not possible for an outside observer to know the collision
+    /// behaviour of an element, which is important because the collision
+    /// behaviour results in a non constant runtime. In the event of collision,
+    /// pick one of the elements already in the oram which is colliding, and
+    /// move it to the other hash. This is amortized constant time, but not
+    /// constant time due to this relocation. The intuition is that if we treat
+    /// the hash functons as random functions, we can treat the graph connecting
+    /// buckets that are both the target of an element as a random graph and
+    /// with high probability a sparse random graph doesn't have any cycles. See
+    /// the proof here: https://cs.stanford.edu/~rishig/courses/ref/l13a.pdf
+    ///
+    /// Note that although the insertion behaviour of an element q and q' which
+    /// are both in or not in the map already is oblivious in the sense that for
+    /// elements q and q' an observer cannot distinguish their behaviour. It is
+    /// not the case for q in the map and q' not in the map. This must be
+    /// mitigated externally. See: [`ObliviousHashMap::access_and_insert()`]
+    /// which is used by ingest.
     fn vartime_write_extended(
         &mut self,
         query: &A8Bytes<KeySize>,
