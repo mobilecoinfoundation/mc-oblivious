@@ -1,8 +1,9 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
-//! Implementation of a cuckoo hash table where the arena is an oblivious RAM
-//! A cuckoo hash is a hash table that guarantees constant
-//! time read, removal and access.
+//! Implementation of a bucketed cuckoo hash table where the arena is an
+//! oblivious RAM
+//! A cuckoo hash table is a data structure that performs access and removal
+//! using a constant number of operations.
 
 //! The trick is that our cuckoo hash table is actually 2 orams with 2 different
 //! hash functions. The key is always hashed twice for access, read, and removal
@@ -350,31 +351,33 @@ where
     /// after a few tries it doesn't work, we give up, roll everything back, and
     /// return OMAP_OVERFLOW.
     ///
+    /// This is amortized constant time, but not constant time due
+    /// to this relocation. The intuition is that if we treat the hash functons
+    /// as random functions, we can treat the graph connecting buckets that are
+    /// both the target of an element as a random graph and with high
+    /// probability a sparse random graph doesn't have any cycles. See the proof
+    /// here: https://cs.stanford.edu/~rishig/courses/ref/l13a.pdf
+    ///
     /// The access function is an alternative that allows modifying values in
     /// the map without taking a variable amount of time.
     ///
-    /// We have obliviousness on the insertion behaviour of q and q' elements
-    /// which share the property of being in the oram or not being in the oram.
-    /// This is both from inheriting it from the oram, and from the pseudo
-    /// random nature of the hash function making the hashes of q and q'
-    /// indistinguishable. This PRF property of the hash is important because it
-    /// means it is not possible for an outside observer to know the collision
-    /// behaviour of an element, which is important because the collision
-    /// behaviour results in a non constant runtime. In the event of collision,
-    /// pick one of the elements already in the oram which is colliding, and
-    /// move it to the other hash. This is amortized constant time, but not
-    /// constant time due to this relocation. The intuition is that if we treat
-    /// the hash functons as random functions, we can treat the graph connecting
-    /// buckets that are both the target of an element as a random graph and
-    /// with high probability a sparse random graph doesn't have any cycles. See
-    /// the proof here: https://cs.stanford.edu/~rishig/courses/ref/l13a.pdf
-    ///
-    /// Note that although the insertion behaviour of an element q and q' which
-    /// are both in or not in the map already is oblivious in the sense that for
-    /// elements q and q' an observer cannot distinguish their behaviour. It is
-    /// not the case for q in the map and q' not in the map. This must be
-    /// mitigated externally. See: [`ObliviousHashMap::access_and_insert()`]
-    /// which is used by ingest.
+    /// Note: this function is not generally oblivious with respect to the item
+    /// being inserted. In many cases, inserts don't need to be oblivious. It is
+    /// possible to use this function in such a way as to perform an completely
+    /// oblivious insert. We will explain that now. This function has some
+    /// limited data oblivious guarantees:
+    /// - If we restrict attention to calling vartime_write on items q which are
+    ///   already in the OMAP, then it is oblivious with respect to such q.
+    /// - If we restrict attention to calling vartime_write on items q which are
+    ///   not already in the OMAP, then it is oblivious with respect to these,
+    ///   assuming that the hash function used in the map has a strong PRF
+    ///   property.
+    /// - However, calling the function DOES reveal if q is already in the map
+    ///   or not. To avoid leaking this information, and perform a fully
+    ///   oblivious write-or-insert operation, the caller should use the
+    ///   access_and_insert function from the
+    ///   [`ObliviousHashMap::access_and_insert()`] trait.
+
     fn vartime_write_extended(
         &mut self,
         query: &A8Bytes<KeySize>,
