@@ -1,6 +1,25 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
-//! Implementation of a cuckoo hash table where the arena is an oblivious RAM
+//! Implementation of a bucketed cuckoo hash table where the arena is an
+//! oblivious RAM
+//! A cuckoo hash table is a data structure that performs access and removal
+//! using a constant number of operations.
+
+//! The trick is that our cuckoo hash table is actually 2 orams with 2 different
+//! hash functions. The key is always hashed twice for access, read, and removal
+//! because we guarantee the element must only reside in the location of its
+//! hash in one of the two orams. This also implies that these operations are
+//! oblivious, because we always do 2 oram queries, once per each oram, and
+//! inherit obliviousness from the oram. In our case, each hash bucket is an
+//! oram bucket that can hold multiple values. See
+//! https://www.ru.is/faculty/ulfar/CuckooHash.pdf for a survey of cuckoo hash
+//! using varying numbers of hash functions and bucket size.
+
+//! Insertion requires variable time and is not usually oblivious. This is ok
+//! for use on things like fog view/ledger where nothing they are inserting is
+//! secret. It is possible to obtain obtain obliviousness for things like
+//! fog-ingest. Please see documentation in [vartime_write_extended()] and
+//! [`ObliviousHashMap::access_and_insert()`]
 
 #![no_std]
 #![deny(unsafe_code)]
@@ -323,18 +342,42 @@ where
         result_code
     }
 
-    /// For writing:
-    /// The insertion algorithm is, hash the item twice and load its buckets.
-    /// We always add to the less loaded of the two buckets, breaking ties to
-    /// the right, that is, prefering to write to oram2.
-    /// If BOTH buckets overflow, then we choose an item at random from oram1
-    /// bucket and kick it out, then we hash that item and insert it into
-    /// the other bucket where it can go, repeating the process if
-    /// necessary. If after a few tries it doesn't work, we give up, roll
-    /// everything back, and return OMAP_OVERFLOW.
+    /// For writing: The insertion algorithm is, hash the item twice and load
+    /// its buckets. We always add to the less loaded of the two buckets,
+    /// breaking ties to the right, that is, prefering to write to oram2. If
+    /// BOTH buckets overflow, then we choose an item at random from oram1
+    /// bucket and kick it out, then we hash that item and insert it into the
+    /// other bucket where it can go, repeating the process if necessary. If
+    /// after a few tries it doesn't work, we give up, roll everything back, and
+    /// return OMAP_OVERFLOW.
+    ///
+    /// This is amortized constant time, but not constant time due
+    /// to this relocation. The intuition is that if we treat the hash functons
+    /// as random functions, we can treat the graph connecting buckets that are
+    /// both the target of an element as a random graph and with high
+    /// probability a sparse random graph doesn't have any cycles. See the proof
+    /// here: https://cs.stanford.edu/~rishig/courses/ref/l13a.pdf
     ///
     /// The access function is an alternative that allows modifying values in
     /// the map without taking a variable amount of time.
+    ///
+    /// Note: this function is not generally oblivious with respect to the item
+    /// being inserted. In many cases, inserts don't need to be oblivious. It is
+    /// possible to use this function in such a way as to perform an completely
+    /// oblivious insert. We will explain that now. This function has some
+    /// limited data oblivious guarantees:
+    /// - If we restrict attention to calling vartime_write on items q which are
+    ///   already in the OMAP, then it is oblivious with respect to such q.
+    /// - If we restrict attention to calling vartime_write on items q which are
+    ///   not already in the OMAP, then it is oblivious with respect to these,
+    ///   assuming that the hash function used in the map has a strong PRF
+    ///   property.
+    /// - However, calling the function DOES reveal if q is already in the map
+    ///   or not. To avoid leaking this information, and perform a fully
+    ///   oblivious write-or-insert operation, the caller should use the
+    ///   access_and_insert function from the
+    ///   [`ObliviousHashMap::access_and_insert()`] trait.
+
     fn vartime_write_extended(
         &mut self,
         query: &A8Bytes<KeySize>,

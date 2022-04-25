@@ -103,7 +103,7 @@ commands:
           name: Install Rust
           command: |
             command -v rustup >/dev/null || \
-              curl https://sh.rustup.rs --tlsv1.2 -sSf | sh -s -- -y --default-toolchain none
+              curl https://sh.rustup.rs --tlsv1.2 -sSf | sh -s -- -y --default-toolchain stable
             # Installs the toolchain specified in `rust-toolchain`
             "$HOME/.cargo/bin/rustup" show active-toolchain
   install-ci-deps:
@@ -111,8 +111,8 @@ commands:
       - run:
           name: Install CI dependencies
           command: |
-            command -v cargo-cache >/dev/null || cargo install cargo-cache
-            command -v cargo2junit >/dev/null || cargo install cargo2junit
+            command -v cargo-cache >/dev/null || rustup run --install stable cargo install cargo-cache
+            command -v cargo2junit >/dev/null || rustup run --install stable cargo install cargo2junit
   prefetch-cargo-deps:
     steps:
       - run:
@@ -167,7 +167,6 @@ commands:
             cargo bench
 
 jobs:
-
   # Run all tests on a single container
   run-all-tests:
     executor: build-executor
