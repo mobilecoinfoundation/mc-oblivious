@@ -166,6 +166,19 @@ where
     fn len(&self) -> u64 {
         self.pos.len()
     }
+
+    fn stash_size(&self) -> usize {
+        let mut stash_count = 0u64;
+        for idx in 0..self.stash_data.len() {
+            let stash_count_incremented = stash_count + 1;
+            stash_count.cmov(
+                meta_is_vacant(&self.stash_meta[idx]),
+                &stash_count_incremented,
+            );
+        }
+        stash_count as usize
+    }
+
     // TODO: We should try implementing a circuit-ORAM like approach also
     fn access<T, F: FnOnce(&mut A64Bytes<ValueSize>) -> T>(&mut self, key: u64, f: F) -> T {
         let result: T;
