@@ -11,7 +11,8 @@ use mc_oblivious_traits::{
 };
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use test_helper::{CryptoRng, RngCore, RngType, SeedableRng};
-
+extern crate std;
+extern crate alloc;
 mod insecure_position_map;
 use insecure_position_map::InsecurePositionMapCreator;
 
@@ -114,9 +115,12 @@ impl<SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, RngType>
 
 #[cfg(test)]
 mod tests {
-    use mc_oblivious_ram::PathORAM4096Z4Creator;
+    use super::*;
+    use core::convert::TryInto;
+    use std::vec;
+    use alloc::collections::BTreeMap;
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAMCreator};
-    use test_helper::{run_with_several_seeds, RngType};
+    use test_helper::{run_with_several_seeds};
 
     // Run the exercise oram tests for 200,000 rounds in 131072 sized z4 oram
     #[test]
@@ -125,7 +129,7 @@ mod tests {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let stash_size = 16;
-            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+            let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
                 131072, stash_size, &mut maker,
             );
             testing::exercise_oram(200_000, &mut oram, &mut rng);
@@ -139,10 +143,125 @@ mod tests {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let stash_size = 16;
-            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+            let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
                 262144, stash_size, &mut maker,
             );
             testing::exercise_oram(400_000, &mut oram, &mut rng);
         });
     }
+
+    // Run the analysis oram tests similar to CircuitOram section 5. Warm up with
+    // 2^10 accesses, then run for 2^20 accesses cycling through all N logical
+    // addresses. N=2^10. This choice is arbitrary because stash size should not
+    // depend on N. Measure the number of times that the stash is above any
+    // given size.
+    #[test]
+    fn analysis_path_oram_z4_8192() {
+        const STASH_SIZE: usize = 32;
+        run_with_several_seeds(|rng| {
+            let base: u64 = 2;
+            let num_prerounds: u64 = base.pow(10);
+            let num_rounds: u64 = base.pow(15);
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
+                base.pow(10),
+                STASH_SIZE,
+                &mut maker,
+            );
+            let stash_stats = testing::measure_oram_stash_size_distribution(
+                num_prerounds.try_into().unwrap(),
+                num_rounds.try_into().unwrap(),
+                &mut oram,
+                &mut rng,
+            );
+            let mut x_axis: vec::Vec<f64> = vec::Vec::new();
+            let mut y_axis: vec::Vec<f64> = vec::Vec::new();
+            std::eprintln!("key: {}, has_value: {}", 0, stash_stats.get(&0).unwrap_or(&0));
+            for stash_count in 1..STASH_SIZE {
+                if let Some(stash_count_probability) = stash_stats.get(&stash_count) {
+                    std::eprintln!(
+                        "key: {}, has_value: {}",
+                        stash_count,
+                        stash_count_probability
+                    );
+                    y_axis.push((num_rounds as f64 / *stash_count_probability as f64).log2());
+                    x_axis.push(stash_count as f64);
+                } else {
+                    std::eprintln!("Key: {}, has no value", stash_count);
+                }
+            }
+
+            let correlation = rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
+            std::eprintln!("Correlation: {}", correlation);
+            assert!(correlation > 0.9);
+        });
+    }
+
+    // Test for stash performance independence for changing N (Oram size) without
+    // changing number of calls.
+    #[test]
+    fn test_oram_n_independence() {
+        const STASH_SIZE: usize = 32;
+        const BASE: u64 = 2;
+        const NUM_ROUNDS: u64 = BASE.pow(20);
+        const NUM_PREROUNDS: u64 = BASE.pow(10);
+
+        run_with_several_seeds(|rng| {
+            let mut statistics_agregate = BTreeMap::<u32, BTreeMap<usize, usize>>::default();
+            let mut maker = rng_maker(rng);
+            for oram_power in (10..24).step_by(2) {
+                let mut rng = maker();
+                let oram_size = BASE.pow(oram_power);
+                let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
+                    oram_size,
+                    STASH_SIZE,
+                    &mut maker,
+                );
+                let stash_stats = testing::measure_oram_stash_size_distribution(
+                    NUM_PREROUNDS.try_into().unwrap(),
+                    NUM_ROUNDS.try_into().unwrap(),
+                    &mut oram,
+                    &mut rng,
+                );
+                statistics_agregate.insert(oram_power, stash_stats);
+            }
+            for stash_num in 1..6 {
+                let mut probability_of_stash_size = vec::Vec::new();
+                for stash_stats in &statistics_agregate {
+                    if let Some(stash_count) = stash_stats.1.get(&stash_num) {
+                        std::eprintln!(
+                            "key: {}, has_value: {}, for oram_power: {}",
+                            stash_num,
+                            stash_count,
+                            stash_stats.0
+                        );
+                        let stash_count_probability =
+                            (NUM_ROUNDS as f64 / *stash_count as f64).log2();
+                        probability_of_stash_size.push(stash_count_probability);
+                        std::eprintln!(
+                            "key: {}, has_probability: {}, for oram_power: {}",
+                            stash_num,
+                            stash_count_probability,
+                            stash_stats.0
+                        );
+                    } else {
+                        std::eprintln!(
+                            "Key: {}, has no value for oram_power: {}",
+                            stash_num,
+                            stash_stats.0
+                        );
+                    }
+                }
+                let data_variance = rgsl::statistics::variance(
+                    &probability_of_stash_size,
+                    1,
+                    probability_of_stash_size.len(),
+                );
+                std::eprintln!("The variance in the probability for stash size {} is: {}", stash_num, data_variance);
+                // assert!(data_variance < 0.05);
+            }
+        });
+    }
+
 }
