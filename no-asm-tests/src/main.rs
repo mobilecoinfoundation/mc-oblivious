@@ -161,7 +161,7 @@ mod tests {
         run_with_several_seeds(|rng| {
             let base: u64 = 2;
             let num_prerounds: u64 = base.pow(10);
-            let num_rounds: u64 = base.pow(25);
+            let num_rounds: u64 = base.pow(20);
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
@@ -201,10 +201,10 @@ mod tests {
     // Test for stash performance independence for changing N (Oram size) without
     // changing number of calls.
     #[test]
-    fn test_oram_n_independence() {
+    fn analysis_oram_n_independence() {
         const STASH_SIZE: usize = 32;
         const BASE: u64 = 2;
-        const NUM_ROUNDS: u64 = BASE.pow(25);
+        const NUM_ROUNDS: u64 = BASE.pow(20);
         const NUM_PREROUNDS: u64 = BASE.pow(10);
 
         run_with_several_seeds(|rng| {
