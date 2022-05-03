@@ -136,6 +136,7 @@ commands:
         default: cargo test
     steps:
       - run:
+          no_output_timeout: 45m
           name: Run all tests
           command: |
             << parameters.test_command >> -- -Z unstable-options --format json --report-time \
@@ -215,8 +216,6 @@ jobs:
           name: install gsl library
           command: apt-get update && apt-get install -y libgsl-dev
       - run-tests:
-          name: run no-asm-tests
-          no_output_timeout: 45m
           test_command: "cd no-asm-tests && cargo test --release"
       - check-dirty-git
       - post-test
