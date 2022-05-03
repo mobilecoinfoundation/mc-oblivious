@@ -161,7 +161,7 @@ mod tests {
         run_with_several_seeds(|rng| {
             let base: u64 = 2;
             let num_prerounds: u64 = base.pow(10);
-            let num_rounds: u64 = base.pow(15);
+            let num_rounds: u64 = base.pow(25);
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
@@ -194,7 +194,7 @@ mod tests {
 
             let correlation = rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
             std::eprintln!("Correlation: {}", correlation);
-            assert!(correlation > 0.9);
+            assert!(correlation > 0.85);
         });
     }
 
@@ -204,7 +204,7 @@ mod tests {
     fn test_oram_n_independence() {
         const STASH_SIZE: usize = 32;
         const BASE: u64 = 2;
-        const NUM_ROUNDS: u64 = BASE.pow(20);
+        const NUM_ROUNDS: u64 = BASE.pow(25);
         const NUM_PREROUNDS: u64 = BASE.pow(10);
 
         run_with_several_seeds(|rng| {
@@ -259,7 +259,7 @@ mod tests {
                     probability_of_stash_size.len(),
                 );
                 std::eprintln!("The variance in the probability for stash size {} is: {}", stash_num, data_variance);
-                // assert!(data_variance < 0.05);
+                assert!(data_variance < 0.15);
             }
         });
     }
