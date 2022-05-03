@@ -211,6 +211,9 @@ jobs:
       <<: *default-environment
     steps:
       - prepare-for-build
+      - run: 
+          name: install gsl library
+          command: apt-get update && apt-get install -y libgsl-dev
       - run-tests:
           test_command: "cd no-asm-tests && cargo test --release"
       - check-dirty-git
