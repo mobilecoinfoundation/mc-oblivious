@@ -724,7 +724,7 @@ pub mod evictor {
                             meta_set_vacant(test, source_meta);
                         } else {
                             //The source is the stash
-                            std::println!("The deepest target for level {} is {} it is in the stash. The source is bucket:{}, and chunk:{}", bucket_num, deepest_target_for_level, source_bucket_for_deepest, source_chunk_for_deepest);
+                            // dbg!(bucket_num, deepest_target_for_level, source_bucket_for_deepest, source_chunk_for_deepest);
                             let (_, working_data) = branch.data.split_at_mut(bucket_num);
                             let (_, working_meta) = branch.meta.split_at_mut(bucket_num);
                             let bucket_data: &mut [A64Bytes<ValueSize>] =
