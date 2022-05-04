@@ -596,6 +596,11 @@ pub mod evictor {
         }
     }
     pub struct CircuitOramNonobliviousEvict {}
+    impl CircuitOramNonobliviousEvict {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
     impl<ValueSize, Z> Evictor<ValueSize, Z> for CircuitOramNonobliviousEvict
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -642,8 +647,8 @@ pub mod evictor {
                     let mut source_bucket_for_deepest = FLOOR_INDEX;
                     let mut source_chunk_for_deepest = 0usize;
 
-                    //Try to search through the other buckets that are higher in the branch to find the deepest block that can
-                    // live in this vacancy.
+                    //Try to search through the other buckets that are higher in the branch to find
+                    // the deepest block that can live in this vacancy.
                     for search_bucketnum in 1..(data_len - bucket_num) {
                         let search_bucket_meta: &[A8Bytes<MetaSize>] =
                             working_meta[search_bucketnum].as_aligned_chunks();
@@ -674,7 +679,8 @@ pub mod evictor {
                                 branch.leaf,
                                 data_len,
                             );
-                        //We only take the element from the stash if it is actually deeper than the deepest one we found in the branch.
+                        //We only take the element from the stash if it is actually deeper than the
+                        // deepest one we found in the branch.
                         if bool::try_from(!meta_is_vacant(src_meta)).unwrap()
                             && elem_destination < deepest_target_for_level
                         {
@@ -684,11 +690,13 @@ pub mod evictor {
                         }
                     }
                     if deepest_target_for_level > bucket_num {
-                        //If there is not block that can go in this vacancy, just go up to the next level.
-                        // std::println!("There is no target for this level {}", bucket_num);
+                        //If there is not block that can go in this vacancy, just go up to the next
+                        // level. std::println!("There is no target for this
+                        // level {}", bucket_num);
                         bucket_num += 1;
                     } else {
-                        //Check to see if you're getting the source is from the branch and not the stash.
+                        //Check to see if you're getting the source is from the branch and not the
+                        // stash.
                         if source_bucket_for_deepest < data_len {
                             // std::println!("The deepest target for level {} is {} it is not in a
                             // stash. The source is bucket:{}, and chunk:{}", bucket_num,
@@ -724,7 +732,8 @@ pub mod evictor {
                             meta_set_vacant(test, source_meta);
                         } else {
                             //The source is the stash
-                            // dbg!(bucket_num, deepest_target_for_level, source_bucket_for_deepest, source_chunk_for_deepest);
+                            // dbg!(bucket_num, deepest_target_for_level, source_bucket_for_deepest,
+                            // source_chunk_for_deepest);
                             let (_, working_data) = branch.data.split_at_mut(bucket_num);
                             let (_, working_meta) = branch.meta.split_at_mut(bucket_num);
                             let bucket_data: &mut [A64Bytes<ValueSize>] =
@@ -744,7 +753,8 @@ pub mod evictor {
                             insertion_data.cmov(test, source_data);
                             meta_set_vacant(test, source_meta);
                         }
-                        //We moved an element into the vacancy, so we just created a vacancy we can go to and start again.
+                        //We moved an element into the vacancy, so we just created a vacancy we can
+                        // go to and start again.
                         bucket_num = source_bucket_for_deepest;
                     }
                 } else {
