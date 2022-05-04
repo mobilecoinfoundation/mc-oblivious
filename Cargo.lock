@@ -3,26 +3,6 @@
 version = 3
 
 [[package]]
-name = "GSL"
-version = "6.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9becaf6d7d1ba36a457288e661fa6a0472e8328629276f45369eafcd48ef1ce"
-dependencies = [
- "GSL-sys",
- "paste",
-]
-
-[[package]]
-name = "GSL-sys"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4577670dcc0720995dc39f04c438595eaae8ccc27f4aafd3e572dd408d01bd9d"
-dependencies = [
- "libc",
- "pkg-config",
-]
-
-[[package]]
 name = "aligned-array"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -344,7 +324,6 @@ dependencies = [
 name = "mc-oblivious-ram"
 version = "2.2.0"
 dependencies = [
- "GSL",
  "aligned-cmov",
  "balanced-tree-index",
  "mc-oblivious-traits",
@@ -400,18 +379,6 @@ name = "oorandom"
 version = "11.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
-
-[[package]]
-name = "paste"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0744126afe1a6dd7f394cb50a716dbe086cb06e255e53d8d0185d82828358fb5"
-
-[[package]]
-name = "pkg-config"
-version = "0.3.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58893f751c9b0412871a09abd62ecd2a00298c6c83befa223ef98c52aef40cbe"
 
 [[package]]
 name = "plotters"
