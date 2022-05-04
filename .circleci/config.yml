@@ -13,12 +13,12 @@ executors:
   build-executor:
     docker:
       - image: *builder-install
-    resource_class: x-large
+    resource_class: xlarge
 
   test-executor:
     docker:
       - image: *builder-install
-    resource_class: x-large
+    resource_class: xlarge
 
 commands:
   print_versions:
@@ -216,7 +216,7 @@ jobs:
           name: install gsl library
           command: apt-get update && apt-get install -y libgsl-dev
       - run-tests:
-          test_command: "env; cd no-asm-tests && cargo test --release; dmesg | grep -i oom"
+          test_command: "env; cd no-asm-tests && cargo test --release; dmesg"
       - check-dirty-git
       - post-test
 
