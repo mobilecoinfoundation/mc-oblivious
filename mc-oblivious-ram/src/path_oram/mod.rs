@@ -133,6 +133,7 @@ where
         size: u64,
         stash_size: usize,
         rng_maker: &mut F,
+        evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
     ) -> Self {
         assert!(size != 0, "size cannot be zero");
         assert!(size & (size - 1) == 0, "size must be a power of two");
@@ -144,7 +145,6 @@ where
         let mut rng = rng_maker();
         let storage = SC::create(2u64 << height, &mut rng).expect("Storage failed");
         let pos = PMC::create(size, height, stash_size, rng_maker);
-        let evictor = Box::new(PathOramEvict::new());
         Self {
             height,
             storage,

@@ -26,6 +26,8 @@
 extern crate alloc;
 
 use aligned_cmov::typenum::{U1024, U2, U2048, U32, U4, U4096, U64};
+use alloc::boxed::Box;
+use path_oram::evictor::PathOramEvict;
 use core::marker::PhantomData;
 use mc_oblivious_traits::{ORAMCreator, ORAMStorageCreator};
 use rand_core::{CryptoRng, RngCore};
@@ -62,7 +64,8 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        PathORAM::new::<U32PositionMapCreator<U2048, R, Self>, SC, M>(size, stash_size, rng_maker)
+        let evictor = Box::new(PathOramEvict::new());
+        PathORAM::new::<U32PositionMapCreator<U2048, R, Self>, SC, M>(size, stash_size, rng_maker, evictor)
     }
 }
 
@@ -89,7 +92,8 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(size, stash_size, rng_maker)
+        let evictor = Box::new(PathOramEvict::new());
+        PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(size, stash_size, rng_maker, evictor)
     }
 }
 
