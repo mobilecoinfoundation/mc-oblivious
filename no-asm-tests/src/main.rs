@@ -121,7 +121,7 @@ mod tests {
     use core::convert::TryInto;
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAMCreator};
     use std::vec;
-    use test_helper::run_with_several_seeds;
+    use test_helper::{run_with_several_seeds, run_with_one_seed};
 
     // Run the exercise oram tests for 200,000 rounds in 131072 sized z4 oram
     #[test]
@@ -208,7 +208,7 @@ mod tests {
         const NUM_ROUNDS: u64 = BASE.pow(20);
         const NUM_PREROUNDS: u64 = BASE.pow(10);
 
-        run_with_several_seeds(|rng| {
+        run_with_one_seed(|rng| {
             let mut statistics_agregate = BTreeMap::<u32, BTreeMap<usize, usize>>::default();
             let mut maker = rng_maker(rng);
             for oram_power in (10..24).step_by(2) {
