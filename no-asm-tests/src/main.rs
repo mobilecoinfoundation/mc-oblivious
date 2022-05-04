@@ -225,7 +225,7 @@ mod tests {
                 );
                 statistics_agregate.insert(oram_power, stash_stats);
             }
-            for stash_num in 1..6 {
+            for stash_num in 1..3 {
                 let mut probability_of_stash_size = vec::Vec::new();
                 for stash_stats in &statistics_agregate {
                     if let Some(stash_count) = stash_stats.1.get(&stash_num) {
