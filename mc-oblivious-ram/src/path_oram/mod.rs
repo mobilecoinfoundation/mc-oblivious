@@ -247,6 +247,7 @@ where
             &mut self.branch,
         );
 
+
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
@@ -567,6 +568,14 @@ pub mod evictor {
             stash_meta: &mut [A8Bytes<MetaSize>],
             branch: &mut BranchCheckout<ValueSize, Z>,
         );
+        /// Returns a list of branches to call evict from stash to branch on.
+        fn get_branches_to_evict(
+            &self,
+            iteration: u64,
+            tree_height: u32,
+            tree_size: u64,
+            branch_indices: &mut [u64],
+        );
     }
     pub struct PathOramEvict {}
     impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
@@ -589,6 +598,9 @@ pub mod evictor {
                 branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
             }
         }
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {
+            
+        }
     }
     impl PathOramEvict {
         pub fn new() -> Self {
@@ -608,6 +620,8 @@ pub mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {
+        }
         #[allow(dead_code)]
         fn evict_from_stash_to_branch(
             &self,
