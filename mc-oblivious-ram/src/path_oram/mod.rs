@@ -153,7 +153,7 @@ where
             stash_data: vec![Default::default(); stash_size],
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
-            evictor: evictor,
+            evictor,
         }
     }
 }
