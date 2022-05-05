@@ -229,18 +229,18 @@ mod tests {
             }
             for stash_num in 1..6 {
                 let mut probability_of_stash_size = vec::Vec::new();
-                for (oram_power, stash_size_by_count) in &oram_size_to_stash_size_by_count { 
+                for (_oram_power, stash_size_by_count) in &oram_size_to_stash_size_by_count { 
                     if let Some(stash_count) = stash_size_by_count.get(&stash_num) {
                         let stash_count_probability =
                             (NUM_ROUNDS as f64 / *stash_count as f64).log2();
                         probability_of_stash_size.push(stash_count_probability);
                         #[cfg(debug_assertions)]
-                        dbg!(stash_num, stash_count, oram_power);
+                        dbg!(stash_num, stash_count, _oram_power);
                         #[cfg(debug_assertions)]
-                        dbg!(stash_num, stash_count_probability, oram_power);
+                        dbg!(stash_num, stash_count_probability, _oram_power);
                     } else {
                         #[cfg(debug_assertions)]
-                        dbg!(stash_num, oram_power);
+                        dbg!(stash_num, _oram_power);
                     }
                 }
                 let data_variance = rgsl::statistics::variance(
