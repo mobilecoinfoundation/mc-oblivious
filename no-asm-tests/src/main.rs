@@ -157,8 +157,9 @@ mod tests {
     // depend on N. Measure the number of times that the stash is above any
     // given size.
     #[test]
-    fn analysis_path_oram_z4_8192() {
+    fn analyse_path_oram_z4_8192() {
         const STASH_SIZE: usize = 32;
+        const CORRELATION_THRESHOLD: f64 = 0.85;
         run_with_several_seeds(|rng| {
             let base: u64 = 2;
             let num_prerounds: u64 = base.pow(10);
@@ -195,18 +196,19 @@ mod tests {
             let correlation = rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
             #[cfg(debug_assertions)]
             dbg!(correlation);
-            assert!(correlation > 0.85);
+            assert!(correlation > CORRELATION_THRESHOLD);
         });
     }
 
     // Test for stash performance independence for changing N (Oram size) without
     // changing number of calls.
     #[test]
-    fn analysis_oram_n_independence() {
+    fn analyse_oram_n_independence() {
         const STASH_SIZE: usize = 32;
         const BASE: u64 = 2;
         const NUM_ROUNDS: u64 = BASE.pow(20);
         const NUM_PREROUNDS: u64 = BASE.pow(10);
+        const VARIANCE_THRESHOLD: f64 = 0.15;
 
         run_with_one_seed(|rng| {
             let mut oram_size_to_stash_size_by_count = BTreeMap::<u32, BTreeMap<usize, usize>>::default();
@@ -248,7 +250,7 @@ mod tests {
                 );
                 #[cfg(debug_assertions)]
                 dbg!(stash_num, data_variance);
-                assert!(data_variance < 0.15);
+                assert!(data_variance < VARIANCE_THRESHOLD);
             }
         });
     }
