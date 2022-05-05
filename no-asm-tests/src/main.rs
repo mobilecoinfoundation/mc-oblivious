@@ -209,7 +209,7 @@ mod tests {
         const NUM_PREROUNDS: u64 = BASE.pow(10);
 
         run_with_one_seed(|rng| {
-            let mut statistics_agregate = BTreeMap::<u32, BTreeMap<usize, usize>>::default();
+            let mut oram_size_to_stash_size_by_count = BTreeMap::<u32, BTreeMap<usize, usize>>::default();
             let mut maker = rng_maker(rng);
             for oram_power in (10..24).step_by(2) {
                 let mut rng = maker();
@@ -223,22 +223,22 @@ mod tests {
                     &mut oram,
                     &mut rng,
                 );
-                statistics_agregate.insert(oram_power, stash_stats);
+                oram_size_to_stash_size_by_count.insert(oram_power, stash_stats);
             }
             for stash_num in 1..6 {
                 let mut probability_of_stash_size = vec::Vec::new();
-                for stash_stats in &statistics_agregate {
-                    if let Some(stash_count) = stash_stats.1.get(&stash_num) {
-                        #[cfg(debug_assertions)]
-                        dbg!(stash_num, stash_count, stash_stats.0);
+                for (oram_power, stash_size_by_count) in &oram_size_to_stash_size_by_count { 
+                    if let Some(stash_count) = stash_size_by_count.get(&stash_num) {
                         let stash_count_probability =
                             (NUM_ROUNDS as f64 / *stash_count as f64).log2();
                         probability_of_stash_size.push(stash_count_probability);
                         #[cfg(debug_assertions)]
-                        dbg!(stash_num, stash_count_probability, stash_stats.0);
+                        dbg!(stash_num, stash_count, oram_power);
+                        #[cfg(debug_assertions)]
+                        dbg!(stash_num, stash_count_probability, oram_power);
                     } else {
                         #[cfg(debug_assertions)]
-                        dbg!(stash_num, stash_stats.0);
+                        dbg!(stash_num, oram_power);
                     }
                 }
                 let data_variance = rgsl::statistics::variance(

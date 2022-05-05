@@ -94,7 +94,7 @@ where
 
     let mut expected = BTreeMap::<u64, A64Bytes<BlockSize>>::default();
     let mut probe_idx = 0u64;
-    let mut statistics = BTreeMap::<usize, usize>::default();
+    let mut stash_size_by_count = BTreeMap::<usize, usize>::default();
 
     while num_pre_rounds > 0 {
         let expected_entry = expected.entry(probe_idx).or_default();
@@ -119,13 +119,13 @@ where
         }));
         if result.is_err() {
             std::eprintln!("Panic when attempting to access: {:?}, expected_result:{:?} remaining rounds: {:?}: Error was {:?}", probe_idx, expected_entry, num_rounds, result);
-            return statistics;
+            return stash_size_by_count;
         }
-        *statistics.entry(oram.stash_size()).or_default() += 1;
+        *stash_size_by_count.entry(oram.stash_size()).or_default() += 1;
         probe_idx = (probe_idx + 1) & (len - 1);
         num_rounds -= 1;
     }
-    statistics
+    stash_size_by_count
 }
 
 /// Exercise an OMAP by writing, reading, accessing, and removing a
