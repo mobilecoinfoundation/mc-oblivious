@@ -33,13 +33,8 @@ where
             probe_idx = 0;
         }
         let query = probe_positions[probe_idx];
-        let expected_ent = expected.entry(query).or_default();
 
-        oram.access(query, |val| {
-            assert_eq!(val, expected_ent);
-            rng.fill_bytes(val);
-            expected_ent.clone_from_slice(val.as_slice());
-        });
+        query_oram_and_randomize(&mut expected, query, oram, rng);
 
         probe_idx += 1;
         num_rounds -= 1;
@@ -61,16 +56,80 @@ where
 
     while num_rounds > 0 {
         let query = num_rounds as u64 & (len - 1);
-        let expected_ent = expected.entry(query).or_default();
-
-        oram.access(query, |val| {
-            assert_eq!(val, expected_ent);
-            rng.fill_bytes(val);
-            expected_ent.clone_from_slice(val.as_slice());
-        });
+        query_oram_and_randomize(&mut expected, query, oram, rng);
 
         num_rounds -= 1;
     }
+}
+
+fn query_oram_and_randomize<BlockSize, O, R>(
+    expected: &mut BTreeMap<
+        u64,
+        Aligned<aligned_cmov::A64, aligned_cmov::GenericArray<u8, BlockSize>>,
+    >,
+    query: u64,
+    oram: &mut O,
+    rng: &mut R,
+) where
+    BlockSize: ArrayLength<u8>,
+    O: ORAM<BlockSize>,
+    R: RngCore + CryptoRng,
+{
+    let expected_ent = expected.entry(query).or_default();
+    oram.access(query, |val| {
+        assert_eq!(val, expected_ent);
+        rng.fill_bytes(val);
+        expected_ent.clone_from_slice(val.as_slice());
+    });
+}
+
+/// Exercise an ORAM by writing, reading, and rewriting, first cycling through
+/// all N locations num_pre_rounds times to warm up the oram, then repeatedly
+/// cycling through all N locations a total of num_rounds times as a worst case
+/// access sequence and measuring the stash size.
+pub fn measure_oram_stash_size_distribution<BlockSize, O, R>(
+    mut num_pre_rounds: usize,
+    mut num_rounds: usize,
+    oram: &mut O,
+    rng: &mut R,
+) -> BTreeMap<usize, usize>
+where
+    BlockSize: ArrayLength<u8>,
+    O: ORAM<BlockSize>,
+    R: RngCore + CryptoRng,
+{
+    let len = oram.len();
+    assert!(len != 0, "len is zero");
+    assert_eq!(len & (len - 1), 0, "len is not a power of two");
+
+    let mut expected = BTreeMap::<u64, A64Bytes<BlockSize>>::default();
+    let mut probe_idx = 0u64;
+    let mut stash_size_by_count = BTreeMap::<usize, usize>::default();
+
+    while num_pre_rounds > 0 {
+        query_oram_and_randomize(&mut expected, probe_idx, oram, rng);
+        probe_idx = (probe_idx + 1) & (len - 1);
+        num_pre_rounds -= 1;
+    }
+
+    while num_rounds > 0 {
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            query_oram_and_randomize(&mut expected, probe_idx, oram, rng);
+        }));
+        if result.is_err() {
+            std::eprintln!(
+                "Panic when attempting to access: {:?}, remaining rounds: {:?}: Error was {:?}",
+                probe_idx,
+                num_rounds,
+                result
+            );
+            return stash_size_by_count;
+        }
+        *stash_size_by_count.entry(oram.stash_size()).or_default() += 1;
+        probe_idx = (probe_idx + 1) & (len - 1);
+        num_rounds -= 1;
+    }
+    stash_size_by_count
 }
 
 /// Exercise an ORAM by writing, reading, and rewriting, first cycling through
