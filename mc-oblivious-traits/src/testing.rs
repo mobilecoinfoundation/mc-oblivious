@@ -132,61 +132,6 @@ where
     stash_size_by_count
 }
 
-/// Exercise an ORAM by writing, reading, and rewriting, first cycling through
-/// all N locations num_pre_rounds times to warm up the oram, then repeatedly
-/// cycling through all N locations a total of num_rounds times as a worst case
-/// access sequence and measuring the stash size.
-pub fn measure_oram_stash_size_distribution<BlockSize, O, R>(
-    mut num_pre_rounds: usize,
-    mut num_rounds: usize,
-    oram: &mut O,
-    rng: &mut R,
-) -> BTreeMap<usize, usize>
-where
-    BlockSize: ArrayLength<u8>,
-    O: ORAM<BlockSize>,
-    R: RngCore + CryptoRng,
-{
-    let len = oram.len();
-    assert!(len != 0, "len is zero");
-    assert_eq!(len & (len - 1), 0, "len is not a power of two");
-
-    let mut expected = BTreeMap::<u64, A64Bytes<BlockSize>>::default();
-    let mut probe_idx = 0u64;
-    let mut statistics = BTreeMap::<usize, usize>::default();
-
-    while num_pre_rounds > 0 {
-        let expected_ent = expected.entry(probe_idx).or_default();
-
-        oram.access(probe_idx, |val| {
-            assert_eq!(val, expected_ent);
-            rng.fill_bytes(val);
-            expected_ent.clone_from_slice(val.as_slice());
-        });
-        probe_idx = (probe_idx + 1) & (len - 1);
-        num_pre_rounds -= 1;
-    }
-
-    while num_rounds > 0 {
-        let expected_ent = expected.entry(probe_idx).or_default();
-        let result = catch_unwind(AssertUnwindSafe(|| {
-            oram.access(probe_idx, |val| {
-                assert_eq!(val, expected_ent);
-                rng.fill_bytes(val);
-                expected_ent.clone_from_slice(val.as_slice());
-            })
-        }));
-        if result.is_err() {
-            std::eprintln!("Panic when attempting to access: {:?}, expected_result:{:?} remaining rounds: {:?}: Error was {:?}", probe_idx, expected_ent, num_rounds, result);
-            return statistics;
-        }
-        *statistics.entry(oram.stash_size()).or_default() += 1;
-        probe_idx = (probe_idx + 1) & (len - 1);
-        num_rounds -= 1;
-    }
-    statistics
-}
-
 /// Exercise an OMAP by writing, reading, accessing, and removing a
 /// progressively larger set of random locations
 pub fn exercise_omap<KeySize, ValSize, O, R>(mut num_rounds: usize, omap: &mut O, rng: &mut R)
