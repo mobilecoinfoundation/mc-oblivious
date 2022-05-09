@@ -172,7 +172,7 @@ where
         for idx in 0..self.stash_data.len() {
             let stash_count_incremented = stash_count + 1;
             stash_count.cmov(
-                meta_is_vacant(&self.stash_meta[idx]),
+                !meta_is_vacant(&self.stash_meta[idx]),
                 &stash_count_incremented,
             );
         }

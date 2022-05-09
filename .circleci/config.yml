@@ -13,12 +13,12 @@ executors:
   build-executor:
     docker:
       - image: *builder-install
-    resource_class: large
+    resource_class: xlarge
 
   test-executor:
     docker:
       - image: *builder-install
-    resource_class: large
+    resource_class: xlarge
 
 commands:
   print_versions:
@@ -136,6 +136,7 @@ commands:
         default: cargo test
     steps:
       - run:
+          no_output_timeout: 45m
           name: Run all tests
           command: |
             << parameters.test_command >> -- -Z unstable-options --format json --report-time \
@@ -211,6 +212,9 @@ jobs:
       <<: *default-environment
     steps:
       - prepare-for-build
+      - run: 
+          name: install gsl library
+          command: apt-get update && apt-get install -y libgsl-dev
       - run-tests:
           test_command: "cd no-asm-tests && cargo test --release"
       - check-dirty-git
