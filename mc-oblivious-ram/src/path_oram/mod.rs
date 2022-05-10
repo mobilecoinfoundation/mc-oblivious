@@ -83,7 +83,7 @@ fn meta_set_vacant(condition: Choice, src: &mut A8Bytes<MetaSize>) {
 }
 
 /// An implementation of PathORAM, using u64 to represent leaves in metadata.
-pub struct PathORAM<ValueSize, Z, StorageType, RngType>
+pub struct PathORAM<ValueSize, Z, const N: usize, StorageType, RngType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -107,10 +107,11 @@ where
     /// Our currently checked-out branch if any
     branch: BranchCheckout<ValueSize, Z>,
     /// Eviction strategy
-    evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
+    evictor: Box<dyn Evictor<ValueSize, Z, N> + Send + Sync + 'static>,
 }
 
-impl<ValueSize, Z, StorageType, RngType> PathORAM<ValueSize, Z, StorageType, RngType>
+impl<ValueSize, Z, const N: usize, StorageType, RngType>
+    PathORAM<ValueSize, Z, N, StorageType, RngType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -133,7 +134,7 @@ where
         size: u64,
         stash_size: usize,
         rng_maker: &mut F,
-        evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
+        evictor: Box<dyn Evictor<ValueSize, Z, N> + Send + Sync + 'static>,
     ) -> Self {
         assert!(size != 0, "size cannot be zero");
         assert!(size & (size - 1) == 0, "size must be a power of two");
@@ -158,8 +159,8 @@ where
     }
 }
 
-impl<ValueSize, Z, StorageType, RngType> ORAM<ValueSize>
-    for PathORAM<ValueSize, Z, StorageType, RngType>
+impl<ValueSize, Z, const N: usize, StorageType, RngType> ORAM<ValueSize>
+    for PathORAM<ValueSize, Z, N, StorageType, RngType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -246,7 +247,6 @@ where
             &mut self.stash_meta,
             &mut self.branch,
         );
-
 
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
@@ -553,7 +553,7 @@ pub mod evictor {
     const FLOOR_INDEX: usize = usize::MAX;
     /// Evictor trait conceptually is a mechanism for moving stash elements into
     /// the oram.
-    pub trait Evictor<ValueSize, Z>
+    pub trait Evictor<ValueSize, Z, const N: usize>
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -574,11 +574,10 @@ pub mod evictor {
             iteration: u64,
             tree_height: u32,
             tree_size: u64,
-            branch_indices: &mut [u64],
-        );
+        ) -> [u64; N];
     }
     pub struct PathOramEvict {}
-    impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
+    impl<ValueSize, Z, const N: usize> Evictor<ValueSize, Z, N> for PathOramEvict
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -598,8 +597,8 @@ pub mod evictor {
                 branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
             }
         }
-        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {
-            
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64) -> [u64; N] {
+            return [0u64; N];
         }
     }
     impl PathOramEvict {
@@ -613,14 +612,15 @@ pub mod evictor {
             Self {}
         }
     }
-    impl<ValueSize, Z> Evictor<ValueSize, Z> for CircuitOramNonobliviousEvict
+    impl<ValueSize, Z, const N: usize> Evictor<ValueSize, Z, N> for CircuitOramNonobliviousEvict
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
-        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64) -> [u64; N] {
+            return [0u64; N];
         }
         #[allow(dead_code)]
         fn evict_from_stash_to_branch(
