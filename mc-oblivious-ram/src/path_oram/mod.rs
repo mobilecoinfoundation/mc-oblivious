@@ -133,6 +133,7 @@ where
         size: u64,
         stash_size: usize,
         rng_maker: &mut F,
+        evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
     ) -> Self {
         assert!(size != 0, "size cannot be zero");
         assert!(size & (size - 1) == 0, "size must be a power of two");
@@ -144,7 +145,6 @@ where
         let mut rng = rng_maker();
         let storage = SC::create(2u64 << height, &mut rng).expect("Storage failed");
         let pos = PMC::create(size, height, stash_size, rng_maker);
-        let evictor = Box::new(PathOramEvict::new());
         Self {
             height,
             storage,
@@ -153,7 +153,7 @@ where
             stash_data: vec![Default::default(); stash_size],
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
-            evictor: evictor,
+            evictor,
         }
     }
 }
@@ -177,7 +177,7 @@ where
         for idx in 0..self.stash_data.len() {
             let stash_count_incremented = stash_count + 1;
             stash_count.cmov(
-                meta_is_vacant(&self.stash_meta[idx]),
+                !meta_is_vacant(&self.stash_meta[idx]),
                 &stash_count_incremented,
             );
         }
@@ -568,6 +568,14 @@ pub mod evictor {
             stash_meta: &mut [A8Bytes<MetaSize>],
             branch: &mut BranchCheckout<ValueSize, Z>,
         );
+        /// Returns a list of branches to call evict from stash to branch on.
+        fn get_branches_to_evict(
+            &self,
+            iteration: u64,
+            tree_height: u32,
+            tree_size: u64,
+            branch_indices: &mut [u64],
+        );
     }
     pub struct PathOramEvict {}
     impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
@@ -590,6 +598,7 @@ pub mod evictor {
                 branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
             }
         }
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {}
     }
     impl PathOramEvict {
         pub fn new() -> Self {
@@ -597,6 +606,11 @@ pub mod evictor {
         }
     }
     pub struct CircuitOramNonobliviousEvict {}
+    impl CircuitOramNonobliviousEvict {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
     impl<ValueSize, Z> Evictor<ValueSize, Z> for CircuitOramNonobliviousEvict
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -604,6 +618,7 @@ pub mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {}
         #[allow(dead_code)]
         fn evict_from_stash_to_branch(
             &self,
@@ -728,7 +743,8 @@ pub mod evictor {
                             meta_set_vacant(test, source_meta);
                         } else {
                             //The source is the stash
-                            std::println!("The deepest target for level {} is {} it is in the stash. The source is bucket:{}, and chunk:{}", bucket_num, deepest_target_for_level, source_bucket_for_deepest, source_chunk_for_deepest);
+                            // dbg!(bucket_num, deepest_target_for_level, source_bucket_for_deepest,
+                            // source_chunk_for_deepest);
                             let (_, working_data) = branch.data.split_at_mut(bucket_num);
                             let (_, working_meta) = branch.meta.split_at_mut(bucket_num);
                             let bucket_data: &mut [A64Bytes<ValueSize>] =
