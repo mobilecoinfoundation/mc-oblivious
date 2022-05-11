@@ -27,7 +27,7 @@ extern crate alloc;
 use aligned_cmov::typenum::{U1024, U2, U2048, U32, U4, U4096, U64};
 use alloc::boxed::Box;
 use core::marker::PhantomData;
-use mc_oblivious_traits::{ORAMCreator, ORAMStorageCreator, rng_maker};
+use mc_oblivious_traits::{ORAMCreator, ORAMStorageCreator};
 use rand_core::{CryptoRng, RngCore};
 
 mod position_map;

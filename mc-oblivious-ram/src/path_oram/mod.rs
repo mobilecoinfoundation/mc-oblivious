@@ -15,7 +15,7 @@
 
 use alloc::vec;
 
-use self::evictor::{Evictor, PathOramEvict};
+use self::evictor::{Evictor};
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
     typenum::{PartialDiv, Prod, Unsigned, U16, U64, U8},
