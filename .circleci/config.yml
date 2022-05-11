@@ -13,12 +13,12 @@ executors:
   build-executor:
     docker:
       - image: *builder-install
-    resource_class: large
+    resource_class: xlarge
 
   test-executor:
     docker:
       - image: *builder-install
-    resource_class: large
+    resource_class: xlarge
 
 commands:
   print_versions:

@@ -21,7 +21,6 @@
 #![no_std]
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
-#![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 
 extern crate alloc;
 
@@ -138,6 +137,7 @@ mod testing {
     use aligned_cmov::{A64Bytes, ArrayLength};
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAM};
     use test_helper::{run_with_several_seeds, RngType};
+
     const STASH_SIZE: usize = 16;
     const NUMBER_OF_BRANCHES_TO_EVICT: usize = 2;
     // Helper to make tests more succinct
