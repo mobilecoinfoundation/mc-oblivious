@@ -212,7 +212,7 @@ mod tests {
                     rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
                 #[cfg(debug_assertions)]
                 dbg!(correlation);
-                assert!(correlation > 0.85);
+                assert!(correlation > CORRELATION_THRESHOLD);
             }
         });
     }
