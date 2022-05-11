@@ -228,7 +228,8 @@ mod tests {
         const VARIANCE_THRESHOLD: f64 = 0.15;
 
         run_with_one_seed(|rng| {
-            let mut oram_size_to_stash_size_by_count = BTreeMap::<u32, BTreeMap<usize, usize>>::default();
+            let mut oram_size_to_stash_size_by_count =
+                BTreeMap::<u32, BTreeMap<usize, usize>>::default();
             let mut maker = rng_maker(rng);
             for oram_power in (10..24).step_by(2) {
                 let mut rng = maker();
@@ -248,7 +249,7 @@ mod tests {
             }
             for stash_num in 1..6 {
                 let mut probability_of_stash_size = vec::Vec::new();
-                for (_oram_power, stash_size_by_count) in &oram_size_to_stash_size_by_count { 
+                for (_oram_power, stash_size_by_count) in &oram_size_to_stash_size_by_count {
                     if let Some(stash_count) = stash_size_by_count.get(&stash_num) {
                         let stash_count_probability =
                             (NUM_ROUNDS as f64 / *stash_count as f64).log2();
