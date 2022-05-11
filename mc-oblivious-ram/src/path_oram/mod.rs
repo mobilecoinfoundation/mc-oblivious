@@ -910,6 +910,7 @@ pub mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {}
         fn evict_from_stash_to_branch(
             &self,
             stash_data: &mut [A64Bytes<ValueSize>],
@@ -925,13 +926,17 @@ pub mod evictor {
             let adjusted_data_len = branch.meta.len() + 1;
             let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
             let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
-            CircuitOramEvict::prepare_deepest(
+            CircuitOramEvict::prepare_deepest::<ValueSize, Z>(
                 &mut deepest_meta,
                 stash_meta,
                 &branch.meta,
                 branch.leaf,
             );
-            CircuitOramEvict::prepare_target(&mut target_meta, &mut deepest_meta, &branch.meta);
+            CircuitOramEvict::prepare_target::<ValueSize, Z>(
+                &mut target_meta,
+                &mut deepest_meta,
+                &branch.meta,
+            );
 
             // Just initializing the held data and held meta with some default values.
             let mut dummy_held_data: A64Bytes<ValueSize> = Default::default();
