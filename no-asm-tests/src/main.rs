@@ -5,7 +5,7 @@ use aligned_cmov::{
     ArrayLength,
 };
 use core::marker::PhantomData;
-use mc_oblivious_ram::PathORAM;
+use mc_oblivious_ram::{PathORAM, PathOramEvict};
 use mc_oblivious_traits::{
     rng_maker, HeapORAMStorageCreator, ORAMCreator, ORAMStorageCreator, ORAM,
 };
@@ -56,7 +56,7 @@ pub fn main() {
     const STASH_SIZES: &[usize] = &[4, 6, 8, 10, 12, 14, 16, 17];
     const REPS: usize = 100;
     const LIMIT: usize = 500_000;
-
+    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 0;
     println!("PathORAM4096Z4:");
     for size in SIZES {
         let mut maker = rng_maker(test_helper::get_seeded_rng());
@@ -64,7 +64,11 @@ pub fn main() {
             let mut least_overflow: Option<usize> = None;
             for _ in 0..REPS {
                 let result = measure_stash_overflow::<
-                    InsecurePathORAM4096Z4Creator<HeapORAMStorageCreator>,
+                    InsecurePathORAM4096Z4Creator<
+                        RngType,
+                        HeapORAMStorageCreator,
+                        NUMBER_OF_BRANCHES_TO_EVICT,
+                    >,
                     U1024,
                     RngType,
                 >(
@@ -96,24 +100,31 @@ pub fn main() {
 /// (Z) of 4, and the insecure position map implementation.
 /// This is used to determine how to calibrate stash size appropriately via
 /// stress tests.
-pub struct InsecurePathORAM4096Z4Creator<SC: ORAMStorageCreator<U4096, U64>> {
+pub struct InsecurePathORAM4096Z4Creator<R, SC: ORAMStorageCreator<U4096, U64>, const N: usize>
+where
+    R: RngCore + CryptoRng + 'static,
+{
     _sc: PhantomData<fn() -> SC>,
+    _rng: PhantomData<fn() -> R>,
 }
 
-impl<SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, RngType>
-    for InsecurePathORAM4096Z4Creator<SC>
+impl<R, SC: ORAMStorageCreator<U4096, U64>, const N: usize> ORAMCreator<U1024, R>
+    for InsecurePathORAM4096Z4Creator<R, SC, N>
+where
+    R: RngCore + CryptoRng + Send + Sync + 'static,
+    SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, SC::Output, RngType>;
+    type Output = PathORAM<U1024, U4, N, SC::Output, R>;
 
-    fn create<M: 'static + FnMut() -> RngType>(
+    fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        PathORAM::new::<InsecurePositionMapCreator<RngType>, SC, M>(size, stash_size, rng_maker)
+        let evictor = Box::new(PathOramEvict::<R>::new(rng_maker()));
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -121,8 +132,8 @@ mod tests {
     use core::convert::TryInto;
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAMCreator};
     use std::vec;
-    use test_helper::{run_with_several_seeds, run_with_one_seed};
-
+    use test_helper::{run_with_one_seed, run_with_several_seeds};
+    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 1;
     // Run the exercise oram tests for 200,000 rounds in 131072 sized z4 oram
     #[test]
     fn exercise_path_oram_z4_131072() {
@@ -130,9 +141,11 @@ mod tests {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let stash_size = 16;
-            let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
-                131072, stash_size, &mut maker,
-            );
+            let mut oram = InsecurePathORAM4096Z4Creator::<
+                RngType,
+                HeapORAMStorageCreator,
+                NUMBER_OF_BRANCHES_TO_EVICT,
+            >::create(131072, stash_size, &mut maker);
             testing::exercise_oram(200_000, &mut oram, &mut rng);
         });
     }
@@ -144,9 +157,11 @@ mod tests {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let stash_size = 16;
-            let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
-                262144, stash_size, &mut maker,
-            );
+            let mut oram = InsecurePathORAM4096Z4Creator::<
+                RngType,
+                HeapORAMStorageCreator,
+                NUMBER_OF_BRANCHES_TO_EVICT,
+            >::create(262144, stash_size, &mut maker);
             testing::exercise_oram(400_000, &mut oram, &mut rng);
         });
     }
@@ -162,14 +177,14 @@ mod tests {
         run_with_several_seeds(|rng| {
             let base: u64 = 2;
             let num_prerounds: u64 = base.pow(10);
-            let num_rounds: u64 = base.pow(20);
+            let num_rounds: u64 = base.pow(30);
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
-                base.pow(10),
-                STASH_SIZE,
-                &mut maker,
-            );
+            let mut oram = InsecurePathORAM4096Z4Creator::<
+                RngType,
+                HeapORAMStorageCreator,
+                NUMBER_OF_BRANCHES_TO_EVICT,
+            >::create(base.pow(10), STASH_SIZE, &mut maker);
             let stash_stats = testing::measure_oram_stash_size_distribution(
                 num_prerounds.try_into().unwrap(),
                 num_rounds.try_into().unwrap(),
@@ -191,11 +206,13 @@ mod tests {
                     dbg!(stash_count);
                 }
             }
-
-            let correlation = rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
-            #[cfg(debug_assertions)]
-            dbg!(correlation);
-            assert!(correlation > 0.85);
+            if x_axis.len() > 5 {
+                let correlation =
+                    rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
+                #[cfg(debug_assertions)]
+                dbg!(correlation);
+                assert!(correlation > 0.85);
+            }
         });
     }
 
@@ -214,9 +231,11 @@ mod tests {
             for oram_power in (10..24).step_by(2) {
                 let mut rng = maker();
                 let oram_size = BASE.pow(oram_power);
-                let mut oram = InsecurePathORAM4096Z4Creator::<HeapORAMStorageCreator>::create(
-                    oram_size, STASH_SIZE, &mut maker,
-                );
+                let mut oram = InsecurePathORAM4096Z4Creator::<
+                    RngType,
+                    HeapORAMStorageCreator,
+                    NUMBER_OF_BRANCHES_TO_EVICT,
+                >::create(oram_size, STASH_SIZE, &mut maker);
                 let stash_stats = testing::measure_oram_stash_size_distribution(
                     NUM_PREROUNDS.try_into().unwrap(),
                     NUM_ROUNDS.try_into().unwrap(),

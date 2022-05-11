@@ -108,6 +108,8 @@ where
     branch: BranchCheckout<ValueSize, Z>,
     /// Eviction strategy
     evictor: Box<dyn Evictor<ValueSize, Z, N> + Send + Sync + 'static>,
+    /// Number of times the ORAM has been accessed
+    iteration: u64,
 }
 
 impl<ValueSize, Z, const N: usize, StorageType, RngType>
@@ -155,6 +157,7 @@ where
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
             evictor,
+            iteration: 0u64,
         }
     }
 }
@@ -240,7 +243,9 @@ where
             );
             assert!(bool::from(meta_is_vacant(&meta)), "Stash overflow!");
         }
-
+        let branches_to_evict =
+            self.evictor
+                .get_branches_to_evict(self.iteration, self.height, self.len());
         // Now do cleanup / eviction on this branch, before checking out
         self.evictor.evict_from_stash_to_branch(
             &mut self.stash_data,
@@ -252,6 +257,19 @@ where
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
 
+        for leaf in branches_to_evict {
+            debug_assert!(leaf != 0);
+            self.branch.checkout(&mut self.storage, leaf);
+            self.evictor.evict_from_stash_to_branch(
+                &mut self.stash_data,
+                &mut self.stash_meta,
+                &mut self.branch,
+            );
+            self.branch.checkin(&mut self.storage);
+            debug_assert!(self.branch.leaf == 0);
+        }
+
+        self.iteration += 1;
         result
     }
 }
@@ -570,19 +588,28 @@ pub mod evictor {
         );
         /// Returns a list of branches to call evict from stash to branch on.
         fn get_branches_to_evict(
-            &self,
+            &mut self,
             iteration: u64,
             tree_height: u32,
             tree_size: u64,
         ) -> [u64; N];
     }
-    pub struct PathOramEvict {}
-    impl<ValueSize, Z, const N: usize> Evictor<ValueSize, Z, N> for PathOramEvict
+
+    ///Eviction algorithm defined in path oram. Packs the branch and greedily tries to evict everything from the stash into the checked out branch
+    /// Also checks out a total of N additional branches to try to evict the stash into.
+    pub struct PathOramEvict<RngType>
+    where
+        RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    {
+        rng: RngType,
+    }
+    impl<ValueSize, Z, const N: usize, RngType> Evictor<ValueSize, Z, N> for PathOramEvict<RngType>
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        RngType: RngCore + CryptoRng + Send + Sync + 'static,
     {
         fn evict_from_stash_to_branch(
             &self,
@@ -597,17 +624,28 @@ pub mod evictor {
                 branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
             }
         }
-        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64) -> [u64; N] {
-            return [0u64; N];
+        fn get_branches_to_evict(&mut self, _: u64, tree_height: u32, _: u64) -> [u64; N] {
+            let mut leaf_array: [u64; N] = [0u64; N];
+            for i in 0..N {
+                leaf_array[i] = 1u64.random_child_at_height(tree_height, &mut self.rng);
+            }
+            return leaf_array;
         }
     }
-    impl PathOramEvict {
-        pub fn new() -> Self {
-            Self {}
+    impl<RngType> PathOramEvict<RngType>
+    where
+        RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    {
+        /// Create a PathOram Evictor using an rng to select branches to evict
+        pub fn new(rng: RngType) -> Self {
+            Self { rng }
         }
     }
+
+    ///This is a non oblivious implementation of Circuit Oram. Intended for demonstration/testing of the behaviour for circuit oram. It is not to be used in production
     pub struct CircuitOramNonobliviousEvict {}
     impl CircuitOramNonobliviousEvict {
+        ///Create a non oblivious CircuitOram evictor that deterministically evicts
         pub fn new() -> Self {
             Self {}
         }
@@ -619,7 +657,7 @@ pub mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
-        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64) -> [u64; N] {
+        fn get_branches_to_evict(&mut self, _: u64, _: u32, _: u64) -> [u64; N] {
             return [0u64; N];
         }
         #[allow(dead_code)]
