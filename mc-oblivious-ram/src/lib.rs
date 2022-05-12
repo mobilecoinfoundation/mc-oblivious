@@ -34,8 +34,10 @@ mod position_map;
 pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCreator};
 
 mod path_oram;
-pub use path_oram::PathORAM;
-pub use path_oram::evictor::{CircuitOramNonobliviousEvict, PathOramEvict};
+pub use path_oram::{
+    evictor::{CircuitOramNonobliviousEvict, PathOramEvict},
+    PathORAM,
+};
 
 /// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
 /// (Z) of 2, and a basic recursive position map implementation
