@@ -567,6 +567,8 @@ mod details {
 pub mod evictor {
 
     use super::*;
+    use core::convert::TryFrom;
+    const FLOOR_INDEX: usize = usize::MAX;
     /// Evictor trait conceptually is a mechanism for moving stash elements into
     /// the oram.
     pub trait Evictor<ValueSize, Z, const N: usize>
