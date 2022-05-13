@@ -134,7 +134,7 @@ mod tests {
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAMCreator};
     use std::vec;
     use test_helper::{run_with_one_seed, run_with_several_seeds};
-    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 1;
+    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 0;
     // Run the exercise oram tests for 200,000 rounds in 131072 sized z4 oram
     #[test]
     fn exercise_path_oram_z4_131072() {
