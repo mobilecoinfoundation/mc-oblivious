@@ -264,14 +264,16 @@ mod tests {
                         dbg!(stash_num, _oram_power);
                     }
                 }
-                let data_variance = rgsl::statistics::variance(
-                    &probability_of_stash_size,
-                    1,
-                    probability_of_stash_size.len(),
-                );
-                #[cfg(debug_assertions)]
-                dbg!(stash_num, data_variance);
-                assert!(data_variance < VARIANCE_THRESHOLD);
+                if probability_of_stash_size.len() > 5 {
+                    let data_variance = rgsl::statistics::variance(
+                        &probability_of_stash_size,
+                        1,
+                        probability_of_stash_size.len(),
+                    );
+                    #[cfg(debug_assertions)]
+                    dbg!(stash_num, data_variance);
+                    assert!(data_variance < VARIANCE_THRESHOLD);
+                }
             }
         });
     }
