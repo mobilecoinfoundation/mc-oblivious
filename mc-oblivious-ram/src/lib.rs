@@ -34,10 +34,7 @@ mod position_map;
 pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCreator};
 
 mod path_oram;
-pub use path_oram::{
-    evictor::{CircuitOramNonobliviousEvict, PathOramEvict},
-    PathORAM,
-};
+pub use path_oram::{evictor::PathOramEvict, PathORAM};
 
 /// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
 /// (Z) of 2, and a basic recursive position map implementation
@@ -96,36 +93,6 @@ where
         rng_maker: &mut M,
     ) -> Self::Output {
         let evictor = Box::new(PathOramEvict::<R>::new(rng_maker()));
-        PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
-            size, stash_size, rng_maker, evictor,
-        )
-    }
-}
-
-/// Creator for NonObliviousCircuitORAM based on 4096-sized blocks of storage
-/// and bucket size (Z) of 4, and a basic recursive position map implementation
-pub struct NonObliviousCircuitORAM4096Z4Creator<R, SC, const N: usize>
-where
-    R: RngCore + CryptoRng + 'static,
-    SC: ORAMStorageCreator<U4096, U64>,
-{
-    _rng: PhantomData<fn() -> R>,
-    _sc: PhantomData<fn() -> SC>,
-}
-
-impl<R, SC, const N: usize> ORAMCreator<U1024, R> for NonObliviousCircuitORAM4096Z4Creator<R, SC, N>
-where
-    R: RngCore + CryptoRng + Send + Sync + 'static,
-    SC: ORAMStorageCreator<U4096, U64>,
-{
-    type Output = PathORAM<U1024, U4, N, SC::Output, R>;
-
-    fn create<M: 'static + FnMut() -> R>(
-        size: u64,
-        stash_size: usize,
-        rng_maker: &mut M,
-    ) -> Self::Output {
-        let evictor = Box::new(CircuitOramNonobliviousEvict::new());
         PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
             size, stash_size, rng_maker, evictor,
         )
@@ -358,30 +325,6 @@ mod testing {
         })
     }
 
-    // Sanity check the nonoblivious z4 circuit oram
-    #[test]
-    fn sanity_check_nonoblivious_circuit_oram_z4_262144() {
-        run_with_several_seeds(|rng| {
-            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(262144, STASH_SIZE, &mut rng_maker(rng));
-            assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
-            assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
-            assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
-            assert_eq!(a64_bytes(0), oram.write(2, &a64_bytes(4)));
-            assert_eq!(a64_bytes(4), oram.write(2, &a64_bytes(5)));
-            assert_eq!(a64_bytes(3), oram.write(0, &a64_bytes(6)));
-            assert_eq!(a64_bytes(6), oram.write(0, &a64_bytes(7)));
-            assert_eq!(a64_bytes(0), oram.write(9, &a64_bytes(8)));
-            assert_eq!(a64_bytes(5), oram.write(2, &a64_bytes(10)));
-            assert_eq!(a64_bytes(7), oram.write(0, &a64_bytes(11)));
-            assert_eq!(a64_bytes(8), oram.write(9, &a64_bytes(12)));
-            assert_eq!(a64_bytes(12), oram.read(9));
-        })
-    }
-
     // Run the exercise oram tests for 20,000 rounds in 8192 sized z4 oram
     #[test]
     fn exercise_path_oram_z4_8192() {
@@ -389,22 +332,6 @@ mod testing {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(8192, STASH_SIZE, &mut maker);
-            testing::exercise_oram(20_000, &mut oram, &mut rng);
-        });
-    }
-
-    // Run the exercise oram tests for 20,000 rounds in 8192 sized z4 oram non
-    // oblivious circuit oram
-    #[test]
-    fn exercise_non_oblivious_circuit_oram_z4_8192() {
-        run_with_several_seeds(|rng| {
-            let mut maker = rng_maker(rng);
-            let mut rng = maker();
-            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
                 NUMBER_OF_BRANCHES_TO_EVICT,
@@ -421,22 +348,6 @@ mod testing {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(8192, STASH_SIZE, &mut maker);
-            testing::exercise_oram_consecutive(20_000, &mut oram, &mut rng);
-        });
-    }
-
-    // Run the exercise oram tests for 20,000 rounds in 8192 sized z4 oram non
-    // oblivious circuit oram
-    #[test]
-    fn exercise_consecutive_non_oblivious_circuit_oram_z4_8192() {
-        run_with_several_seeds(|rng| {
-            let mut maker = rng_maker(rng);
-            let mut rng = maker();
-            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
                 NUMBER_OF_BRANCHES_TO_EVICT,
