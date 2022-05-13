@@ -599,17 +599,23 @@ pub const fn log2_ceil(arg: u64) -> u32 {
 /// num_bits_needed. s.t. bit_reverse(0001, 3) returns 0100.
 #[inline]
 pub const fn bit_reverse(num: u64, num_bits_needed: u32) -> u64 {
+    // Build up the result in reversed by appending least significant bits and
+    // pushing the values to the left. By putting num here, the least significant
+    // digit is already in the right place.
     let mut reversed = num;
     let mut source = num;
     let mut length = num_bits_needed;
     source >>= 1;
     length -= 1;
     while length > 0 {
+        //Make room for a new least significant bit to be added to the end.
         reversed <<= 1;
+        //Add the new least significant bit to reversed
         reversed |= source & 1;
         source >>= 1;
         length -= 1;
     }
+    //XOR reversed with 1s so that you only keep the needed bits.
     reversed &= ((1u64) << num_bits_needed) - 1;
     reversed
 }
