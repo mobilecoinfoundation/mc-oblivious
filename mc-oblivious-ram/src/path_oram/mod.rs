@@ -626,10 +626,10 @@ pub mod evictor {
         }
         fn get_branches_to_evict(&mut self, _: u64, tree_height: u32, _: u64) -> [u64; N] {
             let mut leaf_array: [u64; N] = [0u64; N];
-            for i in 0..N {
-                leaf_array[i] = 1u64.random_child_at_height(tree_height, &mut self.rng);
+            for mut _leaf in leaf_array.iter_mut().take(N) {
+                *_leaf = 1u64.random_child_at_height(tree_height, &mut self.rng);
             }
-            return leaf_array;
+            leaf_array
         }
     }
     impl<RngType> PathOramEvict<RngType>

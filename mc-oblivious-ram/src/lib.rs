@@ -108,7 +108,7 @@ mod testing {
     use test_helper::{run_with_several_seeds, RngType};
 
     const STASH_SIZE: usize = 16;
-    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 2;
+    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 1;
     // Helper to make tests more succinct
     fn a64_bytes<N: ArrayLength<u8>>(src: u8) -> A64Bytes<N> {
         let mut result = A64Bytes::<N>::default();
