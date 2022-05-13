@@ -637,20 +637,20 @@ mod test {
     // Check that bit_reverse correctly reverses values
     fn test_bit_reverse() {
         //Fully reverses a number
-        assert_eq!(bit_reverse(2, 2), 1);
+        assert_eq!(bit_reverse(0b10, 2), 0b1);
         //Reverse a symmetrical number
-        assert_eq!(bit_reverse(3, 2), 3);
+        assert_eq!(bit_reverse(0b11, 2), 0b11);
         //Reverse more bits than are in the number
-        assert_eq!(bit_reverse(1, 2), 2);
+        assert_eq!(bit_reverse(0b1, 2), 0b10);
         //Reverse a portion of the number that is all 1s
-        assert_eq!(bit_reverse(3, 1), 1);
+        assert_eq!(bit_reverse(0b11, 1), 0b1);
         //Reverse a portion of the number that is all 1s
-        assert_eq!(bit_reverse(7, 2), 3);
+        assert_eq!(bit_reverse(0b111, 2), 0b11);
         //Reverse a portion of the number that is all 0s
-        assert_eq!(bit_reverse(2, 1), 0);
+        assert_eq!(bit_reverse(0b10, 1), 0);
         //Reverse a portion of a number that is all 0s
-        assert_eq!(bit_reverse(4, 2), 0);
+        assert_eq!(bit_reverse(0b100, 2), 0);
         //Reverse a portion of a number that has 0s and 1s
-        assert_eq!(bit_reverse(5, 2), 2);
+        assert_eq!(bit_reverse(0b101, 2), 0b10);
     }
 }
