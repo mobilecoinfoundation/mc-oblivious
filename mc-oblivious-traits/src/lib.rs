@@ -595,25 +595,6 @@ pub const fn log2_ceil(arg: u64) -> u32 {
     (!0u64).count_ones() - (arg - 1).leading_zeros()
 }
 
-/// Utility function. reverse the bits for a particular number up to
-/// num_bits_needed. s.t. bit_reverse(0001, 3) returns 0100.
-#[inline]
-pub const fn bit_reverse(num: u64, num_bits_needed: u32) -> u64 {
-    let mut reversed = num;
-    let mut source = num;
-    let mut length = num_bits_needed;
-    source >>= 1;
-    length -= 1;
-    while length > 0 {
-        reversed <<= 1;
-        reversed |= source & 1;
-        source >>= 1;
-        length -= 1;
-    }
-    reversed &= ((1u64) << num_bits_needed) - 1;
-    reversed
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -631,26 +612,5 @@ mod test {
         assert_eq!(4, log2_ceil(9));
         assert_eq!(4, log2_ceil(16));
         assert_eq!(5, log2_ceil(17));
-    }
-
-    #[test]
-    // Check that bit_reverse correctly reverses values
-    fn test_bit_reverse() {
-        //Fully reverses a number
-        assert_eq!(bit_reverse(2, 2), 1);
-        //Reverse a symmetrical number
-        assert_eq!(bit_reverse(3, 2), 3);
-        //Reverse more bits than are in the number
-        assert_eq!(bit_reverse(1, 2), 2);
-        //Reverse a portion of the number that is all 1s
-        assert_eq!(bit_reverse(3, 1), 1);
-        //Reverse a portion of the number that is all 1s
-        assert_eq!(bit_reverse(7, 2), 3);
-        //Reverse a portion of the number that is all 0s
-        assert_eq!(bit_reverse(2, 1), 0);
-        //Reverse a portion of a number that is all 0s
-        assert_eq!(bit_reverse(4, 2), 0);
-        //Reverse a portion of a number that has 0s and 1s
-        assert_eq!(bit_reverse(5, 2), 2);
     }
 }

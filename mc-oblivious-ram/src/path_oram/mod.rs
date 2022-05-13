@@ -25,7 +25,7 @@ use alloc::{boxed::Box, vec::Vec};
 use balanced_tree_index::TreeIndex;
 use core::{marker::PhantomData, ops::Mul};
 use mc_oblivious_traits::{
-    bit_reverse, log2_ceil, ORAMStorage, ORAMStorageCreator, PositionMap, PositionMapCreator, ORAM,
+    log2_ceil, ORAMStorage, ORAMStorageCreator, PositionMap, PositionMapCreator, ORAM,
 };
 use rand_core::{CryptoRng, RngCore};
 
@@ -670,11 +670,10 @@ pub mod evictor {
             //Most significant index is always 1 for leafs
             let leaf_significant_index: u64 = 1 << (num_bits_needed);
             for i in 0..N {
-                let test_position: u64 = bit_reverse(
-                    (u64::try_from(N).unwrap() * iteration + u64::try_from(i).unwrap())
-                        % leaf_significant_index,
-                    num_bits_needed,
-                );
+                let test_position: u64 = 
+                    ((u64::try_from(N).unwrap() * iteration + u64::try_from(i).unwrap()).reverse_bits() >> (64-num_bits_needed))
+                        % leaf_significant_index
+                ;
                 leaf_array[i] = leaf_significant_index + test_position;
             }
             leaf_array
