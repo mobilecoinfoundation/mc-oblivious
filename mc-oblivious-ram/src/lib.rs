@@ -388,31 +388,31 @@ mod testing {
         });
     }
 
-        // Sanity check the nonoblivious z4 circuit oram
-        #[test]
-        fn sanity_check_nonoblivious_circuit_oram_z4_262144() {
-            run_with_several_seeds(|rng| {
-                let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
-                    RngType,
-                    HeapORAMStorageCreator,
-                    NUMBER_OF_BRANCHES_TO_EVICT,
-                >::create(262144, STASH_SIZE, &mut rng_maker(rng));
-                assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
-                assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
-                assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
-                assert_eq!(a64_bytes(0), oram.write(2, &a64_bytes(4)));
-                assert_eq!(a64_bytes(4), oram.write(2, &a64_bytes(5)));
-                assert_eq!(a64_bytes(3), oram.write(0, &a64_bytes(6)));
-                assert_eq!(a64_bytes(6), oram.write(0, &a64_bytes(7)));
-                assert_eq!(a64_bytes(0), oram.write(9, &a64_bytes(8)));
-                assert_eq!(a64_bytes(5), oram.write(2, &a64_bytes(10)));
-                assert_eq!(a64_bytes(7), oram.write(0, &a64_bytes(11)));
-                assert_eq!(a64_bytes(8), oram.write(9, &a64_bytes(12)));
-                assert_eq!(a64_bytes(12), oram.read(9));
-            })
-        }
+    // Sanity check the nonoblivious z4 circuit oram
+    #[test]
+    fn sanity_check_nonoblivious_circuit_oram_z4_262144() {
+        run_with_several_seeds(|rng| {
+            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
+                RngType,
+                HeapORAMStorageCreator,
+                NUMBER_OF_BRANCHES_TO_EVICT,
+            >::create(262144, STASH_SIZE, &mut rng_maker(rng));
+            assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
+            assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
+            assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
+            assert_eq!(a64_bytes(0), oram.write(2, &a64_bytes(4)));
+            assert_eq!(a64_bytes(4), oram.write(2, &a64_bytes(5)));
+            assert_eq!(a64_bytes(3), oram.write(0, &a64_bytes(6)));
+            assert_eq!(a64_bytes(6), oram.write(0, &a64_bytes(7)));
+            assert_eq!(a64_bytes(0), oram.write(9, &a64_bytes(8)));
+            assert_eq!(a64_bytes(5), oram.write(2, &a64_bytes(10)));
+            assert_eq!(a64_bytes(7), oram.write(0, &a64_bytes(11)));
+            assert_eq!(a64_bytes(8), oram.write(9, &a64_bytes(12)));
+            assert_eq!(a64_bytes(12), oram.read(9));
+        })
+    }
 
-            // Run the exercise oram tests for 20,000 rounds in 8192 sized z4 oram non
+    // Run the exercise oram tests for 20,000 rounds in 8192 sized z4 oram non
     // oblivious circuit oram
     #[test]
     fn exercise_non_oblivious_circuit_oram_z4_8192() {
@@ -428,7 +428,7 @@ mod testing {
         });
     }
 
-        // Run the exercise oram tests for 20,000 rounds in 8192 sized z4 oram non
+    // Run the exercise oram tests for 20,000 rounds in 8192 sized z4 oram non
     // oblivious circuit oram
     #[test]
     fn exercise_consecutive_non_oblivious_circuit_oram_z4_8192() {

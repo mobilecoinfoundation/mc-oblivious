@@ -655,6 +655,13 @@ pub mod evictor {
             Self {}
         }
     }
+
+    impl Default for CircuitOramNonobliviousEvict {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl<ValueSize, Z, const N: usize> Evictor<ValueSize, Z, N> for CircuitOramNonobliviousEvict
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -669,12 +676,13 @@ pub mod evictor {
             let num_bits_needed = height;
             //Most significant index is always 1 for leafs
             let leaf_significant_index: u64 = 1 << (num_bits_needed);
-            for i in 0..N {
-                let test_position: u64 = 
-                    ((u64::try_from(N).unwrap() * iteration + u64::try_from(i).unwrap()).reverse_bits() >> (64-num_bits_needed))
-                        % leaf_significant_index
-                ;
-                leaf_array[i] = leaf_significant_index + test_position;
+            for (i, mut _leaf) in leaf_array.iter_mut().enumerate().take(N) {
+                let test_position: u64 = ((u64::try_from(N).unwrap() * iteration
+                    + u64::try_from(i).unwrap())
+                .reverse_bits()
+                    >> (64 - num_bits_needed))
+                    % leaf_significant_index;
+                *_leaf = leaf_significant_index + test_position;
             }
             leaf_array
         }
@@ -694,16 +702,13 @@ pub mod evictor {
             let mut bucket_num = 0;
             //Searching from the leaf to the root.
             while bucket_num < data_len {
-                let (_, working_data) = branch.data.split_at(bucket_num);
                 let (_, working_meta) = branch.meta.split_at(bucket_num);
 
-                let bucket_data: &[A64Bytes<ValueSize>] = working_data[0].as_aligned_chunks();
                 let bucket_meta: &[A8Bytes<MetaSize>] = working_meta[0].as_aligned_chunks();
                 let mut bucket_has_vacancy = false;
                 let mut vacant_chunk = 0;
                 //Checking each chunk in the bucket for a vacancy.
-                for idx in 0..bucket_data.len() {
-                    let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
+                for (idx, src_meta) in bucket_meta.iter().enumerate().take(bucket_meta.len()) {
                     if meta_is_vacant(src_meta).into() {
                         bucket_has_vacancy = true;
                         vacant_chunk = idx;
@@ -719,14 +724,18 @@ pub mod evictor {
 
                     //Try to search through the other buckets that are higher in the branch to find
                     // the deepest block that can live in this vacancy.
-                    for search_bucketnum in 1..(data_len - bucket_num) {
-                        let search_bucket_meta: &[A8Bytes<MetaSize>] =
-                            working_meta[search_bucketnum].as_aligned_chunks();
-                        for search_idx in 0..search_bucket_meta.len() {
-                            let src_meta: &A8Bytes<MetaSize> = &search_bucket_meta[search_idx];
+                    for (search_bucketnum, search_bucket_meta) in working_meta
+                        .iter()
+                        .enumerate()
+                        .take(data_len - bucket_num)
+                        .skip(1)
+                    {
+                        for (search_idx, src_meta) in
+                            search_bucket_meta.as_aligned_chunks().iter().enumerate()
+                        {
                             let elem_destination: usize =
                                 BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                                    *meta_leaf_num(&src_meta),
+                                    *meta_leaf_num(src_meta),
                                     branch.leaf,
                                     data_len,
                                 );
@@ -739,13 +748,12 @@ pub mod evictor {
                             }
                         }
                     }
-                    //Try to search through the stash to fid the deepest block that can live in
+                    //Try to search through the stash to find the deepest block that can live in
                     // this vacancy.
-                    for search_idx in 0..stash_meta.len() {
-                        let src_meta: &A8Bytes<MetaSize> = &stash_meta[search_idx];
+                    for (search_idx, src_meta) in stash_meta.iter().enumerate() {
                         let elem_destination: usize =
                             BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                                *meta_leaf_num(&src_meta),
+                                *meta_leaf_num(src_meta),
                                 branch.leaf,
                                 data_len,
                             );
