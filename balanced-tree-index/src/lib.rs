@@ -429,7 +429,7 @@ mod testing {
         let mut it1 = lhs.parents();
         let mut it2 = rhs.parents();
         while it1.next().unwrap() != it2.next().unwrap() {
-            counter = counter + 1;
+            counter += 1;
         }
         counter
     }
