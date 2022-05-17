@@ -573,6 +573,8 @@ mod details {
 pub mod evictor {
 
     use super::*;
+    use core::convert::TryFrom;
+    const FLOOR_INDEX: usize = usize::MAX;
     /// Evictor trait conceptually is a mechanism for moving stash elements into
     /// the oram.
     pub trait Evictor<ValueSize, Z>
@@ -661,6 +663,255 @@ pub mod evictor {
                 rng,
                 num_elements_to_evict,
             }
+        }
+    }
+
+    ///This is a non oblivious implementation of Circuit Oram. Intended for
+    /// demonstration/testing of the behaviour for circuit oram. It is not to be
+    /// used in production
+    pub struct CircuitOramNonobliviousEvict {
+        num_elements_to_evict: usize,
+    }
+    impl CircuitOramNonobliviousEvict {
+        ///Create a non oblivious CircuitOram evictor that deterministically
+        /// evicts
+        pub fn new(num_elements_to_evict: usize) -> Self {
+            Self {
+                num_elements_to_evict,
+            }
+        }
+    }
+
+    impl Default for CircuitOramNonobliviousEvict {
+        fn default() -> Self {
+            Self::new(2)
+        }
+    }
+
+    impl<ValueSize, Z> Evictor<ValueSize, Z, > for CircuitOramNonobliviousEvict
+    where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        fn get_branches_to_evict(
+            &mut self,
+            iteration: u64,
+            height: u32,
+            _: u64,
+            out_branches_to_evict: &mut [u64],
+        ) {
+            //The height of the root is 0, so the number of bits needed for the leaves is
+            // just the height
+            let num_bits_needed = height;
+            //Most significant index is always 1 for leafs
+            let leaf_significant_index: u64 = 1 << (num_bits_needed);
+            for (i, mut _leaf) in out_branches_to_evict
+                .iter_mut()
+                .enumerate()
+                .take(self.num_elements_to_evict)
+            {
+                let test_position: u64 = ((u64::try_from(self.num_elements_to_evict).unwrap()
+                    * iteration
+                    + u64::try_from(i).unwrap())
+                .reverse_bits()
+                    >> (64 - num_bits_needed))
+                    % leaf_significant_index;
+                *_leaf = leaf_significant_index + test_position;
+            }
+        }
+
+        fn evict_from_stash_to_branch(
+            &self,
+            stash_data: &mut [A64Bytes<ValueSize>],
+            stash_meta: &mut [A8Bytes<MetaSize>],
+            branch: &mut BranchCheckout<ValueSize, Z>,
+        ) where
+            ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+            Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+            Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+            Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        {
+            let data_len = branch.meta.len();
+            let mut bucket_num = 0;
+            //Searching from the leaf to the root.
+            while bucket_num < data_len {
+                let (_, working_meta) = branch.meta.split_at(bucket_num);
+
+                let bucket_meta: &[A8Bytes<MetaSize>] = working_meta[0].as_aligned_chunks();
+                let mut bucket_has_vacancy = false;
+                let mut vacant_chunk = 0;
+                //Checking each chunk in the bucket for a vacancy.
+                for (idx, src_meta) in bucket_meta.iter().enumerate().take(bucket_meta.len()) {
+                    if meta_is_vacant(src_meta).into() {
+                        bucket_has_vacancy = true;
+                        vacant_chunk = idx;
+                        // std::println!("There is a vacancy at bucket:{}, and chunk:{}",
+                        // bucket_num, vacant_chunk);
+                        break;
+                    }
+                }
+                if bucket_has_vacancy {
+                    let mut deepest_target_for_level = FLOOR_INDEX;
+                    let mut source_bucket_for_deepest = FLOOR_INDEX;
+                    let mut source_chunk_for_deepest = 0usize;
+
+                    //Try to search through the other buckets that are higher in the branch to find
+                    // the deepest block that can live in this vacancy.
+                    for (search_bucketnum, search_bucket_meta) in working_meta
+                        .iter()
+                        .enumerate()
+                        .take(data_len - bucket_num)
+                        .skip(1)
+                    {
+                        for (search_idx, src_meta) in
+                            search_bucket_meta.as_aligned_chunks().iter().enumerate()
+                        {
+                            let elem_destination: usize =
+                                BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                                    *meta_leaf_num(src_meta),
+                                    branch.leaf,
+                                    data_len,
+                                );
+                            if bool::try_from(!meta_is_vacant(src_meta)).unwrap()
+                                && elem_destination < deepest_target_for_level
+                            {
+                                deepest_target_for_level = elem_destination;
+                                source_bucket_for_deepest = search_bucketnum;
+                                source_chunk_for_deepest = search_idx;
+                            }
+                        }
+                    }
+                    //Try to search through the stash to find the deepest block that can live in
+                    // this vacancy.
+                    for (search_idx, src_meta) in stash_meta.iter().enumerate() {
+                        let elem_destination: usize =
+                            BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                                *meta_leaf_num(src_meta),
+                                branch.leaf,
+                                data_len,
+                            );
+                        //We only take the element from the stash if it is actually deeper than the
+                        // deepest one we found in the branch.
+                        if bool::try_from(!meta_is_vacant(src_meta)).unwrap()
+                            && elem_destination < deepest_target_for_level
+                        {
+                            deepest_target_for_level = elem_destination;
+                            source_bucket_for_deepest = data_len;
+                            source_chunk_for_deepest = search_idx;
+                        }
+                    }
+                    if deepest_target_for_level > bucket_num {
+                        //If there is not block that can go in this vacancy, just go up to the next
+                        // level. std::println!("There is no target for this
+                        // level {}", bucket_num);
+                        bucket_num += 1;
+                    } else {
+                        //Check to see if you're getting the source is from the branch and not the
+                        // stash.
+                        if source_bucket_for_deepest < data_len {
+                            // std::println!("The deepest target for level {} is {} it is not in a
+                            // stash. The source is bucket:{}, and chunk:{}", bucket_num,
+                            // deepest_target_for_level, source_bucket_for_deepest,
+                            // source_chunk_for_deepest);
+
+                            //The source is a normal bucket
+                            let (lower_data, upper_data) = branch
+                                .data
+                                .split_at_mut(source_bucket_for_deepest + bucket_num);
+                            let (lower_meta, upper_meta) = branch
+                                .meta
+                                .split_at_mut(source_bucket_for_deepest + bucket_num);
+                            let insertion_bucket_data: &mut [A64Bytes<ValueSize>] =
+                                lower_data[bucket_num].as_mut_aligned_chunks();
+                            let insertion_bucket_meta: &mut [A8Bytes<MetaSize>] =
+                                lower_meta[bucket_num].as_mut_aligned_chunks();
+                            let source_bucket_data: &mut [A64Bytes<ValueSize>] =
+                                upper_data[0].as_mut_aligned_chunks();
+                            let source_bucket_meta: &mut [A8Bytes<MetaSize>] =
+                                upper_meta[0].as_mut_aligned_chunks();
+                            let insertion_data: &mut A64Bytes<ValueSize> =
+                                &mut insertion_bucket_data[vacant_chunk];
+                            let insertion_meta: &mut A8Bytes<MetaSize> =
+                                &mut insertion_bucket_meta[vacant_chunk];
+                            let source_data: &mut A64Bytes<ValueSize> =
+                                &mut source_bucket_data[source_chunk_for_deepest];
+                            let source_meta: &mut A8Bytes<MetaSize> =
+                                &mut source_bucket_meta[source_chunk_for_deepest];
+                            let test: Choice = 1.into();
+                            insertion_meta.cmov(test, source_meta);
+                            insertion_data.cmov(test, source_data);
+                            meta_set_vacant(test, source_meta);
+                        } else {
+                            //The source is the stash
+                            // dbg!(bucket_num, deepest_target_for_level, source_bucket_for_deepest,
+                            // source_chunk_for_deepest);
+                            let (_, working_data) = branch.data.split_at_mut(bucket_num);
+                            let (_, working_meta) = branch.meta.split_at_mut(bucket_num);
+                            let bucket_data: &mut [A64Bytes<ValueSize>] =
+                                working_data[0].as_mut_aligned_chunks();
+                            let bucket_meta: &mut [A8Bytes<MetaSize>] =
+                                working_meta[0].as_mut_aligned_chunks();
+                            let insertion_data: &mut A64Bytes<ValueSize> =
+                                &mut bucket_data[vacant_chunk];
+                            let insertion_meta: &mut A8Bytes<MetaSize> =
+                                &mut bucket_meta[vacant_chunk];
+                            let source_data: &mut A64Bytes<ValueSize> =
+                                &mut stash_data[source_chunk_for_deepest];
+                            let source_meta: &mut A8Bytes<MetaSize> =
+                                &mut stash_meta[source_chunk_for_deepest];
+                            let test: Choice = 1.into();
+                            insertion_meta.cmov(test, source_meta);
+                            insertion_data.cmov(test, source_data);
+                            meta_set_vacant(test, source_meta);
+                        }
+                        //We moved an element into the vacancy, so we just created a vacancy we can
+                        // go to and start again.
+                        bucket_num = source_bucket_for_deepest;
+                    }
+                } else {
+                    //if there is no vacancy, just go to the next bucket.
+                    bucket_num += 1;
+                }
+            }
+        }
+        fn get_max_number_of_branches_to_evict(&self) -> usize { self.num_elements_to_evict }
+    }
+    #[cfg(test)]
+    mod internal_tests {
+        use super::*;
+        use aligned_cmov::typenum::{U1024, U4};
+        #[test]
+        // Check that deterministic oram correctly chooses leaf values
+        fn test_deterministic_oram_get_branches_to_evict() {
+            const NUMBER_OF_BRANCHES_TO_EVICT: usize = 2;
+            let mut leaf_array = [0u64; NUMBER_OF_BRANCHES_TO_EVICT];
+            let mut evictor = CircuitOramNonobliviousEvict::default();
+            <CircuitOramNonobliviousEvict as Evictor<
+                U1024,
+                U4,
+            >>::get_branches_to_evict(&mut evictor, 0, 3, 8, &mut leaf_array);
+            assert_eq!(leaf_array[0], 8);
+            assert_eq!(leaf_array[1], 12);
+            <CircuitOramNonobliviousEvict as Evictor<
+                U1024,
+                U4,
+            >>::get_branches_to_evict(&mut evictor, 1, 3, 8, &mut leaf_array);
+            assert_eq!(leaf_array[0], 10);
+            assert_eq!(leaf_array[1], 14);
+            <CircuitOramNonobliviousEvict as Evictor<
+                U1024,
+                U4,
+            >>::get_branches_to_evict(&mut evictor, 2, 3, 8, &mut leaf_array);
+            assert_eq!(leaf_array[0], 9);
+            assert_eq!(leaf_array[1], 13);
+            <CircuitOramNonobliviousEvict as Evictor<
+                U1024,
+                U4,
+            >>::get_branches_to_evict(&mut evictor, 3, 3, 8, &mut leaf_array);
+            assert_eq!(leaf_array[0], 11);
+            assert_eq!(leaf_array[1], 15);
         }
     }
 }
