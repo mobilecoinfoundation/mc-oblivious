@@ -83,7 +83,7 @@ fn meta_set_vacant(condition: Choice, src: &mut A8Bytes<MetaSize>) {
 }
 
 /// An implementation of PathORAM, using u64 to represent leaves in metadata.
-pub struct PathORAM<ValueSize, Z, const N: usize, StorageType, RngType>
+pub struct PathORAM<ValueSize, Z, StorageType, RngType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -112,8 +112,8 @@ where
     iteration: u64,
 }
 
-impl<ValueSize, Z, const N: usize, StorageType, RngType>
-    PathORAM<ValueSize, Z, N, StorageType, RngType>
+impl<ValueSize, Z, StorageType, RngType>
+    PathORAM<ValueSize, Z, StorageType, RngType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -162,8 +162,8 @@ where
     }
 }
 
-impl<ValueSize, Z, const N: usize, StorageType, RngType> ORAM<ValueSize>
-    for PathORAM<ValueSize, Z, N, StorageType, RngType>
+impl<ValueSize, Z, StorageType, RngType> ORAM<ValueSize>
+    for PathORAM<ValueSize, Z, StorageType, RngType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -254,7 +254,7 @@ where
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
-        let mut branches_to_evict = [0u64; N];
+        let mut branches_to_evict = vec![0u64; self.evictor.get_max_number_of_branches_to_evict()];
         self
             .evictor
             .get_branches_to_evict(self.iteration, self.height, self.len(), &mut branches_to_evict)
@@ -597,6 +597,11 @@ pub mod evictor {
             tree_size: u64,
             out_branches_to_evict: &mut [u64],
         );
+        /// Returns a list of branches to call evict from stash to branch on.
+        fn get_max_number_of_branches_to_evict(
+            &self,
+        ) -> usize;
+        
     }
 
     ///Eviction algorithm defined in path oram. Packs the branch and greedily
@@ -643,6 +648,7 @@ pub mod evictor {
                 out_branches_to_evict[i] = 1u64.random_child_at_height(tree_height, &mut self.rng);
             }
         }
+        fn get_max_number_of_branches_to_evict(&self) -> usize { self.num_elements_to_evict }
     }
     impl<RngType> PathOramEvict<RngType>
     where
@@ -867,6 +873,7 @@ pub mod evictor {
                 }
             }
         }
+        fn get_max_number_of_branches_to_evict(&self) -> usize { self.num_elements_to_evict }
     }
     #[cfg(test)]
     mod internal_tests {

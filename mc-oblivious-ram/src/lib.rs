@@ -57,7 +57,7 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
-    type Output = PathORAM<U2048, U2, N, SC::Output, R>;
+    type Output = PathORAM<U2048, U2, SC::Output, R>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
@@ -87,7 +87,7 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, N, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
@@ -117,7 +117,7 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, N, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
