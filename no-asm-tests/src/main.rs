@@ -114,14 +114,14 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, N, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(PathOramEvict::<R>::new(rng_maker()));
+        let evictor = Box::new(PathOramEvict::<R>::new(rng_maker(), N));
         PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
     }
 }
@@ -146,14 +146,14 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, N, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(CircuitOramNonobliviousEvict::new());
+        let evictor = Box::new(CircuitOramNonobliviousEvict::default());
         PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
     }
 }
@@ -178,14 +178,14 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
-    type Output = PathORAM<U2048, U2, N, SC::Output, R>;
+    type Output = PathORAM<U2048, U2, SC::Output, R>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(CircuitOramNonobliviousEvict::new());
+        let evictor = Box::new(CircuitOramNonobliviousEvict::default());
         PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
     }
 }
