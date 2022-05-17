@@ -133,6 +133,7 @@ where
         size: u64,
         stash_size: usize,
         rng_maker: &mut F,
+        evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
     ) -> Self {
         assert!(size != 0, "size cannot be zero");
         assert!(size & (size - 1) == 0, "size must be a power of two");
@@ -144,7 +145,6 @@ where
         let mut rng = rng_maker();
         let storage = SC::create(2u64 << height, &mut rng).expect("Storage failed");
         let pos = PMC::create(size, height, stash_size, rng_maker);
-        let evictor = Box::new(PathOramEvict::new());
         Self {
             height,
             storage,
@@ -153,7 +153,7 @@ where
             stash_data: vec![Default::default(); stash_size],
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
-            evictor: evictor,
+            evictor,
         }
     }
 }
@@ -177,7 +177,7 @@ where
         for idx in 0..self.stash_data.len() {
             let stash_count_incremented = stash_count + 1;
             stash_count.cmov(
-                meta_is_vacant(&self.stash_meta[idx]),
+                !meta_is_vacant(&self.stash_meta[idx]),
                 &stash_count_incremented,
             );
         }
@@ -568,6 +568,14 @@ pub mod evictor {
             stash_meta: &mut [A8Bytes<MetaSize>],
             branch: &mut BranchCheckout<ValueSize, Z>,
         );
+        /// Returns a list of branches to call evict from stash to branch on.
+        fn get_branches_to_evict(
+            &self,
+            iteration: u64,
+            tree_height: u32,
+            tree_size: u64,
+            branch_indices: &mut [u64],
+        );
     }
     pub struct PathOramEvict {}
     impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
@@ -590,6 +598,7 @@ pub mod evictor {
                 branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
             }
         }
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {}
     }
     impl PathOramEvict {
         pub fn new() -> Self {
@@ -597,6 +606,11 @@ pub mod evictor {
         }
     }
     pub struct CircuitOramNonobliviousEvict {}
+    impl CircuitOramNonobliviousEvict {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
     impl<ValueSize, Z> Evictor<ValueSize, Z> for CircuitOramNonobliviousEvict
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -604,6 +618,7 @@ pub mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {}
         #[allow(dead_code)]
         fn evict_from_stash_to_branch(
             &self,
@@ -728,7 +743,8 @@ pub mod evictor {
                             meta_set_vacant(test, source_meta);
                         } else {
                             //The source is the stash
-                            std::println!("The deepest target for level {} is {} it is in the stash. The source is bucket:{}, and chunk:{}", bucket_num, deepest_target_for_level, source_bucket_for_deepest, source_chunk_for_deepest);
+                            // dbg!(bucket_num, deepest_target_for_level, source_bucket_for_deepest,
+                            // source_chunk_for_deepest);
                             let (_, working_data) = branch.data.split_at_mut(bucket_num);
                             let (_, working_meta) = branch.meta.split_at_mut(bucket_num);
                             let bucket_data: &mut [A64Bytes<ValueSize>] =
@@ -769,7 +785,8 @@ pub mod evictor {
         fn prepare_deepest<ValueSize, Z>(
             deepest_meta: &mut [usize],
             stash_meta: &mut [A8Bytes<MetaSize>],
-            branch: &BranchCheckout<ValueSize, Z>,
+            branch_meta: &Vec<A8Bytes<Prod<Z, MetaSize>>>,
+            leaf: u64,
         ) where
             ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
             Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -777,8 +794,8 @@ pub mod evictor {
             Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
         {
             //Need one extra for the stash.
-            debug_assert!(deepest_meta.len() == (branch.meta.len() + 1));
-            let data_len = branch.meta.len();
+            debug_assert!(deepest_meta.len() == (branch_meta.len() + 1));
+            let meta_len = branch_meta.len();
             //for each level, the goal should represent the lowest in the branch that any
             // element seen so far can go
             let mut goal: usize = FLOOR_INDEX;
@@ -788,19 +805,23 @@ pub mod evictor {
             //Iterate over the stash to find the element that can go deepest.
             for stash_elem in stash_meta {
                 let elem_destination: usize =
-                    branch.lowest_height_legal_index(*meta_leaf_num(stash_elem));
+                    BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                        *meta_leaf_num(&stash_elem),
+                        leaf,
+                        meta_len,
+                    );
                 let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
                 //lower is closer to the leaf.
                 let is_elem_deeper = elem_destination_64.ct_lt(&u64::try_from(goal).unwrap())
                     & !meta_is_vacant(stash_elem);
                 goal.cmov(is_elem_deeper, &elem_destination);
-                src.cmov(is_elem_deeper, &data_len);
+                src.cmov(is_elem_deeper, &meta_len);
             }
             //Iterate over the branch from root to leaf to find the element that can go the
             // deepest. Noting that 0 is the leaf.
-            for bucket_num in (0..data_len).rev() {
+            for bucket_num in (0..meta_len).rev() {
                 let bucket_num_64 = u64::try_from(bucket_num).unwrap();
-                let bucket_meta: &[A8Bytes<MetaSize>] = branch.meta[bucket_num].as_aligned_chunks();
+                let bucket_meta: &[A8Bytes<MetaSize>] = branch_meta[bucket_num].as_aligned_chunks();
                 for idx in 0..bucket_meta.len() {
                     let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
                     //We should take the src and insert into deepest if our current bucket num is
@@ -810,7 +831,11 @@ pub mod evictor {
                     deepest_meta[bucket_num].cmov(should_take_src_for_deepest, &src);
 
                     let elem_destination: usize =
-                        branch.lowest_height_legal_index(*meta_leaf_num(src_meta));
+                        BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                            *meta_leaf_num(&src_meta),
+                            leaf,
+                            meta_len,
+                        );
                     let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
                     //This element is only taken if it can go deeper than the current level and is
                     // deeper than the currently held element.
@@ -830,7 +855,7 @@ pub mod evictor {
         fn prepare_target<ValueSize, Z>(
             target_meta: &mut [usize],
             deepest_meta: &mut [usize],
-            branch: &BranchCheckout<ValueSize, Z>,
+            branch_meta: &Vec<A8Bytes<Prod<Z, MetaSize>>>,
         ) where
             ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
             Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -838,7 +863,7 @@ pub mod evictor {
             Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
         {
             //Need 1 more for stash.
-            debug_assert!(deepest_meta.len() == (branch.meta.len() + 1));
+            debug_assert!(deepest_meta.len() == (branch_meta.len() + 1));
             debug_assert!(target_meta.len() == deepest_meta.len());
             // dest is the last found location which has a vacancy that an element can be
             // placed into, Floor_index means there is no vacancy found.
@@ -848,9 +873,9 @@ pub mod evictor {
             let mut src: usize = FLOOR_INDEX;
             //Iterate over the branch from leaf to root to find the elements that will be
             // moved from path[i] to path[target[i]]
-            let data_len = branch.meta.len();
+            let data_len = branch_meta.len();
             for bucket_num in 0..data_len {
-                let bucket_meta: &[A8Bytes<MetaSize>] = branch.meta[bucket_num].as_aligned_chunks();
+                let bucket_meta: &[A8Bytes<MetaSize>] = branch_meta[bucket_num].as_aligned_chunks();
                 //If we encounter the src for the element, we save it to the target array and
                 // floor out the dest and src.
                 let should_set_target = bucket_num.ct_eq(&src);
@@ -885,6 +910,7 @@ pub mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
+        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {}
         fn evict_from_stash_to_branch(
             &self,
             stash_data: &mut [A64Bytes<ValueSize>],
@@ -900,14 +926,24 @@ pub mod evictor {
             let adjusted_data_len = branch.meta.len() + 1;
             let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
             let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
-            CircuitOramEvict::prepare_deepest(&mut deepest_meta, stash_meta, branch);
-            CircuitOramEvict::prepare_target(&mut target_meta, &mut deepest_meta, branch);
+            CircuitOramEvict::prepare_deepest::<ValueSize, Z>(
+                &mut deepest_meta,
+                stash_meta,
+                &branch.meta,
+                branch.leaf,
+            );
+            CircuitOramEvict::prepare_target::<ValueSize, Z>(
+                &mut target_meta,
+                &mut deepest_meta,
+                &branch.meta,
+            );
 
             // Just initializing the held data and held meta with some default values.
             let mut dummy_held_data: A64Bytes<ValueSize> = Default::default();
             let mut dummy_held_meta: A8Bytes<MetaSize> = Default::default();
 
-            // Held data and held meta represent the elements we have picked up iterating from the stash to the leaf. Initially empty.
+            // Held data and held meta represent the elements we have picked up iterating
+            // from the stash to the leaf. Initially empty.
             let held_data: &mut A64Bytes<ValueSize> = &mut dummy_held_data;
             let mut held_meta: &mut A8Bytes<MetaSize> = &mut dummy_held_meta;
             // Dest represents the bucket where we will swap the held element for a new one.
@@ -916,12 +952,8 @@ pub mod evictor {
             //Look through the stash to find the element that can go the deepest, then
             // putting it in the hold and setting dest to the target[STASH_INDEX]
             let stash_target = target_meta.get(adjusted_data_len - 1).unwrap();
-            let mut should_take_an_element_for_level =
-                !(stash_target).ct_eq(&FLOOR_INDEX);
-            dest.cmov(
-                should_take_an_element_for_level,
-                &stash_target,
-            );
+            let mut should_take_an_element_for_level = !(stash_target).ct_eq(&FLOOR_INDEX);
+            dest.cmov(should_take_an_element_for_level, &stash_target);
             let mut deepest_target_for_level = FLOOR_INDEX;
             let mut id_of_the_deepest_target_for_level = 0usize;
             for idx in 0..stash_meta.len() {

@@ -1,6 +1,6 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
-//! Some generic tests that exercise objects implementing these traits
+//! Some generic tests that exercise objects implementing these traits]
 
 use crate::{ObliviousHashMap, OMAP_FOUND, OMAP_INVALID_KEY, OMAP_NOT_FOUND, OMAP_OVERFLOW, ORAM};
 use aligned_cmov::{subtle::Choice, typenum::U8, A64Bytes, A8Bytes, Aligned, ArrayLength};
@@ -9,6 +9,8 @@ use alloc::{
     vec::Vec,
 };
 use rand_core::{CryptoRng, RngCore};
+extern crate std;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 
 /// Exercise an ORAM by writing, reading, and rewriting, a progressively larger
 /// set of random locations
@@ -108,12 +110,17 @@ where
 
     while num_rounds > 0 {
         let expected_ent = expected.entry(probe_idx).or_default();
-
-        oram.access(probe_idx, |val| {
-            assert_eq!(val, expected_ent);
-            rng.fill_bytes(val);
-            expected_ent.clone_from_slice(val.as_slice());
-        });
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            oram.access(probe_idx, |val| {
+                assert_eq!(val, expected_ent);
+                rng.fill_bytes(val);
+                expected_ent.clone_from_slice(val.as_slice());
+            })
+        }));
+        if result.is_err() {
+            std::eprintln!("Panic when attempting to access: {:?}, expected_result:{:?} remaining rounds: {:?}: Error was {:?}", probe_idx, expected_ent, num_rounds, result);
+            return statistics;
+        }
         *statistics.entry(oram.stash_size()).or_default() += 1;
         probe_idx = (probe_idx + 1) & (len - 1);
         num_rounds -= 1;
