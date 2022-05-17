@@ -9,10 +9,8 @@ use mc_oblivious_traits::{HeapORAMStorageCreator, OMapCreator, ORAMCreator, Obli
 use std::time::Duration;
 use typenum::{U1024, U32};
 
-const NUMBER_OF_BRANCHES_TO_EVICT: usize = 1;
-
 type ORAMCreatorZ4 =
-    PathORAM4096Z4Creator<McRng, HeapORAMStorageCreator, NUMBER_OF_BRANCHES_TO_EVICT>;
+    PathORAM4096Z4Creator<McRng, HeapORAMStorageCreator>;
 type PathORAMZ4 = <ORAMCreatorZ4 as ORAMCreator<U1024, McRng>>::Output;
 type Table = CuckooHashTable<U32, U32, U1024, McRng, PathORAMZ4>;
 type CuckooCreatorZ4 = CuckooHashTableCreator<U1024, McRng, ORAMCreatorZ4>;
