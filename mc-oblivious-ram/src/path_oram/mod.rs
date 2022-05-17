@@ -114,8 +114,7 @@ where
     iteration: u64,
 }
 
-impl<ValueSize, Z, StorageType, RngType>
-    PathORAM<ValueSize, Z, StorageType, RngType>
+impl<ValueSize, Z, StorageType, RngType> PathORAM<ValueSize, Z, StorageType, RngType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -258,10 +257,12 @@ where
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
-        self
-            .evictor
-            .get_branches_to_evict(self.iteration, self.height, self.len(), &mut self.branches_to_evict)
-            ;
+        self.evictor.get_branches_to_evict(
+            self.iteration,
+            self.height,
+            self.len(),
+            &mut self.branches_to_evict,
+        );
 
         for leaf in &self.branches_to_evict {
             debug_assert!(*leaf != 0);
@@ -599,10 +600,7 @@ pub mod evictor {
             out_branches_to_evict: &mut [u64],
         );
         /// Returns a list of branches to call evict from stash to branch on.
-        fn get_max_number_of_branches_to_evict(
-            &self,
-        ) -> usize;
-        
+        fn get_max_number_of_branches_to_evict(&self) -> usize;
     }
 
     ///Eviction algorithm defined in path oram. Packs the branch and greedily
@@ -649,7 +647,9 @@ pub mod evictor {
                 out_branches_to_evict[i] = 1u64.random_child_at_height(tree_height, &mut self.rng);
             }
         }
-        fn get_max_number_of_branches_to_evict(&self) -> usize { self.num_elements_to_evict }
+        fn get_max_number_of_branches_to_evict(&self) -> usize {
+            self.num_elements_to_evict
+        }
     }
     impl<RngType> PathOramEvict<RngType>
     where
