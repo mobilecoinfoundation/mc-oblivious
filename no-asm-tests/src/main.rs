@@ -198,7 +198,8 @@ mod tests {
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAMCreator};
     use std::vec;
     use test_helper::{run_with_one_seed, run_with_several_seeds};
-    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 0;
+    const NUMBER_OF_BRANCHES_TO_EVICT_PATH: usize = 0;
+    const NUMBER_OF_BRANCHES_TO_EVICT_CIRCUIT: usize = 1;
     // Run the exercise oram tests for 200,000 rounds in 131072 sized z4 oram
     #[test]
     fn exercise_path_oram_z4_131072() {
@@ -209,7 +210,7 @@ mod tests {
             let mut oram = InsecurePathORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
+                NUMBER_OF_BRANCHES_TO_EVICT_PATH,
             >::create(131072, stash_size, &mut maker);
             testing::exercise_oram(200_000, &mut oram, &mut rng);
         });
@@ -225,7 +226,7 @@ mod tests {
             let mut oram = InsecurePathORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
+                NUMBER_OF_BRANCHES_TO_EVICT_PATH,
             >::create(262144, stash_size, &mut maker);
             testing::exercise_oram(400_000, &mut oram, &mut rng);
         });
@@ -249,7 +250,7 @@ mod tests {
             let mut oram = InsecurePathORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
+                NUMBER_OF_BRANCHES_TO_EVICT_PATH,
             >::create(base.pow(10), STASH_SIZE, &mut maker);
             let stash_stats = testing::measure_oram_stash_size_distribution(
                 num_prerounds.try_into().unwrap(),
@@ -302,7 +303,7 @@ mod tests {
                 let mut oram = InsecurePathORAM4096Z4Creator::<
                     RngType,
                     HeapORAMStorageCreator,
-                    NUMBER_OF_BRANCHES_TO_EVICT,
+                    NUMBER_OF_BRANCHES_TO_EVICT_PATH,
                 >::create(oram_size, STASH_SIZE, &mut maker);
                 let stash_stats = testing::measure_oram_stash_size_distribution(
                     NUM_PREROUNDS.try_into().unwrap(),
@@ -354,13 +355,13 @@ mod tests {
         run_with_several_seeds(|rng| {
             let base: u64 = 2;
             let num_prerounds: u64 = base.pow(10);
-            let num_rounds: u64 = base.pow(30);
+            let num_rounds: u64 = base.pow(20);
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let mut oram = InsecureNonObliviousCircuitORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
+                NUMBER_OF_BRANCHES_TO_EVICT_CIRCUIT,
             >::create(base.pow(10), STASH_SIZE, &mut maker);
             let stash_stats = testing::measure_oram_stash_size_distribution(
                 num_prerounds.try_into().unwrap(),
@@ -405,13 +406,13 @@ mod tests {
         run_with_several_seeds(|rng| {
             let base: u64 = 2;
             let num_prerounds: u64 = base.pow(10);
-            let num_rounds: u64 = base.pow(30);
+            let num_rounds: u64 = base.pow(20);
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let mut oram = InsecureNonObliviousCircuitORAM4096Z2Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
+                NUMBER_OF_BRANCHES_TO_EVICT_CIRCUIT,
             >::create(base.pow(10), STASH_SIZE, &mut maker);
             let stash_stats = testing::measure_oram_stash_size_distribution(
                 num_prerounds.try_into().unwrap(),
