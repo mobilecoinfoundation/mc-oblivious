@@ -243,9 +243,7 @@ where
             );
             assert!(bool::from(meta_is_vacant(&meta)), "Stash overflow!");
         }
-        let branches_to_evict =
-            self.evictor
-                .get_branches_to_evict(self.iteration, self.height, self.len());
+
         // Now do cleanup / eviction on this branch, before checking out
         self.evictor.evict_from_stash_to_branch(
             &mut self.stash_data,
@@ -256,6 +254,11 @@ where
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
+        let mut branches_to_evict = [0u64; N];
+        self
+            .evictor
+            .get_branches_to_evict(self.iteration, self.height, self.len(), &mut branches_to_evict)
+            ;
 
         for leaf in branches_to_evict {
             debug_assert!(leaf != 0);
@@ -592,7 +595,8 @@ pub mod evictor {
             iteration: u64,
             tree_height: u32,
             tree_size: u64,
-        ) -> [u64; N];
+            out_branches_to_evict: &mut [u64],
+        );
     }
 
     ///Eviction algorithm defined in path oram. Packs the branch and greedily
@@ -604,6 +608,7 @@ pub mod evictor {
         RngType: RngCore + CryptoRng + Send + Sync + 'static,
     {
         rng: RngType,
+        num_elements_to_evict: usize,
     }
     impl<ValueSize, Z, const N: usize, RngType> Evictor<ValueSize, Z, N> for PathOramEvict<RngType>
     where
@@ -626,12 +631,17 @@ pub mod evictor {
                 branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
             }
         }
-        fn get_branches_to_evict(&mut self, _: u64, tree_height: u32, _: u64) -> [u64; N] {
-            let mut leaf_array: [u64; N] = [0u64; N];
-            for mut _leaf in leaf_array.iter_mut().take(N) {
-                *_leaf = 1u64.random_child_at_height(tree_height, &mut self.rng);
+        fn get_branches_to_evict(
+            &mut self,
+            _: u64,
+            tree_height: u32,
+            _: u64,
+            out_branches_to_evict: &mut [u64],
+        ) {
+            debug_assert!(out_branches_to_evict.len() == self.num_elements_to_evict);
+            for i in 0..self.num_elements_to_evict {
+                out_branches_to_evict[i] = 1u64.random_child_at_height(tree_height, &mut self.rng);
             }
-            leaf_array
         }
     }
     impl<RngType> PathOramEvict<RngType>
@@ -639,26 +649,33 @@ pub mod evictor {
         RngType: RngCore + CryptoRng + Send + Sync + 'static,
     {
         /// Create a PathOram Evictor using an rng to select branches to evict
-        pub fn new(rng: RngType) -> Self {
-            Self { rng }
+        pub fn new(rng: RngType, num_elements_to_evict: usize) -> Self {
+            Self {
+                rng,
+                num_elements_to_evict,
+            }
         }
     }
 
     ///This is a non oblivious implementation of Circuit Oram. Intended for
     /// demonstration/testing of the behaviour for circuit oram. It is not to be
     /// used in production
-    pub struct CircuitOramNonobliviousEvict {}
+    pub struct CircuitOramNonobliviousEvict {
+        num_elements_to_evict: usize,
+    }
     impl CircuitOramNonobliviousEvict {
         ///Create a non oblivious CircuitOram evictor that deterministically
         /// evicts
-        pub fn new() -> Self {
-            Self {}
+        pub fn new(num_elements_to_evict: usize) -> Self {
+            Self {
+                num_elements_to_evict,
+            }
         }
     }
 
     impl Default for CircuitOramNonobliviousEvict {
         fn default() -> Self {
-            Self::new()
+            Self::new(2)
         }
     }
 
@@ -669,24 +686,33 @@ pub mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
-        fn get_branches_to_evict(&mut self, iteration: u64, height: u32, _: u64) -> [u64; N] {
-            let mut leaf_array: [u64; N] = [0u64; N];
+        fn get_branches_to_evict(
+            &mut self,
+            iteration: u64,
+            height: u32,
+            _: u64,
+            out_branches_to_evict: &mut [u64],
+        ) {
             //The height of the root is 0, so the number of bits needed for the leaves is
             // just the height
             let num_bits_needed = height;
             //Most significant index is always 1 for leafs
             let leaf_significant_index: u64 = 1 << (num_bits_needed);
-            for (i, mut _leaf) in leaf_array.iter_mut().enumerate().take(N) {
-                let test_position: u64 = ((u64::try_from(N).unwrap() * iteration
+            for (i, mut _leaf) in out_branches_to_evict
+                .iter_mut()
+                .enumerate()
+                .take(self.num_elements_to_evict)
+            {
+                let test_position: u64 = ((u64::try_from(self.num_elements_to_evict).unwrap()
+                    * iteration
                     + u64::try_from(i).unwrap())
                 .reverse_bits()
                     >> (64 - num_bits_needed))
                     % leaf_significant_index;
                 *_leaf = leaf_significant_index + test_position;
             }
-            leaf_array
         }
-        #[allow(dead_code)]
+
         fn evict_from_stash_to_branch(
             &self,
             stash_data: &mut [A64Bytes<ValueSize>],
@@ -850,35 +876,36 @@ pub mod evictor {
         // Check that deterministic oram correctly chooses leaf values
         fn test_deterministic_oram_get_branches_to_evict() {
             const NUMBER_OF_BRANCHES_TO_EVICT: usize = 2;
-            let mut evictor = CircuitOramNonobliviousEvict::new();
-            let leaf_array = <CircuitOramNonobliviousEvict as Evictor<
+            let mut leaf_array = [0u64; NUMBER_OF_BRANCHES_TO_EVICT];
+            let mut evictor = CircuitOramNonobliviousEvict::default();
+            <CircuitOramNonobliviousEvict as Evictor<
                 U1024,
                 U4,
                 NUMBER_OF_BRANCHES_TO_EVICT,
-            >>::get_branches_to_evict(&mut evictor, 0, 3, 8);
+            >>::get_branches_to_evict(&mut evictor, 0, 3, 8, &mut leaf_array);
             assert_eq!(leaf_array[0], 8);
             assert_eq!(leaf_array[1], 12);
-            let leaf_array2 = <CircuitOramNonobliviousEvict as Evictor<
+            <CircuitOramNonobliviousEvict as Evictor<
                 U1024,
                 U4,
                 NUMBER_OF_BRANCHES_TO_EVICT,
-            >>::get_branches_to_evict(&mut evictor, 1, 3, 8);
-            assert_eq!(leaf_array2[0], 10);
-            assert_eq!(leaf_array2[1], 14);
-            let leaf_array3 = <CircuitOramNonobliviousEvict as Evictor<
+            >>::get_branches_to_evict(&mut evictor, 1, 3, 8, &mut leaf_array);
+            assert_eq!(leaf_array[0], 10);
+            assert_eq!(leaf_array[1], 14);
+            <CircuitOramNonobliviousEvict as Evictor<
                 U1024,
                 U4,
                 NUMBER_OF_BRANCHES_TO_EVICT,
-            >>::get_branches_to_evict(&mut evictor, 2, 3, 8);
-            assert_eq!(leaf_array3[0], 9);
-            assert_eq!(leaf_array3[1], 13);
-            let leaf_array4 = <CircuitOramNonobliviousEvict as Evictor<
+            >>::get_branches_to_evict(&mut evictor, 2, 3, 8, &mut leaf_array);
+            assert_eq!(leaf_array[0], 9);
+            assert_eq!(leaf_array[1], 13);
+            <CircuitOramNonobliviousEvict as Evictor<
                 U1024,
                 U4,
                 NUMBER_OF_BRANCHES_TO_EVICT,
-            >>::get_branches_to_evict(&mut evictor, 3, 3, 8);
-            assert_eq!(leaf_array4[0], 11);
-            assert_eq!(leaf_array4[1], 15);
+            >>::get_branches_to_evict(&mut evictor, 3, 3, 8, &mut leaf_array);
+            assert_eq!(leaf_array[0], 11);
+            assert_eq!(leaf_array[1], 15);
         }
     }
 }
