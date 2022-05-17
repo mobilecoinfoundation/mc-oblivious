@@ -577,6 +577,28 @@ pub mod evictor {
     use crate::path_oram::details::ct_insert;
     use core::convert::TryFrom;
     const FLOOR_INDEX: usize = usize::MAX;
+
+    fn deterministically_get_branches_to_evict(
+        height: u32,
+        num_elements_to_evict: usize,
+        iteration: u64,
+        out_branches_to_evict: &mut [u64],
+    ) {
+        let num_bits_needed = height;
+        let leaf_significant_index: u64 = 1 << (num_bits_needed);
+        for (i, mut _leaf) in out_branches_to_evict
+            .iter_mut()
+            .enumerate()
+            .take(num_elements_to_evict)
+        {
+            let test_position: u64 = ((u64::try_from(num_elements_to_evict).unwrap() * iteration
+                + u64::try_from(i).unwrap())
+            .reverse_bits()
+                >> (64 - num_bits_needed))
+                % leaf_significant_index;
+            *_leaf = leaf_significant_index + test_position;
+        }
+    }
     /// Evictor trait conceptually is a mechanism for moving stash elements into
     /// the oram.
     pub trait Evictor<ValueSize, Z>
@@ -708,22 +730,12 @@ pub mod evictor {
         ) {
             //The height of the root is 0, so the number of bits needed for the leaves is
             // just the height
-            let num_bits_needed = height;
-            //Most significant index is always 1 for leafs
-            let leaf_significant_index: u64 = 1 << (num_bits_needed);
-            for (i, mut _leaf) in out_branches_to_evict
-                .iter_mut()
-                .enumerate()
-                .take(self.num_elements_to_evict)
-            {
-                let test_position: u64 = ((u64::try_from(self.num_elements_to_evict).unwrap()
-                    * iteration
-                    + u64::try_from(i).unwrap())
-                .reverse_bits()
-                    >> (64 - num_bits_needed))
-                    % leaf_significant_index;
-                *_leaf = leaf_significant_index + test_position;
-            }
+            deterministically_get_branches_to_evict(
+                height,
+                self.num_elements_to_evict,
+                iteration,
+                out_branches_to_evict,
+            );
         }
 
         fn evict_from_stash_to_branch(
@@ -877,52 +889,48 @@ pub mod evictor {
     #[cfg(test)]
     mod internal_tests {
         use super::*;
-        use aligned_cmov::typenum::{U1024, U4};
         #[test]
         // Check that deterministic oram correctly chooses leaf values
-        fn test_deterministic_oram_get_branches_to_evict() {
+        fn test_deterministically_get_branches_to_evict() {
             const NUMBER_OF_BRANCHES_TO_EVICT: usize = 2;
             let mut leaf_array = [0u64; NUMBER_OF_BRANCHES_TO_EVICT];
-            let mut evictor = CircuitOramNonobliviousEvict::default();
-            <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_branches_to_evict(
-                &mut evictor,
-                0,
+            deterministically_get_branches_to_evict(
                 3,
-                8,
+                NUMBER_OF_BRANCHES_TO_EVICT,
+                0,
                 &mut leaf_array,
             );
             assert_eq!(leaf_array[0], 8);
             assert_eq!(leaf_array[1], 12);
-            <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_branches_to_evict(
-                &mut evictor,
-                1,
+            deterministically_get_branches_to_evict(
                 3,
-                8,
+                NUMBER_OF_BRANCHES_TO_EVICT,
+                1,
                 &mut leaf_array,
             );
             assert_eq!(leaf_array[0], 10);
             assert_eq!(leaf_array[1], 14);
-            <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_branches_to_evict(
-                &mut evictor,
-                2,
+            deterministically_get_branches_to_evict(
                 3,
-                8,
+                NUMBER_OF_BRANCHES_TO_EVICT,
+                2,
                 &mut leaf_array,
             );
             assert_eq!(leaf_array[0], 9);
             assert_eq!(leaf_array[1], 13);
-            <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_branches_to_evict(
-                &mut evictor,
+            deterministically_get_branches_to_evict(
                 3,
+                NUMBER_OF_BRANCHES_TO_EVICT,
                 3,
-                8,
                 &mut leaf_array,
             );
             assert_eq!(leaf_array[0], 11);
             assert_eq!(leaf_array[1], 15);
         }
     }
-    pub struct CircuitOramEvict {}
+    pub struct CircuitOramEvict {
+        num_elements_to_evict: usize,
+    }
     impl CircuitOramEvict {
         /// Make a root-to-leaf linear metadata scan to prepare the deepest
         /// array. After this algorithm, deepest[i] stores the source
@@ -1047,6 +1055,19 @@ pub mod evictor {
             }
             // Treat the stash as an extension of the branch.
             target_meta[data_len].cmov(data_len.ct_eq(&src), &dest);
+        }
+        ///Create a non oblivious CircuitOram evictor that deterministically
+        /// evicts
+        pub fn new(num_elements_to_evict: usize) -> Self {
+            Self {
+                num_elements_to_evict,
+            }
+        }
+    }
+
+    impl Default for CircuitOramEvict {
+        fn default() -> Self {
+            Self::new(2)
         }
     }
 
@@ -1207,17 +1228,22 @@ pub mod evictor {
         }
 
         fn get_max_number_of_branches_to_evict(&self) -> usize {
-        todo!()
-    }
+            self.num_elements_to_evict
+        }
 
         fn get_branches_to_evict(
             &mut self,
             iteration: u64,
-            tree_height: u32,
-            tree_size: u64,
+            height: u32,
+            _: u64,
             out_branches_to_evict: &mut [u64],
         ) {
-        todo!()
-    }
+            deterministically_get_branches_to_evict(
+                height,
+                self.num_elements_to_evict,
+                iteration,
+                out_branches_to_evict,
+            );
+        }
     }
 }
