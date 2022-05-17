@@ -747,8 +747,6 @@ pub mod evictor {
                     if meta_is_vacant(src_meta).into() {
                         bucket_has_vacancy = true;
                         vacant_chunk = idx;
-                        // std::println!("There is a vacancy at bucket:{}, and chunk:{}",
-                        // bucket_num, vacant_chunk);
                         break;
                     }
                 }
@@ -804,18 +802,12 @@ pub mod evictor {
                     }
                     if deepest_target_for_level > bucket_num {
                         //If there is not block that can go in this vacancy, just go up to the next
-                        // level. std::println!("There is no target for this
-                        // level {}", bucket_num);
+                        // level. 
                         bucket_num += 1;
                     } else {
                         //Check to see if you're getting the source is from the branch and not the
                         // stash.
                         if source_bucket_for_deepest < data_len {
-                            // std::println!("The deepest target for level {} is {} it is not in a
-                            // stash. The source is bucket:{}, and chunk:{}", bucket_num,
-                            // deepest_target_for_level, source_bucket_for_deepest,
-                            // source_chunk_for_deepest);
-
                             //The source is a normal bucket
                             let (lower_data, upper_data) = branch
                                 .data
@@ -845,8 +837,6 @@ pub mod evictor {
                             meta_set_vacant(test, source_meta);
                         } else {
                             //The source is the stash
-                            // dbg!(bucket_num, deepest_target_for_level, source_bucket_for_deepest,
-                            // source_chunk_for_deepest);
                             let (_, working_data) = branch.data.split_at_mut(bucket_num);
                             let (_, working_meta) = branch.meta.split_at_mut(bucket_num);
                             let bucket_data: &mut [A64Bytes<ValueSize>] =
