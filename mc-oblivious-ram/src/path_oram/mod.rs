@@ -108,6 +108,8 @@ where
     branch: BranchCheckout<ValueSize, Z>,
     /// Eviction strategy
     evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
+    /// Evictor writes the branches to be evicted to here
+    branches_to_evict: Vec<u64>,
     /// Number of times the ORAM has been accessed
     iteration: u64,
 }
@@ -148,6 +150,7 @@ where
         let mut rng = rng_maker();
         let storage = SC::create(2u64 << height, &mut rng).expect("Storage failed");
         let pos = PMC::create(size, height, stash_size, rng_maker);
+        let branches_to_evict = vec![0u64; evictor.get_max_number_of_branches_to_evict()];
         Self {
             height,
             storage,
@@ -157,6 +160,7 @@ where
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
             evictor,
+            branches_to_evict,
             iteration: 0u64,
         }
     }
@@ -254,15 +258,14 @@ where
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
-        let mut branches_to_evict = vec![0u64; self.evictor.get_max_number_of_branches_to_evict()];
         self
             .evictor
-            .get_branches_to_evict(self.iteration, self.height, self.len(), &mut branches_to_evict)
+            .get_branches_to_evict(self.iteration, self.height, self.len(), &mut self.branches_to_evict)
             ;
 
-        for leaf in branches_to_evict {
-            debug_assert!(leaf != 0);
-            self.branch.checkout(&mut self.storage, leaf);
+        for leaf in &self.branches_to_evict {
+            debug_assert!(*leaf != 0);
+            self.branch.checkout(&mut self.storage, *leaf);
             self.evictor.evict_from_stash_to_branch(
                 &mut self.stash_data,
                 &mut self.stash_meta,
