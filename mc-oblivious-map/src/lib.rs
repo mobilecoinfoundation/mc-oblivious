@@ -669,8 +669,7 @@ mod testing {
 
     const STASH_SIZE: usize = 16;
 
-    type ORAMCreatorZ4 =
-        PathORAM4096Z4Creator<RngType, HeapORAMStorageCreator>;
+    type ORAMCreatorZ4 = PathORAM4096Z4Creator<RngType, HeapORAMStorageCreator>;
     type CuckooCreatorZ4 = CuckooHashTableCreator<U1024, RngType, ORAMCreatorZ4>;
 
     /// Make a8-bytes that are initialized to a particular byte value
