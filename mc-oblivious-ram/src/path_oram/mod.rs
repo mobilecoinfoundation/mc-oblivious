@@ -643,8 +643,11 @@ pub mod evictor {
             out_branches_to_evict: &mut [u64],
         ) {
             debug_assert!(out_branches_to_evict.len() == self.num_elements_to_evict);
-            for i in 0..self.num_elements_to_evict {
-                out_branches_to_evict[i] = 1u64.random_child_at_height(tree_height, &mut self.rng);
+            for branch_to_evict in out_branches_to_evict
+                .iter_mut()
+                .take(self.num_elements_to_evict)
+            {
+                *branch_to_evict = 1u64.random_child_at_height(tree_height, &mut self.rng);
             }
         }
         fn get_max_number_of_branches_to_evict(&self) -> usize {
