@@ -140,6 +140,7 @@ mod testing {
     use test_helper::{run_with_several_seeds, RngType};
 
     const STASH_SIZE: usize = 16;
+    const NUMBER_OF_BRANCHES_TO_EVICT_CIRCUIT: usize = 2;
     // Helper to make tests more succinct
     fn a64_bytes<N: ArrayLength<u8>>(src: u8) -> A64Bytes<N> {
         let mut result = A64Bytes::<N>::default();
@@ -390,7 +391,7 @@ mod testing {
             let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
+                NUMBER_OF_BRANCHES_TO_EVICT_CIRCUIT,
             >::create(262144, STASH_SIZE, &mut rng_maker(rng));
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
@@ -417,7 +418,7 @@ mod testing {
             let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
+                NUMBER_OF_BRANCHES_TO_EVICT_CIRCUIT,
             >::create(8192, STASH_SIZE, &mut maker);
             testing::exercise_oram(20_000, &mut oram, &mut rng);
         });
@@ -433,7 +434,7 @@ mod testing {
             let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
+                NUMBER_OF_BRANCHES_TO_EVICT_CIRCUIT,
             >::create(8192, STASH_SIZE, &mut maker);
             testing::exercise_oram_consecutive(20_000, &mut oram, &mut rng);
         });
