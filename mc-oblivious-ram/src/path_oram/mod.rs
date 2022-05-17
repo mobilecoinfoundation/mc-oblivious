@@ -107,7 +107,7 @@ where
     /// Our currently checked-out branch if any
     branch: BranchCheckout<ValueSize, Z>,
     /// Eviction strategy
-    evictor: Box<dyn Evictor<ValueSize, Z, N> + Send + Sync + 'static>,
+    evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
     /// Number of times the ORAM has been accessed
     iteration: u64,
 }
@@ -136,7 +136,7 @@ where
         size: u64,
         stash_size: usize,
         rng_maker: &mut F,
-        evictor: Box<dyn Evictor<ValueSize, Z, N> + Send + Sync + 'static>,
+        evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
     ) -> Self {
         assert!(size != 0, "size cannot be zero");
         assert!(size & (size - 1) == 0, "size must be a power of two");
@@ -574,7 +574,7 @@ pub mod evictor {
     const FLOOR_INDEX: usize = usize::MAX;
     /// Evictor trait conceptually is a mechanism for moving stash elements into
     /// the oram.
-    pub trait Evictor<ValueSize, Z, const N: usize>
+    pub trait Evictor<ValueSize, Z>
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -610,7 +610,7 @@ pub mod evictor {
         rng: RngType,
         num_elements_to_evict: usize,
     }
-    impl<ValueSize, Z, const N: usize, RngType> Evictor<ValueSize, Z, N> for PathOramEvict<RngType>
+    impl<ValueSize, Z, RngType> Evictor<ValueSize, Z> for PathOramEvict<RngType>
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -679,7 +679,7 @@ pub mod evictor {
         }
     }
 
-    impl<ValueSize, Z, const N: usize> Evictor<ValueSize, Z, N> for CircuitOramNonobliviousEvict
+    impl<ValueSize, Z> Evictor<ValueSize, Z, > for CircuitOramNonobliviousEvict
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -881,28 +881,24 @@ pub mod evictor {
             <CircuitOramNonobliviousEvict as Evictor<
                 U1024,
                 U4,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >>::get_branches_to_evict(&mut evictor, 0, 3, 8, &mut leaf_array);
             assert_eq!(leaf_array[0], 8);
             assert_eq!(leaf_array[1], 12);
             <CircuitOramNonobliviousEvict as Evictor<
                 U1024,
                 U4,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >>::get_branches_to_evict(&mut evictor, 1, 3, 8, &mut leaf_array);
             assert_eq!(leaf_array[0], 10);
             assert_eq!(leaf_array[1], 14);
             <CircuitOramNonobliviousEvict as Evictor<
                 U1024,
                 U4,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >>::get_branches_to_evict(&mut evictor, 2, 3, 8, &mut leaf_array);
             assert_eq!(leaf_array[0], 9);
             assert_eq!(leaf_array[1], 13);
             <CircuitOramNonobliviousEvict as Evictor<
                 U1024,
                 U4,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >>::get_branches_to_evict(&mut evictor, 3, 3, 8, &mut leaf_array);
             assert_eq!(leaf_array[0], 11);
             assert_eq!(leaf_array[1], 15);
