@@ -1,6 +1,6 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
-//! Some generic tests that exercise objects implementing these traits]
+//! Some generic tests that exercise objects implementing these traits
 
 use crate::{ObliviousHashMap, OMAP_FOUND, OMAP_INVALID_KEY, OMAP_NOT_FOUND, OMAP_OVERFLOW, ORAM};
 use aligned_cmov::{subtle::Choice, typenum::U8, A64Bytes, A8Bytes, Aligned, ArrayLength};
@@ -33,13 +33,8 @@ where
             probe_idx = 0;
         }
         let query = probe_positions[probe_idx];
-        let expected_ent = expected.entry(query).or_default();
 
-        oram.access(query, |val| {
-            assert_eq!(val, expected_ent);
-            rng.fill_bytes(val);
-            expected_ent.clone_from_slice(val.as_slice());
-        });
+        query_oram_and_randomize(&mut expected, query, oram, rng);
 
         probe_idx += 1;
         num_rounds -= 1;
@@ -61,16 +56,31 @@ where
 
     while num_rounds > 0 {
         let query = num_rounds as u64 & (len - 1);
-        let expected_ent = expected.entry(query).or_default();
-
-        oram.access(query, |val| {
-            assert_eq!(val, expected_ent);
-            rng.fill_bytes(val);
-            expected_ent.clone_from_slice(val.as_slice());
-        });
+        query_oram_and_randomize(&mut expected, query, oram, rng);
 
         num_rounds -= 1;
     }
+}
+
+fn query_oram_and_randomize<BlockSize, O, R>(
+    expected: &mut BTreeMap<
+        u64,
+        Aligned<aligned_cmov::A64, aligned_cmov::GenericArray<u8, BlockSize>>,
+    >,
+    query: u64,
+    oram: &mut O,
+    rng: &mut R,
+) where
+    BlockSize: ArrayLength<u8>,
+    O: ORAM<BlockSize>,
+    R: RngCore + CryptoRng,
+{
+    let expected_ent = expected.entry(query).or_default();
+    oram.access(query, |val| {
+        assert_eq!(val, expected_ent);
+        rng.fill_bytes(val);
+        expected_ent.clone_from_slice(val.as_slice());
+    });
 }
 
 /// Exercise an ORAM by writing, reading, and rewriting, first cycling through
@@ -94,38 +104,32 @@ where
 
     let mut expected = BTreeMap::<u64, A64Bytes<BlockSize>>::default();
     let mut probe_idx = 0u64;
-    let mut statistics = BTreeMap::<usize, usize>::default();
+    let mut stash_size_by_count = BTreeMap::<usize, usize>::default();
 
     while num_pre_rounds > 0 {
-        let expected_ent = expected.entry(probe_idx).or_default();
-
-        oram.access(probe_idx, |val| {
-            assert_eq!(val, expected_ent);
-            rng.fill_bytes(val);
-            expected_ent.clone_from_slice(val.as_slice());
-        });
+        query_oram_and_randomize(&mut expected, probe_idx, oram, rng);
         probe_idx = (probe_idx + 1) & (len - 1);
         num_pre_rounds -= 1;
     }
 
     while num_rounds > 0 {
-        let expected_ent = expected.entry(probe_idx).or_default();
         let result = catch_unwind(AssertUnwindSafe(|| {
-            oram.access(probe_idx, |val| {
-                assert_eq!(val, expected_ent);
-                rng.fill_bytes(val);
-                expected_ent.clone_from_slice(val.as_slice());
-            })
+            query_oram_and_randomize(&mut expected, probe_idx, oram, rng);
         }));
         if result.is_err() {
-            std::eprintln!("Panic when attempting to access: {:?}, expected_result:{:?} remaining rounds: {:?}: Error was {:?}", probe_idx, expected_ent, num_rounds, result);
-            return statistics;
+            std::eprintln!(
+                "Panic when attempting to access: {:?}, remaining rounds: {:?}: Error was {:?}",
+                probe_idx,
+                num_rounds,
+                result
+            );
+            return stash_size_by_count;
         }
-        *statistics.entry(oram.stash_size()).or_default() += 1;
+        *stash_size_by_count.entry(oram.stash_size()).or_default() += 1;
         probe_idx = (probe_idx + 1) & (len - 1);
         num_rounds -= 1;
     }
-    statistics
+    stash_size_by_count
 }
 
 /// Exercise an OMAP by writing, reading, accessing, and removing a

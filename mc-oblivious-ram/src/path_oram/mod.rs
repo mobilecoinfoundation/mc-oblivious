@@ -15,7 +15,7 @@
 
 use alloc::vec;
 
-use self::evictor::{Evictor, PathOramEvict};
+use self::evictor::Evictor;
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
     typenum::{PartialDiv, Prod, Unsigned, U16, U64, U8},
@@ -108,6 +108,10 @@ where
     branch: BranchCheckout<ValueSize, Z>,
     /// Eviction strategy
     evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
+    /// Evictor writes the branches to be evicted to here
+    branches_to_evict: Vec<u64>,
+    /// Number of times the ORAM has been accessed
+    iteration: u64,
 }
 
 impl<ValueSize, Z, StorageType, RngType> PathORAM<ValueSize, Z, StorageType, RngType>
@@ -145,6 +149,7 @@ where
         let mut rng = rng_maker();
         let storage = SC::create(2u64 << height, &mut rng).expect("Storage failed");
         let pos = PMC::create(size, height, stash_size, rng_maker);
+        let branches_to_evict = vec![0u64; evictor.get_max_number_of_branches_to_evict()];
         Self {
             height,
             storage,
@@ -154,6 +159,8 @@ where
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
             evictor,
+            branches_to_evict,
+            iteration: 0u64,
         }
     }
 }
@@ -250,7 +257,26 @@ where
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
+        self.evictor.get_branches_to_evict(
+            self.iteration,
+            self.height,
+            self.len(),
+            &mut self.branches_to_evict,
+        );
 
+        for leaf in &self.branches_to_evict {
+            debug_assert!(*leaf != 0);
+            self.branch.checkout(&mut self.storage, *leaf);
+            self.evictor.evict_from_stash_to_branch(
+                &mut self.stash_data,
+                &mut self.stash_meta,
+                &mut self.branch,
+            );
+            self.branch.checkin(&mut self.storage);
+            debug_assert!(self.branch.leaf == 0);
+        }
+
+        self.iteration += 1;
         result
     }
 }
@@ -570,20 +596,34 @@ pub mod evictor {
         );
         /// Returns a list of branches to call evict from stash to branch on.
         fn get_branches_to_evict(
-            &self,
+            &mut self,
             iteration: u64,
             tree_height: u32,
             tree_size: u64,
-            branch_indices: &mut [u64],
+            out_branches_to_evict: &mut [u64],
         );
+        /// Returns a list of branches to call evict from stash to branch on.
+        fn get_max_number_of_branches_to_evict(&self) -> usize;
     }
-    pub struct PathOramEvict {}
-    impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
+
+    ///Eviction algorithm defined in path oram. Packs the branch and greedily
+    /// tries to evict everything from the stash into the checked out branch
+    /// Also checks out a total of N additional branches to try to evict the
+    /// stash into.
+    pub struct PathOramEvict<RngType>
+    where
+        RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    {
+        rng: RngType,
+        num_elements_to_evict: usize,
+    }
+    impl<ValueSize, Z, RngType> Evictor<ValueSize, Z> for PathOramEvict<RngType>
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        RngType: RngCore + CryptoRng + Send + Sync + 'static,
     {
         fn evict_from_stash_to_branch(
             &self,
@@ -598,19 +638,60 @@ pub mod evictor {
                 branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
             }
         }
-        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {}
-    }
-    impl PathOramEvict {
-        pub fn new() -> Self {
-            Self {}
+        fn get_branches_to_evict(
+            &mut self,
+            _: u64,
+            tree_height: u32,
+            _: u64,
+            out_branches_to_evict: &mut [u64],
+        ) {
+            debug_assert!(out_branches_to_evict.len() == self.num_elements_to_evict);
+            for branch_to_evict in out_branches_to_evict
+                .iter_mut()
+                .take(self.num_elements_to_evict)
+            {
+                *branch_to_evict = 1u64.random_child_at_height(tree_height, &mut self.rng);
+            }
+        }
+        fn get_max_number_of_branches_to_evict(&self) -> usize {
+            self.num_elements_to_evict
         }
     }
-    pub struct CircuitOramNonobliviousEvict {}
+    impl<RngType> PathOramEvict<RngType>
+    where
+        RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    {
+        /// Create a PathOram Evictor using an rng to select branches to evict
+        pub fn new(rng: RngType, num_elements_to_evict: usize) -> Self {
+            Self {
+                rng,
+                num_elements_to_evict,
+            }
+        }
+    }
+
+    ///This is a non oblivious implementation of Circuit Oram. Intended for
+    /// demonstration/testing of the behaviour for circuit oram. It is not to be
+    /// used in production
+    pub struct CircuitOramNonobliviousEvict {
+        num_elements_to_evict: usize,
+    }
     impl CircuitOramNonobliviousEvict {
-        pub fn new() -> Self {
-            Self {}
+        ///Create a non oblivious CircuitOram evictor that deterministically
+        /// evicts
+        pub fn new(num_elements_to_evict: usize) -> Self {
+            Self {
+                num_elements_to_evict,
+            }
         }
     }
+
+    impl Default for CircuitOramNonobliviousEvict {
+        fn default() -> Self {
+            Self::new(2)
+        }
+    }
+
     impl<ValueSize, Z> Evictor<ValueSize, Z> for CircuitOramNonobliviousEvict
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -618,8 +699,33 @@ pub mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
-        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {}
-        #[allow(dead_code)]
+        fn get_branches_to_evict(
+            &mut self,
+            iteration: u64,
+            height: u32,
+            _: u64,
+            out_branches_to_evict: &mut [u64],
+        ) {
+            //The height of the root is 0, so the number of bits needed for the leaves is
+            // just the height
+            let num_bits_needed = height;
+            //Most significant index is always 1 for leafs
+            let leaf_significant_index: u64 = 1 << (num_bits_needed);
+            for (i, mut _leaf) in out_branches_to_evict
+                .iter_mut()
+                .enumerate()
+                .take(self.num_elements_to_evict)
+            {
+                let test_position: u64 = ((u64::try_from(self.num_elements_to_evict).unwrap()
+                    * iteration
+                    + u64::try_from(i).unwrap())
+                .reverse_bits()
+                    >> (64 - num_bits_needed))
+                    % leaf_significant_index;
+                *_leaf = leaf_significant_index + test_position;
+            }
+        }
+
         fn evict_from_stash_to_branch(
             &self,
             stash_data: &mut [A64Bytes<ValueSize>],
@@ -635,21 +741,16 @@ pub mod evictor {
             let mut bucket_num = 0;
             //Searching from the leaf to the root.
             while bucket_num < data_len {
-                let (_, working_data) = branch.data.split_at(bucket_num);
                 let (_, working_meta) = branch.meta.split_at(bucket_num);
 
-                let bucket_data: &[A64Bytes<ValueSize>] = working_data[0].as_aligned_chunks();
                 let bucket_meta: &[A8Bytes<MetaSize>] = working_meta[0].as_aligned_chunks();
                 let mut bucket_has_vacancy = false;
                 let mut vacant_chunk = 0;
                 //Checking each chunk in the bucket for a vacancy.
-                for idx in 0..bucket_data.len() {
-                    let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
+                for (idx, src_meta) in bucket_meta.iter().enumerate().take(bucket_meta.len()) {
                     if meta_is_vacant(src_meta).into() {
                         bucket_has_vacancy = true;
                         vacant_chunk = idx;
-                        // std::println!("There is a vacancy at bucket:{}, and chunk:{}",
-                        // bucket_num, vacant_chunk);
                         break;
                     }
                 }
@@ -660,14 +761,18 @@ pub mod evictor {
 
                     //Try to search through the other buckets that are higher in the branch to find
                     // the deepest block that can live in this vacancy.
-                    for search_bucketnum in 1..(data_len - bucket_num) {
-                        let search_bucket_meta: &[A8Bytes<MetaSize>] =
-                            working_meta[search_bucketnum].as_aligned_chunks();
-                        for search_idx in 0..search_bucket_meta.len() {
-                            let src_meta: &A8Bytes<MetaSize> = &search_bucket_meta[search_idx];
+                    for (search_bucketnum, search_bucket_meta) in working_meta
+                        .iter()
+                        .enumerate()
+                        .take(data_len - bucket_num)
+                        .skip(1)
+                    {
+                        for (search_idx, src_meta) in
+                            search_bucket_meta.as_aligned_chunks().iter().enumerate()
+                        {
                             let elem_destination: usize =
                                 BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                                    *meta_leaf_num(&src_meta),
+                                    *meta_leaf_num(src_meta),
                                     branch.leaf,
                                     data_len,
                                 );
@@ -680,13 +785,12 @@ pub mod evictor {
                             }
                         }
                     }
-                    //Try to search through the stash to fid the deepest block that can live in
+                    //Try to search through the stash to find the deepest block that can live in
                     // this vacancy.
-                    for search_idx in 0..stash_meta.len() {
-                        let src_meta: &A8Bytes<MetaSize> = &stash_meta[search_idx];
+                    for (search_idx, src_meta) in stash_meta.iter().enumerate() {
                         let elem_destination: usize =
                             BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                                *meta_leaf_num(&src_meta),
+                                *meta_leaf_num(src_meta),
                                 branch.leaf,
                                 data_len,
                             );
@@ -702,18 +806,12 @@ pub mod evictor {
                     }
                     if deepest_target_for_level > bucket_num {
                         //If there is not block that can go in this vacancy, just go up to the next
-                        // level. std::println!("There is no target for this
-                        // level {}", bucket_num);
+                        // level.
                         bucket_num += 1;
                     } else {
                         //Check to see if you're getting the source is from the branch and not the
                         // stash.
                         if source_bucket_for_deepest < data_len {
-                            // std::println!("The deepest target for level {} is {} it is not in a
-                            // stash. The source is bucket:{}, and chunk:{}", bucket_num,
-                            // deepest_target_for_level, source_bucket_for_deepest,
-                            // source_chunk_for_deepest);
-
                             //The source is a normal bucket
                             let (lower_data, upper_data) = branch
                                 .data
@@ -743,8 +841,6 @@ pub mod evictor {
                             meta_set_vacant(test, source_meta);
                         } else {
                             //The source is the stash
-                            // dbg!(bucket_num, deepest_target_for_level, source_bucket_for_deepest,
-                            // source_chunk_for_deepest);
                             let (_, working_data) = branch.data.split_at_mut(bucket_num);
                             let (_, working_meta) = branch.meta.split_at_mut(bucket_num);
                             let bucket_data: &mut [A64Bytes<ValueSize>] =
@@ -773,6 +869,57 @@ pub mod evictor {
                     bucket_num += 1;
                 }
             }
+        }
+        fn get_max_number_of_branches_to_evict(&self) -> usize {
+            self.num_elements_to_evict
+        }
+    }
+    #[cfg(test)]
+    mod internal_tests {
+        use super::*;
+        use aligned_cmov::typenum::{U1024, U4};
+        #[test]
+        // Check that deterministic oram correctly chooses leaf values
+        fn test_deterministic_oram_get_branches_to_evict() {
+            const NUMBER_OF_BRANCHES_TO_EVICT: usize = 2;
+            let mut leaf_array = [0u64; NUMBER_OF_BRANCHES_TO_EVICT];
+            let mut evictor = CircuitOramNonobliviousEvict::default();
+            <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_branches_to_evict(
+                &mut evictor,
+                0,
+                3,
+                8,
+                &mut leaf_array,
+            );
+            assert_eq!(leaf_array[0], 8);
+            assert_eq!(leaf_array[1], 12);
+            <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_branches_to_evict(
+                &mut evictor,
+                1,
+                3,
+                8,
+                &mut leaf_array,
+            );
+            assert_eq!(leaf_array[0], 10);
+            assert_eq!(leaf_array[1], 14);
+            <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_branches_to_evict(
+                &mut evictor,
+                2,
+                3,
+                8,
+                &mut leaf_array,
+            );
+            assert_eq!(leaf_array[0], 9);
+            assert_eq!(leaf_array[1], 13);
+            <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_branches_to_evict(
+                &mut evictor,
+                3,
+                3,
+                8,
+                &mut leaf_array,
+            );
+            assert_eq!(leaf_array[0], 11);
+            assert_eq!(leaf_array[1], 15);
         }
     }
     pub struct CircuitOramEvict {}
@@ -910,7 +1057,6 @@ pub mod evictor {
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
-        fn get_branches_to_evict(&self, _: u64, _: u32, _: u64, _: &mut [u64]) {}
         fn evict_from_stash_to_branch(
             &self,
             stash_data: &mut [A64Bytes<ValueSize>],
@@ -1059,5 +1205,19 @@ pub mod evictor {
                 );
             }
         }
+
+        fn get_max_number_of_branches_to_evict(&self) -> usize {
+        todo!()
+    }
+
+        fn get_branches_to_evict(
+            &mut self,
+            iteration: u64,
+            tree_height: u32,
+            tree_size: u64,
+            out_branches_to_evict: &mut [u64],
+        ) {
+        todo!()
+    }
     }
 }
