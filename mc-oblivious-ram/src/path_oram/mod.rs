@@ -569,6 +569,14 @@ pub mod evictor {
     use super::*;
     use core::convert::TryFrom;
     const FLOOR_INDEX: usize = usize::MAX;
+
+    fn deterministic_get_next_branch_to_evict(num_bits_needed: u32, iteration: u64) -> u64 {
+        let leaf_significant_index: u64 = 1 << (num_bits_needed);
+        let test_position: u64 =
+            ((iteration).reverse_bits() >> (64 - num_bits_needed)) % leaf_significant_index;
+        leaf_significant_index + test_position
+    }
+
     /// Evictor trait conceptually is a mechanism for moving stash elements into
     /// the oram.
     pub trait Evictor<ValueSize, Z>
@@ -831,14 +839,9 @@ pub mod evictor {
         fn get_next_branch_to_evict(&mut self, tree_height: u32, tree_size: u64) -> u64 {
             //The height of the root is 0, so the number of bits needed for the leaves is
             // just the height
-            let num_bits_needed = tree_height;
-            //Most significant index is always 1 for leafs
-            let leaf_significant_index: u64 = 1 << (num_bits_needed);
-            let test_position: u64 = ((self.branches_evicted).reverse_bits()
-                >> (64 - num_bits_needed))
-                % leaf_significant_index;
+            let iteration = self.branches_evicted;
             self.branches_evicted = (self.branches_evicted + 1) % tree_size;
-            leaf_significant_index + test_position
+            deterministic_get_next_branch_to_evict(tree_height, iteration)
         }
 
         fn get_number_of_branches_to_evict(&self) -> usize {
@@ -848,74 +851,26 @@ pub mod evictor {
     #[cfg(test)]
     mod internal_tests {
         use super::*;
-        use aligned_cmov::typenum::{U1024, U4};
         #[test]
         // Check that deterministic oram correctly chooses leaf values
         fn test_deterministic_oram_get_branches_to_evict() {
-            let mut evictor = CircuitOramNonobliviousEvict::default();
-            let test_branch =
-                <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_next_branch_to_evict(
-                    &mut evictor,
-                    3,
-                    8,
-                );
+            let test_branch = deterministic_get_next_branch_to_evict(3, 0);
             assert_eq!(test_branch, 8);
-            let test_branch =
-                <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_next_branch_to_evict(
-                    &mut evictor,
-                    3,
-                    8,
-                );
+            let test_branch = deterministic_get_next_branch_to_evict(3, 1);
             assert_eq!(test_branch, 12);
-            let test_branch =
-                <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_next_branch_to_evict(
-                    &mut evictor,
-                    3,
-                    8,
-                );
+            let test_branch = deterministic_get_next_branch_to_evict(3, 2);
             assert_eq!(test_branch, 10);
-
-            let test_branch =
-                <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_next_branch_to_evict(
-                    &mut evictor,
-                    3,
-                    8,
-                );
+            let test_branch = deterministic_get_next_branch_to_evict(3, 3);
             assert_eq!(test_branch, 14);
-            let test_branch =
-                <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_next_branch_to_evict(
-                    &mut evictor,
-                    3,
-                    8,
-                );
+            let test_branch = deterministic_get_next_branch_to_evict(3, 4);
             assert_eq!(test_branch, 9);
-            let test_branch =
-                <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_next_branch_to_evict(
-                    &mut evictor,
-                    3,
-                    8,
-                );
+            let test_branch = deterministic_get_next_branch_to_evict(3, 5);
             assert_eq!(test_branch, 13);
-            let test_branch =
-                <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_next_branch_to_evict(
-                    &mut evictor,
-                    3,
-                    8,
-                );
+            let test_branch = deterministic_get_next_branch_to_evict(3, 6);
             assert_eq!(test_branch, 11);
-            let test_branch =
-                <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_next_branch_to_evict(
-                    &mut evictor,
-                    3,
-                    8,
-                );
+            let test_branch = deterministic_get_next_branch_to_evict(3, 7);
             assert_eq!(test_branch, 15);
-            let test_branch =
-                <CircuitOramNonobliviousEvict as Evictor<U1024, U4>>::get_next_branch_to_evict(
-                    &mut evictor,
-                    3,
-                    8,
-                );
+            let test_branch = deterministic_get_next_branch_to_evict(3, 8);
             assert_eq!(test_branch, 8);
         }
     }
