@@ -108,8 +108,6 @@ where
     branch: BranchCheckout<ValueSize, Z>,
     /// Eviction strategy
     evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
-    /// Number of times the ORAM has been accessed
-    iteration: u64,
 }
 
 impl<ValueSize, Z, StorageType, RngType> PathORAM<ValueSize, Z, StorageType, RngType>
@@ -156,7 +154,6 @@ where
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
             evictor,
-            iteration: 0u64,
         }
     }
 }
@@ -269,7 +266,6 @@ where
             debug_assert!(self.branch.leaf == 0);
         }
 
-        self.iteration += 1;
         result
     }
 }
