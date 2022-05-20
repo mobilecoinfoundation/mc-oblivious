@@ -265,7 +265,10 @@ where
         //Skip eviction if the tree height is too small because there is no branches to
         // select
         if self.height > 0 {
-            for _ in 0..self.branch_selector.get_number_of_branches_to_evict() {
+            for _ in 0..self
+                .branch_selector
+                .get_number_of_additional_branches_to_evict()
+            {
                 let leaf = self
                     .branch_selector
                     .get_next_branch_to_evict(self.height, self.len());
@@ -594,7 +597,7 @@ pub mod evictor {
 
         /// Returns the number of branches to call evict from stash to branch
         /// on.
-        fn get_number_of_branches_to_evict(&self) -> usize;
+        fn get_number_of_additional_branches_to_evict(&self) -> usize;
     }
 
     pub struct RandomBranchSelector<RngType>
@@ -614,14 +617,14 @@ pub mod evictor {
             1u64.random_child_at_height(tree_height, &mut self.rng)
         }
 
-        fn get_number_of_branches_to_evict(&self) -> usize {
+        fn get_number_of_additional_branches_to_evict(&self) -> usize {
             self.num_elements_to_evict
         }
     }
     ///an evictor that deterministically
     /// evicts in reverse lexicographical order
     pub struct DeterministicBranchSelector {
-        num_elements_to_evict: usize,
+        num_additional_branches_to_evict_per_access: usize,
         branches_evicted: u64,
     }
     impl BranchSelector for DeterministicBranchSelector {
@@ -633,16 +636,17 @@ pub mod evictor {
             deterministic_get_next_branch_to_evict(tree_height, iteration)
         }
 
-        fn get_number_of_branches_to_evict(&self) -> usize {
-            self.num_elements_to_evict
+        fn get_number_of_additional_branches_to_evict(&self) -> usize {
+            self.num_additional_branches_to_evict_per_access
         }
     }
 
     impl DeterministicBranchSelector {
-        /// Create a new deterministic branch selector that will select num_elements_to_evict branches per access
-        pub fn new(num_elements_to_evict: usize) -> Self {
+        /// Create a new deterministic branch selector that will select
+        /// num_elements_to_evict branches per access
+        pub fn new(num_additional_branches_to_evict_per_access: usize) -> Self {
             Self {
-                num_elements_to_evict,
+                num_additional_branches_to_evict_per_access,
                 branches_evicted: 0,
             }
         }
@@ -708,7 +712,6 @@ pub mod evictor {
             Self::new()
         }
     }
-
 
     ///This is a non oblivious implementation of Circuit Oram. Intended for
     /// demonstration/testing of the behaviour for circuit oram. It is not to be
