@@ -1,11 +1,11 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
 use aligned_cmov::{
-    typenum::{U1024, U4, U4096, U64},
+    typenum::{U1024, U2, U2048, U32, U4, U4096, U64},
     ArrayLength,
 };
 use core::marker::PhantomData;
-use mc_oblivious_ram::{PathORAM, PathOramEvict};
+use mc_oblivious_ram::{CircuitOramNonobliviousEvict, PathORAM, PathOramEvict, DeterministicBranchSelector};
 use mc_oblivious_traits::{
     rng_maker, HeapORAMStorageCreator, ORAMCreator, ORAMStorageCreator, ORAM,
 };
@@ -56,7 +56,6 @@ pub fn main() {
     const STASH_SIZES: &[usize] = &[4, 6, 8, 10, 12, 14, 16, 17];
     const REPS: usize = 100;
     const LIMIT: usize = 500_000;
-    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 0;
     println!("PathORAM4096Z4:");
     for size in SIZES {
         let mut maker = rng_maker(test_helper::get_seeded_rng());
@@ -67,7 +66,6 @@ pub fn main() {
                     InsecurePathORAM4096Z4Creator<
                         RngType,
                         HeapORAMStorageCreator,
-                        NUMBER_OF_BRANCHES_TO_EVICT,
                     >,
                     U1024,
                     RngType,
@@ -100,7 +98,7 @@ pub fn main() {
 /// (Z) of 4, and the insecure position map implementation.
 /// This is used to determine how to calibrate stash size appropriately via
 /// stress tests.
-pub struct InsecurePathORAM4096Z4Creator<R, SC: ORAMStorageCreator<U4096, U64>, const N: usize>
+pub struct InsecurePathORAM4096Z4Creator<R, SC: ORAMStorageCreator<U4096, U64>>
 where
     R: RngCore + CryptoRng + 'static,
 {
@@ -108,21 +106,87 @@ where
     _rng: PhantomData<fn() -> R>,
 }
 
-impl<R, SC: ORAMStorageCreator<U4096, U64>, const N: usize> ORAMCreator<U1024, R>
-    for InsecurePathORAM4096Z4Creator<R, SC, N>
+impl<R, SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, R>
+    for InsecurePathORAM4096Z4Creator<R, SC>
 where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R, PathOramEvict, DeterministicBranchSelector>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(PathOramEvict::<R>::new(rng_maker(), N));
-        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
+        let evictor = PathOramEvict::default();
+        let branch_selector = DeterministicBranchSelector::default();
+
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor, branch_selector)
+    }
+}
+
+/// Creator for NonObliviousCircuitOram based on 4096-sized blocks of storage
+/// and bucket size (Z) of 4, and the insecure position map implementation.
+/// This is used to determine calibrate circuit oram
+pub struct InsecureNonObliviousCircuitORAM4096Z4Creator<
+    R,
+    SC: ORAMStorageCreator<U4096, U64>,
+> where
+    R: RngCore + CryptoRng + 'static,
+{
+    _sc: PhantomData<fn() -> SC>,
+    _rng: PhantomData<fn() -> R>,
+}
+
+impl<R, SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, R>
+    for InsecureNonObliviousCircuitORAM4096Z4Creator<R, SC>
+where
+    R: RngCore + CryptoRng + Send + Sync + 'static,
+    SC: ORAMStorageCreator<U4096, U64>,
+{
+    type Output = PathORAM<U1024, U4, SC::Output, R, CircuitOramNonobliviousEvict, DeterministicBranchSelector>;
+
+    fn create<M: 'static + FnMut() -> R>(
+        size: u64,
+        stash_size: usize,
+        rng_maker: &mut M,
+    ) -> Self::Output {
+        let evictor = CircuitOramNonobliviousEvict::default();
+        let branch_selector = DeterministicBranchSelector::new(1);
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor, branch_selector)
+    }
+}
+
+/// Creator for NonObliviousCircuitOram based on 4096-sized blocks of storage
+/// and bucket size (Z) of 2, and the insecure position map implementation.
+/// This is used to determine calibrate circuit oram
+pub struct InsecureNonObliviousCircuitORAM4096Z2Creator<
+    R,
+    SC: ORAMStorageCreator<U4096, U32>,
+> where
+    R: RngCore + CryptoRng + 'static,
+{
+    _sc: PhantomData<fn() -> SC>,
+    _rng: PhantomData<fn() -> R>,
+}
+
+impl<R, SC: ORAMStorageCreator<U4096, U32>> ORAMCreator<U2048, R>
+    for InsecureNonObliviousCircuitORAM4096Z2Creator<R, SC>
+where
+    R: RngCore + CryptoRng + Send + Sync + 'static,
+    SC: ORAMStorageCreator<U4096, U32>,
+{
+    type Output = PathORAM<U2048, U2, SC::Output, R, CircuitOramNonobliviousEvict, DeterministicBranchSelector>;
+
+    fn create<M: 'static + FnMut() -> R>(
+        size: u64,
+        stash_size: usize,
+        rng_maker: &mut M,
+    ) -> Self::Output {
+        let evictor = CircuitOramNonobliviousEvict::default();
+        let branch_selector = DeterministicBranchSelector::new(1);
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor, branch_selector)
     }
 }
 
@@ -134,7 +198,6 @@ mod tests {
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAMCreator};
     use std::vec;
     use test_helper::{run_with_one_seed, run_with_several_seeds};
-    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 0;
     // Run the exercise oram tests for 200,000 rounds in 131072 sized z4 oram
     #[test]
     fn exercise_path_oram_z4_131072() {
@@ -145,7 +208,6 @@ mod tests {
             let mut oram = InsecurePathORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >::create(131072, stash_size, &mut maker);
             testing::exercise_oram(200_000, &mut oram, &mut rng);
         });
@@ -161,7 +223,6 @@ mod tests {
             let mut oram = InsecurePathORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >::create(262144, stash_size, &mut maker);
             testing::exercise_oram(400_000, &mut oram, &mut rng);
         });
@@ -185,7 +246,6 @@ mod tests {
             let mut oram = InsecurePathORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >::create(base.pow(10), STASH_SIZE, &mut maker);
             let stash_stats = testing::measure_oram_stash_size_distribution(
                 num_prerounds.try_into().unwrap(),
@@ -238,7 +298,6 @@ mod tests {
                 let mut oram = InsecurePathORAM4096Z4Creator::<
                     RngType,
                     HeapORAMStorageCreator,
-                    NUMBER_OF_BRANCHES_TO_EVICT,
                 >::create(oram_size, STASH_SIZE, &mut maker);
                 let stash_stats = testing::measure_oram_stash_size_distribution(
                     NUM_PREROUNDS.try_into().unwrap(),
@@ -274,6 +333,106 @@ mod tests {
                     dbg!(stash_num, data_variance);
                     assert!(data_variance < VARIANCE_THRESHOLD);
                 }
+            }
+        });
+    }
+
+    // Run the analysis oram tests similar to CircuitOram section 5. Warm up with
+    // 2^10 accesses, then run for 2^20 accesses cycling through all N logical
+    // addresses. N=2^10. This choice is arbitrary because stash size should not
+    // depend on N. Measure the number of times that the stash is above any
+    // given size.
+    #[test]
+    fn analyse_nonobliviouscircuit_oram_z4_8192() {
+        const STASH_SIZE: usize = 32;
+        const CORRELATION_THRESHOLD: f64 = 0.85;
+        run_with_several_seeds(|rng| {
+            let base: u64 = 2;
+            let num_prerounds: u64 = base.pow(10);
+            let num_rounds: u64 = base.pow(20);
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = InsecureNonObliviousCircuitORAM4096Z4Creator::<
+                RngType,
+                HeapORAMStorageCreator,
+            >::create(base.pow(10), STASH_SIZE, &mut maker);
+            let stash_stats = testing::measure_oram_stash_size_distribution(
+                num_prerounds.try_into().unwrap(),
+                num_rounds.try_into().unwrap(),
+                &mut oram,
+                &mut rng,
+            );
+            let mut x_axis: vec::Vec<f64> = vec::Vec::new();
+            let mut y_axis: vec::Vec<f64> = vec::Vec::new();
+            #[cfg(debug_assertions)]
+            dbg!(stash_stats.get(&0).unwrap_or(&0));
+            for stash_count in 1..STASH_SIZE {
+                if let Some(stash_count_probability) = stash_stats.get(&stash_count) {
+                    #[cfg(debug_assertions)]
+                    dbg!(stash_count, stash_count_probability);
+                    y_axis.push((num_rounds as f64 / *stash_count_probability as f64).log2());
+                    x_axis.push(stash_count as f64);
+                } else {
+                    #[cfg(debug_assertions)]
+                    dbg!(stash_count);
+                }
+            }
+            if x_axis.len() > 5 {
+                let correlation =
+                    rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
+                #[cfg(debug_assertions)]
+                dbg!(correlation);
+                assert!(correlation > CORRELATION_THRESHOLD);
+            }
+        });
+    }
+
+    // Run the analysis oram tests similar to CircuitOram section 5. Warm up with
+    // 2^10 accesses, then run for 2^20 accesses cycling through all N logical
+    // addresses. N=2^10. This choice is arbitrary because stash size should not
+    // depend on N. Measure the number of times that the stash is above any
+    // given size.
+    #[test]
+    fn analyse_nonobliviouscircuit_oram_z2_8192() {
+        const STASH_SIZE: usize = 32;
+        const CORRELATION_THRESHOLD: f64 = 0.85;
+        run_with_several_seeds(|rng| {
+            let base: u64 = 2;
+            let num_prerounds: u64 = base.pow(10);
+            let num_rounds: u64 = base.pow(20);
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = InsecureNonObliviousCircuitORAM4096Z2Creator::<
+                RngType,
+                HeapORAMStorageCreator,
+            >::create(base.pow(10), STASH_SIZE, &mut maker);
+            let stash_stats = testing::measure_oram_stash_size_distribution(
+                num_prerounds.try_into().unwrap(),
+                num_rounds.try_into().unwrap(),
+                &mut oram,
+                &mut rng,
+            );
+            let mut x_axis: vec::Vec<f64> = vec::Vec::new();
+            let mut y_axis: vec::Vec<f64> = vec::Vec::new();
+            #[cfg(debug_assertions)]
+            dbg!(stash_stats.get(&0).unwrap_or(&0));
+            for stash_count in 1..STASH_SIZE {
+                if let Some(stash_count_probability) = stash_stats.get(&stash_count) {
+                    #[cfg(debug_assertions)]
+                    dbg!(stash_count, stash_count_probability);
+                    y_axis.push((num_rounds as f64 / *stash_count_probability as f64).log2());
+                    x_axis.push(stash_count as f64);
+                } else {
+                    #[cfg(debug_assertions)]
+                    dbg!(stash_count);
+                }
+            }
+            if x_axis.len() > 5 {
+                let correlation =
+                    rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
+                #[cfg(debug_assertions)]
+                dbg!(correlation);
+                assert!(correlation > CORRELATION_THRESHOLD);
             }
         });
     }
