@@ -83,12 +83,14 @@ fn meta_set_vacant(condition: Choice, src: &mut A8Bytes<MetaSize>) {
 }
 
 /// An implementation of PathORAM, using u64 to represent leaves in metadata.
-pub struct PathORAM<ValueSize, Z, StorageType, RngType>
+pub struct PathORAM<ValueSize, Z, StorageType, RngType, EvictorType, BranchSelectorType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
     RngType: RngCore + CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
+    EvictorType: Evictor<ValueSize, Z> + Send + Sync + 'static,
+    BranchSelectorType: BranchSelector + Send + Sync + 'static,
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
@@ -107,17 +109,20 @@ where
     /// Our currently checked-out branch if any
     branch: BranchCheckout<ValueSize, Z>,
     /// Eviction strategy
-    evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
+    evictor: EvictorType,
     /// Branch Selection strategy
-    branch_selector: Box<dyn BranchSelector + Send + Sync + 'static>,
+    branch_selector: BranchSelectorType,
 }
 
-impl<ValueSize, Z, StorageType, RngType> PathORAM<ValueSize, Z, StorageType, RngType>
+impl<ValueSize, Z, StorageType, RngType, EvictorType, BranchSelectorType>
+    PathORAM<ValueSize, Z, StorageType, RngType, EvictorType, BranchSelectorType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
     RngType: RngCore + CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
+    EvictorType: Evictor<ValueSize, Z> + Send + Sync + 'static,
+    BranchSelectorType: BranchSelector + Send + Sync + 'static,
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
@@ -135,8 +140,8 @@ where
         size: u64,
         stash_size: usize,
         rng_maker: &mut F,
-        evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
-        branch_selector: Box<dyn BranchSelector + Send + Sync + 'static>,
+        evictor: EvictorType,
+        branch_selector: BranchSelectorType,
     ) -> Self {
         assert!(size != 0, "size cannot be zero");
         assert!(size & (size - 1) == 0, "size must be a power of two");
@@ -162,13 +167,15 @@ where
     }
 }
 
-impl<ValueSize, Z, StorageType, RngType> ORAM<ValueSize>
-    for PathORAM<ValueSize, Z, StorageType, RngType>
+impl<ValueSize, Z, StorageType, RngType, EvictorType, BranchSelectorType> ORAM<ValueSize>
+    for PathORAM<ValueSize, Z, StorageType, RngType, EvictorType, BranchSelectorType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
     RngType: RngCore + CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
+    EvictorType: Evictor<ValueSize, Z> + Send + Sync + 'static,
+    BranchSelectorType: BranchSelector + Send + Sync + 'static,
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
@@ -611,7 +618,8 @@ pub mod evictor {
             self.num_elements_to_evict
         }
     }
-
+    ///an evictor that deterministically
+    /// evicts in reverse lexicographical order
     pub struct DeterministicBranchSelector {
         num_elements_to_evict: usize,
         branches_evicted: u64,
@@ -629,9 +637,9 @@ pub mod evictor {
             self.num_elements_to_evict
         }
     }
+
     impl DeterministicBranchSelector {
-        ///Create a non oblivious CircuitOram evictor that deterministically
-        /// evicts
+        /// Create a new deterministic branch selector that will select num_elements_to_evict branches per access
         pub fn new(num_elements_to_evict: usize) -> Self {
             Self {
                 num_elements_to_evict,
@@ -642,7 +650,7 @@ pub mod evictor {
 
     impl Default for DeterministicBranchSelector {
         fn default() -> Self {
-            Self::new(2)
+            Self::new(0)
         }
     }
 
@@ -667,8 +675,6 @@ pub mod evictor {
 
     ///Eviction algorithm defined in path oram. Packs the branch and greedily
     /// tries to evict everything from the stash into the checked out branch
-    /// Also checks out a total of N additional branches to try to evict the
-    /// stash into.
     pub struct PathOramEvict {}
     impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
     where
@@ -697,6 +703,12 @@ pub mod evictor {
             Self {}
         }
     }
+    impl Default for PathOramEvict {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
 
     ///This is a non oblivious implementation of Circuit Oram. Intended for
     /// demonstration/testing of the behaviour for circuit oram. It is not to be
