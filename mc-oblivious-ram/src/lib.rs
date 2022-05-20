@@ -26,6 +26,7 @@ extern crate alloc;
 
 use aligned_cmov::typenum::{U1024, U2, U2048, U32, U4, U4096, U64};
 use alloc::boxed::Box;
+use path_oram::evictor::DeterministicBranchSelector;
 use core::marker::PhantomData;
 use mc_oblivious_traits::{ORAMCreator, ORAMStorageCreator};
 use rand_core::{CryptoRng, RngCore};
@@ -65,8 +66,10 @@ where
         rng_maker: &mut M,
     ) -> Self::Output {
         let evictor = Box::new(PathOramEvict::new());
+        let branch_selector = Box::new(DeterministicBranchSelector::default());
+
         PathORAM::new::<U32PositionMapCreator<U2048, R, Self>, SC, M>(
-            size, stash_size, rng_maker, evictor,
+            size, stash_size, rng_maker, evictor, branch_selector,
         )
     }
 }
@@ -95,8 +98,9 @@ where
         rng_maker: &mut M,
     ) -> Self::Output {
         let evictor = Box::new(PathOramEvict::new());
+        let branch_selector = Box::new(DeterministicBranchSelector::default());
         PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
-            size, stash_size, rng_maker, evictor,
+            size, stash_size, rng_maker, evictor, branch_selector,
         )
     }
 }
@@ -125,8 +129,9 @@ where
         rng_maker: &mut M,
     ) -> Self::Output {
         let evictor = Box::new(CircuitOramNonobliviousEvict::default());
+        let branch_selector = Box::new(DeterministicBranchSelector::default());
         PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
-            size, stash_size, rng_maker, evictor,
+            size, stash_size, rng_maker, evictor, branch_selector
         )
     }
 }

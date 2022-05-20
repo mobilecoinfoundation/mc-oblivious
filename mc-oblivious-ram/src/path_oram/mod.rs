@@ -15,8 +15,6 @@
 
 use alloc::vec;
 
-use crate::path_oram::evictor::DeterministicBranchSelector;
-
 use self::evictor::{BranchSelector, Evictor};
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
@@ -138,6 +136,7 @@ where
         stash_size: usize,
         rng_maker: &mut F,
         evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
+        branch_selector: Box<dyn BranchSelector + Send + Sync + 'static>,
     ) -> Self {
         assert!(size != 0, "size cannot be zero");
         assert!(size & (size - 1) == 0, "size must be a power of two");
@@ -158,7 +157,7 @@ where
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
             evictor,
-            branch_selector: Box::new(DeterministicBranchSelector::default()),
+            branch_selector,
         }
     }
 }
