@@ -64,7 +64,7 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(PathOramEvict::<R>::new(rng_maker(), 0));
+        let evictor = Box::new(PathOramEvict::new());
         PathORAM::new::<U32PositionMapCreator<U2048, R, Self>, SC, M>(
             size, stash_size, rng_maker, evictor,
         )
@@ -94,7 +94,7 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(PathOramEvict::<R>::new(rng_maker(), 0));
+        let evictor = Box::new(PathOramEvict::new());
         PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
             size, stash_size, rng_maker, evictor,
         )

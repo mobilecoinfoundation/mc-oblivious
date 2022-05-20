@@ -15,7 +15,9 @@
 
 use alloc::vec;
 
-use self::evictor::Evictor;
+use crate::path_oram::evictor::DeterministicBranchSelector;
+
+use self::evictor::{BranchSelector, Evictor};
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
     typenum::{PartialDiv, Prod, Unsigned, U16, U64, U8},
@@ -108,6 +110,8 @@ where
     branch: BranchCheckout<ValueSize, Z>,
     /// Eviction strategy
     evictor: Box<dyn Evictor<ValueSize, Z> + Send + Sync + 'static>,
+    /// Branch Selection strategy
+    branch_selector: Box<dyn BranchSelector + Send + Sync + 'static>,
 }
 
 impl<ValueSize, Z, StorageType, RngType> PathORAM<ValueSize, Z, StorageType, RngType>
@@ -154,6 +158,7 @@ where
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
             evictor,
+            branch_selector: Box::new(DeterministicBranchSelector::default()),
         }
     }
 }
@@ -251,19 +256,23 @@ where
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
 
-        for _ in 0..self.evictor.get_number_of_branches_to_evict() {
-            let leaf = self
-                .evictor
-                .get_next_branch_to_evict(self.height, self.len());
-            debug_assert!(leaf != 0);
-            self.branch.checkout(&mut self.storage, leaf);
-            self.evictor.evict_from_stash_to_branch(
-                &mut self.stash_data,
-                &mut self.stash_meta,
-                &mut self.branch,
-            );
-            self.branch.checkin(&mut self.storage);
-            debug_assert!(self.branch.leaf == 0);
+        //Skip eviction if the tree height is too small because there is no branches to
+        // select
+        if self.height > 0 {
+            for _ in 0..self.branch_selector.get_number_of_branches_to_evict() {
+                let leaf = self
+                    .branch_selector
+                    .get_next_branch_to_evict(self.height, self.len());
+                debug_assert!(leaf != 0);
+                self.branch.checkout(&mut self.storage, leaf);
+                self.evictor.evict_from_stash_to_branch(
+                    &mut self.stash_data,
+                    &mut self.stash_meta,
+                    &mut self.branch,
+                );
+                self.branch.checkin(&mut self.storage);
+                debug_assert!(self.branch.leaf == 0);
+            }
         }
 
         result
@@ -565,12 +574,77 @@ pub mod evictor {
     use super::*;
     use core::convert::TryFrom;
     const FLOOR_INDEX: usize = usize::MAX;
-
     fn deterministic_get_next_branch_to_evict(num_bits_needed: u32, iteration: u64) -> u64 {
         let leaf_significant_index: u64 = 1 << (num_bits_needed);
         let test_position: u64 =
             ((iteration).reverse_bits() >> (64 - num_bits_needed)) % leaf_significant_index;
         leaf_significant_index + test_position
+    }
+
+    pub trait BranchSelector {
+        /// Returns the leaf index of the next branch to call evict from stash
+        /// to branch on.
+        fn get_next_branch_to_evict(&mut self, tree_height: u32, tree_size: u64) -> u64;
+
+        /// Returns the number of branches to call evict from stash to branch
+        /// on.
+        fn get_number_of_branches_to_evict(&self) -> usize;
+    }
+
+    pub struct RandomBranchSelector<RngType>
+    where
+        RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    {
+        rng: RngType,
+        num_elements_to_evict: usize,
+        branches_evicted: u64,
+    }
+    impl<RngType> BranchSelector for RandomBranchSelector<RngType>
+    where
+        RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    {
+        fn get_next_branch_to_evict(&mut self, tree_height: u32, _tree_size: u64) -> u64 {
+            self.branches_evicted += 1;
+            1u64.random_child_at_height(tree_height, &mut self.rng)
+        }
+
+        fn get_number_of_branches_to_evict(&self) -> usize {
+            self.num_elements_to_evict
+        }
+    }
+
+    pub struct DeterministicBranchSelector {
+        num_elements_to_evict: usize,
+        branches_evicted: u64,
+    }
+    impl BranchSelector for DeterministicBranchSelector {
+        fn get_next_branch_to_evict(&mut self, tree_height: u32, tree_size: u64) -> u64 {
+            //The height of the root is 0, so the number of bits needed for the leaves is
+            // just the height
+            let iteration = self.branches_evicted;
+            self.branches_evicted = (self.branches_evicted + 1) % tree_size;
+            deterministic_get_next_branch_to_evict(tree_height, iteration)
+        }
+
+        fn get_number_of_branches_to_evict(&self) -> usize {
+            self.num_elements_to_evict
+        }
+    }
+    impl DeterministicBranchSelector {
+        ///Create a non oblivious CircuitOram evictor that deterministically
+        /// evicts
+        pub fn new(num_elements_to_evict: usize) -> Self {
+            Self {
+                num_elements_to_evict,
+                branches_evicted: 0,
+            }
+        }
+    }
+
+    impl Default for DeterministicBranchSelector {
+        fn default() -> Self {
+            Self::new(2)
+        }
     }
 
     /// Evictor trait conceptually is a mechanism for moving stash elements into
@@ -590,34 +664,19 @@ pub mod evictor {
             stash_meta: &mut [A8Bytes<MetaSize>],
             branch: &mut BranchCheckout<ValueSize, Z>,
         );
-        /// Returns the leaf index of the next branch to call evict from stash
-        /// to branch on.
-        fn get_next_branch_to_evict(&mut self, tree_height: u32, tree_size: u64) -> u64;
-
-        /// Returns the number of branches to call evict from stash to branch
-        /// on.
-        fn get_number_of_branches_to_evict(&self) -> usize;
     }
 
     ///Eviction algorithm defined in path oram. Packs the branch and greedily
     /// tries to evict everything from the stash into the checked out branch
     /// Also checks out a total of N additional branches to try to evict the
     /// stash into.
-    pub struct PathOramEvict<RngType>
-    where
-        RngType: RngCore + CryptoRng + Send + Sync + 'static,
-    {
-        rng: RngType,
-        num_elements_to_evict: usize,
-        branches_evicted: u64,
-    }
-    impl<ValueSize, Z, RngType> Evictor<ValueSize, Z> for PathOramEvict<RngType>
+    pub struct PathOramEvict {}
+    impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
-        RngType: RngCore + CryptoRng + Send + Sync + 'static,
     {
         fn evict_from_stash_to_branch(
             &self,
@@ -632,51 +691,29 @@ pub mod evictor {
                 branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
             }
         }
-
-        fn get_next_branch_to_evict(&mut self, tree_height: u32, _tree_size: u64) -> u64 {
-            self.branches_evicted += 1;
-            1u64.random_child_at_height(tree_height, &mut self.rng)
-        }
-
-        fn get_number_of_branches_to_evict(&self) -> usize {
-            self.num_elements_to_evict
-        }
     }
-    impl<RngType> PathOramEvict<RngType>
-    where
-        RngType: RngCore + CryptoRng + Send + Sync + 'static,
-    {
+    impl PathOramEvict {
         /// Create a PathOram Evictor using an rng to select branches to evict
-        pub fn new(rng: RngType, num_elements_to_evict: usize) -> Self {
-            Self {
-                rng,
-                num_elements_to_evict,
-                branches_evicted: 0,
-            }
+        pub fn new() -> Self {
+            Self {}
         }
     }
 
     ///This is a non oblivious implementation of Circuit Oram. Intended for
     /// demonstration/testing of the behaviour for circuit oram. It is not to be
     /// used in production
-    pub struct CircuitOramNonobliviousEvict {
-        num_elements_to_evict: usize,
-        branches_evicted: u64,
-    }
+    pub struct CircuitOramNonobliviousEvict {}
     impl CircuitOramNonobliviousEvict {
         ///Create a non oblivious CircuitOram evictor that deterministically
         /// evicts
-        pub fn new(num_elements_to_evict: usize) -> Self {
-            Self {
-                num_elements_to_evict,
-                branches_evicted: 0,
-            }
+        pub fn new() -> Self {
+            Self {}
         }
     }
 
     impl Default for CircuitOramNonobliviousEvict {
         fn default() -> Self {
-            Self::new(2)
+            Self::new()
         }
     }
 
@@ -830,18 +867,6 @@ pub mod evictor {
                     bucket_num += 1;
                 }
             }
-        }
-
-        fn get_next_branch_to_evict(&mut self, tree_height: u32, tree_size: u64) -> u64 {
-            //The height of the root is 0, so the number of bits needed for the leaves is
-            // just the height
-            let iteration = self.branches_evicted;
-            self.branches_evicted = (self.branches_evicted + 1) % tree_size;
-            deterministic_get_next_branch_to_evict(tree_height, iteration)
-        }
-
-        fn get_number_of_branches_to_evict(&self) -> usize {
-            self.num_elements_to_evict
         }
     }
     #[cfg(test)]
