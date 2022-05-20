@@ -409,10 +409,12 @@ mod testing {
     #[test]
     fn sanity_check_nonoblivious_circuit_oram_z4_262144() {
         run_with_several_seeds(|rng| {
-            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator
-            >::create(262144, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram =
+                NonObliviousCircuitORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                    262144,
+                    STASH_SIZE,
+                    &mut rng_maker(rng),
+                );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -435,10 +437,10 @@ mod testing {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator
-            >::create(8192, STASH_SIZE, &mut maker);
+            let mut oram =
+                NonObliviousCircuitORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                    8192, STASH_SIZE, &mut maker,
+                );
             testing::exercise_oram(20_000, &mut oram, &mut rng);
         });
     }
@@ -450,10 +452,10 @@ mod testing {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator
-            >::create(8192, STASH_SIZE, &mut maker);
+            let mut oram =
+                NonObliviousCircuitORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                    8192, STASH_SIZE, &mut maker,
+                );
             testing::exercise_oram_consecutive(20_000, &mut oram, &mut rng);
         });
     }
