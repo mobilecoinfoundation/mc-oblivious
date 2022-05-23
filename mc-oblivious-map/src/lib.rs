@@ -668,10 +668,8 @@ mod testing {
     extern crate std;
 
     const STASH_SIZE: usize = 16;
-    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 2;
 
-    type ORAMCreatorZ4 =
-        PathORAM4096Z4Creator<RngType, HeapORAMStorageCreator, NUMBER_OF_BRANCHES_TO_EVICT>;
+    type ORAMCreatorZ4 = PathORAM4096Z4Creator<RngType, HeapORAMStorageCreator>;
     type CuckooCreatorZ4 = CuckooHashTableCreator<U1024, RngType, ORAMCreatorZ4>;
 
     /// Make a8-bytes that are initialized to a particular byte value
@@ -1160,11 +1158,12 @@ mod testing {
     fn omap_overflow_semantics_two_choice_path_oram_z4_65536() {
         use std::println;
         use typenum::U248;
+        let large_stash_size = STASH_SIZE * 2;
         run_with_several_seeds(|rng| {
             // This should be ~16384 underlying buckets
             let mut omap = <CuckooCreatorZ4 as OMapCreator<U8, U248, RngType>>::create(
                 65536,
-                STASH_SIZE,
+                large_stash_size,
                 rng_maker(rng),
             );
 

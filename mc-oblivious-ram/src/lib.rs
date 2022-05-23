@@ -25,7 +25,6 @@
 extern crate alloc;
 
 use aligned_cmov::typenum::{U1024, U2, U2048, U32, U4, U4096, U64};
-use alloc::boxed::Box;
 use core::marker::PhantomData;
 use mc_oblivious_traits::{ORAMCreator, ORAMStorageCreator};
 use rand_core::{CryptoRng, RngCore};
@@ -35,7 +34,7 @@ pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCre
 
 mod path_oram;
 pub use path_oram::{
-    evictor::{CircuitOramNonobliviousEvict, PathOramEvict},
+    evictor::{CircuitOramNonobliviousEvict, DeterministicBranchSelector, PathOramEvict},
     PathORAM,
 };
 /// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
@@ -43,7 +42,7 @@ pub use path_oram::{
 ///
 /// XXX: This config is broken
 /// (Chris) I sometimes see stash overflow with this config, use Z=4
-struct PathORAM4096Z2Creator<R, SC, const N: usize>
+struct PathORAM4096Z2Creator<R, SC>
 where
     R: RngCore + CryptoRng + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
@@ -52,28 +51,34 @@ where
     _sc: PhantomData<fn() -> SC>,
 }
 
-impl<R, SC, const N: usize> ORAMCreator<U2048, R> for PathORAM4096Z2Creator<R, SC, N>
+impl<R, SC> ORAMCreator<U2048, R> for PathORAM4096Z2Creator<R, SC>
 where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
-    type Output = PathORAM<U2048, U2, SC::Output, R>;
+    type Output = PathORAM<U2048, U2, SC::Output, R, PathOramEvict, DeterministicBranchSelector>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(PathOramEvict::<R>::new(rng_maker(), N));
+        let evictor = PathOramEvict::new();
+        let branch_selector = DeterministicBranchSelector::default();
+
         PathORAM::new::<U32PositionMapCreator<U2048, R, Self>, SC, M>(
-            size, stash_size, rng_maker, evictor,
+            size,
+            stash_size,
+            rng_maker,
+            evictor,
+            branch_selector,
         )
     }
 }
 
 /// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
 /// (Z) of 4, and a basic recursive position map implementation
-pub struct PathORAM4096Z4Creator<R, SC, const N: usize>
+pub struct PathORAM4096Z4Creator<R, SC>
 where
     R: RngCore + CryptoRng + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
@@ -82,28 +87,33 @@ where
     _sc: PhantomData<fn() -> SC>,
 }
 
-impl<R, SC, const N: usize> ORAMCreator<U1024, R> for PathORAM4096Z4Creator<R, SC, N>
+impl<R, SC> ORAMCreator<U1024, R> for PathORAM4096Z4Creator<R, SC>
 where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R, PathOramEvict, DeterministicBranchSelector>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(PathOramEvict::<R>::new(rng_maker(), N));
+        let evictor = PathOramEvict::new();
+        let branch_selector = DeterministicBranchSelector::default();
         PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
-            size, stash_size, rng_maker, evictor,
+            size,
+            stash_size,
+            rng_maker,
+            evictor,
+            branch_selector,
         )
     }
 }
 
 /// Creator for NonObliviousCircuitORAM based on 4096-sized blocks of storage
 /// and bucket size (Z) of 4, and a basic recursive position map implementation
-pub struct NonObliviousCircuitORAM4096Z4Creator<R, SC, const N: usize>
+pub struct NonObliviousCircuitORAM4096Z4Creator<R, SC>
 where
     R: RngCore + CryptoRng + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
@@ -112,21 +122,33 @@ where
     _sc: PhantomData<fn() -> SC>,
 }
 
-impl<R, SC, const N: usize> ORAMCreator<U1024, R> for NonObliviousCircuitORAM4096Z4Creator<R, SC, N>
+impl<R, SC> ORAMCreator<U1024, R> for NonObliviousCircuitORAM4096Z4Creator<R, SC>
 where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, SC::Output, R>;
+    type Output = PathORAM<
+        U1024,
+        U4,
+        SC::Output,
+        R,
+        CircuitOramNonobliviousEvict,
+        DeterministicBranchSelector,
+    >;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(CircuitOramNonobliviousEvict::default());
+        let evictor = CircuitOramNonobliviousEvict::default();
+        let branch_selector = DeterministicBranchSelector::new(1);
         PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
-            size, stash_size, rng_maker, evictor,
+            size,
+            stash_size,
+            rng_maker,
+            evictor,
+            branch_selector,
         )
     }
 }
@@ -140,7 +162,6 @@ mod testing {
     use test_helper::{run_with_several_seeds, RngType};
 
     const STASH_SIZE: usize = 16;
-    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 1;
     // Helper to make tests more succinct
     fn a64_bytes<N: ArrayLength<u8>>(src: u8) -> A64Bytes<N> {
         let mut result = A64Bytes::<N>::default();
@@ -154,11 +175,11 @@ mod testing {
     #[test]
     fn sanity_check_path_oram_z2_1024() {
         run_with_several_seeds(|rng| {
-            let mut oram = PathORAM4096Z2Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(1024, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram = PathORAM4096Z2Creator::<RngType, HeapORAMStorageCreator>::create(
+                1024,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -178,11 +199,11 @@ mod testing {
     #[test]
     fn sanity_check_path_oram_z2_8192() {
         run_with_several_seeds(|rng| {
-            let mut oram = PathORAM4096Z2Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(8192, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram = PathORAM4096Z2Creator::<RngType, HeapORAMStorageCreator>::create(
+                8192,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -202,11 +223,11 @@ mod testing {
     #[test]
     fn sanity_check_path_oram_z2_32768() {
         run_with_several_seeds(|rng| {
-            let mut oram = PathORAM4096Z2Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(32768, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram = PathORAM4096Z2Creator::<RngType, HeapORAMStorageCreator>::create(
+                32768,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -226,11 +247,11 @@ mod testing {
     #[test]
     fn sanity_check_path_oram_z2_262144() {
         run_with_several_seeds(|rng| {
-            let mut oram = PathORAM4096Z2Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(262144, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram = PathORAM4096Z2Creator::<RngType, HeapORAMStorageCreator>::create(
+                262144,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -250,11 +271,11 @@ mod testing {
     #[test]
     fn sanity_check_path_oram_z4_1() {
         run_with_several_seeds(|rng| {
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(1, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                1,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -265,11 +286,11 @@ mod testing {
     #[test]
     fn sanity_check_path_oram_z4_1024() {
         run_with_several_seeds(|rng| {
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(1024, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                1024,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -289,11 +310,11 @@ mod testing {
     #[test]
     fn sanity_check_path_oram_z4_8192() {
         run_with_several_seeds(|rng| {
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(8192, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                8192,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -313,11 +334,11 @@ mod testing {
     #[test]
     fn sanity_check_path_oram_z4_32768() {
         run_with_several_seeds(|rng| {
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(32768, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                32768,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -337,11 +358,11 @@ mod testing {
     #[test]
     fn sanity_check_path_oram_z4_262144() {
         run_with_several_seeds(|rng| {
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(262144, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                262144,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -363,11 +384,9 @@ mod testing {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(8192, STASH_SIZE, &mut maker);
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                8192, STASH_SIZE, &mut maker,
+            );
             testing::exercise_oram(20_000, &mut oram, &mut rng);
         });
     }
@@ -379,11 +398,9 @@ mod testing {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(8192, STASH_SIZE, &mut maker);
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                8192, STASH_SIZE, &mut maker,
+            );
             testing::exercise_oram_consecutive(20_000, &mut oram, &mut rng);
         });
     }
@@ -392,11 +409,12 @@ mod testing {
     #[test]
     fn sanity_check_nonoblivious_circuit_oram_z4_262144() {
         run_with_several_seeds(|rng| {
-            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(262144, STASH_SIZE, &mut rng_maker(rng));
+            let mut oram =
+                NonObliviousCircuitORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                    262144,
+                    STASH_SIZE,
+                    &mut rng_maker(rng),
+                );
             assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
             assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
             assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
@@ -419,11 +437,10 @@ mod testing {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(8192, STASH_SIZE, &mut maker);
+            let mut oram =
+                NonObliviousCircuitORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                    8192, STASH_SIZE, &mut maker,
+                );
             testing::exercise_oram(20_000, &mut oram, &mut rng);
         });
     }
@@ -435,11 +452,10 @@ mod testing {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = NonObliviousCircuitORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(8192, STASH_SIZE, &mut maker);
+            let mut oram =
+                NonObliviousCircuitORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                    8192, STASH_SIZE, &mut maker,
+                );
             testing::exercise_oram_consecutive(20_000, &mut oram, &mut rng);
         });
     }
@@ -451,11 +467,9 @@ mod testing {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(32768, STASH_SIZE, &mut maker);
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                32768, STASH_SIZE, &mut maker,
+            );
             testing::exercise_oram(50_000, &mut oram, &mut rng);
         });
     }
@@ -467,11 +481,9 @@ mod testing {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(131072, STASH_SIZE, &mut maker);
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                131072, STASH_SIZE, &mut maker,
+            );
             testing::exercise_oram(60_000, &mut oram, &mut rng);
         });
     }
@@ -484,11 +496,9 @@ mod testing {
         run_with_several_seeds(|rng| {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = PathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
-            >::create(1024, STASH_SIZE, &mut maker);
+            let mut oram = PathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                1024, STASH_SIZE, &mut maker,
+            );
             testing::exercise_oram_consecutive(100_000, &mut oram, &mut rng);
         });
     }

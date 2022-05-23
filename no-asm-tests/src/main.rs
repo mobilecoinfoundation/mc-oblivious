@@ -5,7 +5,7 @@ use aligned_cmov::{
     ArrayLength,
 };
 use core::marker::PhantomData;
-use mc_oblivious_ram::{CircuitOramNonobliviousEvict, PathORAM, PathOramEvict};
+use mc_oblivious_ram::{CircuitOramNonobliviousEvict, PathORAM, PathOramEvict, DeterministicBranchSelector};
 use mc_oblivious_traits::{
     rng_maker, HeapORAMStorageCreator, ORAMCreator, ORAMStorageCreator, ORAM,
 };
@@ -56,7 +56,6 @@ pub fn main() {
     const STASH_SIZES: &[usize] = &[4, 6, 8, 10, 12, 14, 16, 17];
     const REPS: usize = 100;
     const LIMIT: usize = 500_000;
-    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 0;
     println!("PathORAM4096Z4:");
     for size in SIZES {
         let mut maker = rng_maker(test_helper::get_seeded_rng());
@@ -67,7 +66,6 @@ pub fn main() {
                     InsecurePathORAM4096Z4Creator<
                         RngType,
                         HeapORAMStorageCreator,
-                        NUMBER_OF_BRANCHES_TO_EVICT,
                     >,
                     U1024,
                     RngType,
@@ -100,7 +98,7 @@ pub fn main() {
 /// (Z) of 4, and the insecure position map implementation.
 /// This is used to determine how to calibrate stash size appropriately via
 /// stress tests.
-pub struct InsecurePathORAM4096Z4Creator<R, SC: ORAMStorageCreator<U4096, U64>, const N: usize>
+pub struct InsecurePathORAM4096Z4Creator<R, SC: ORAMStorageCreator<U4096, U64>>
 where
     R: RngCore + CryptoRng + 'static,
 {
@@ -108,21 +106,23 @@ where
     _rng: PhantomData<fn() -> R>,
 }
 
-impl<R, SC: ORAMStorageCreator<U4096, U64>, const N: usize> ORAMCreator<U1024, R>
-    for InsecurePathORAM4096Z4Creator<R, SC, N>
+impl<R, SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, R>
+    for InsecurePathORAM4096Z4Creator<R, SC>
 where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R, PathOramEvict, DeterministicBranchSelector>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(PathOramEvict::<R>::new(rng_maker(), N));
-        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
+        let evictor = PathOramEvict::default();
+        let branch_selector = DeterministicBranchSelector::default();
+
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor, branch_selector)
     }
 }
 
@@ -132,7 +132,6 @@ where
 pub struct InsecureNonObliviousCircuitORAM4096Z4Creator<
     R,
     SC: ORAMStorageCreator<U4096, U64>,
-    const N: usize,
 > where
     R: RngCore + CryptoRng + 'static,
 {
@@ -140,21 +139,22 @@ pub struct InsecureNonObliviousCircuitORAM4096Z4Creator<
     _rng: PhantomData<fn() -> R>,
 }
 
-impl<R, SC: ORAMStorageCreator<U4096, U64>, const N: usize> ORAMCreator<U1024, R>
-    for InsecureNonObliviousCircuitORAM4096Z4Creator<R, SC, N>
+impl<R, SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, R>
+    for InsecureNonObliviousCircuitORAM4096Z4Creator<R, SC>
 where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R, CircuitOramNonobliviousEvict, DeterministicBranchSelector>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(CircuitOramNonobliviousEvict::default());
-        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
+        let evictor = CircuitOramNonobliviousEvict::default();
+        let branch_selector = DeterministicBranchSelector::new(1);
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor, branch_selector)
     }
 }
 
@@ -164,7 +164,6 @@ where
 pub struct InsecureNonObliviousCircuitORAM4096Z2Creator<
     R,
     SC: ORAMStorageCreator<U4096, U32>,
-    const N: usize,
 > where
     R: RngCore + CryptoRng + 'static,
 {
@@ -172,21 +171,22 @@ pub struct InsecureNonObliviousCircuitORAM4096Z2Creator<
     _rng: PhantomData<fn() -> R>,
 }
 
-impl<R, SC: ORAMStorageCreator<U4096, U32>, const N: usize> ORAMCreator<U2048, R>
-    for InsecureNonObliviousCircuitORAM4096Z2Creator<R, SC, N>
+impl<R, SC: ORAMStorageCreator<U4096, U32>> ORAMCreator<U2048, R>
+    for InsecureNonObliviousCircuitORAM4096Z2Creator<R, SC>
 where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
-    type Output = PathORAM<U2048, U2, SC::Output, R>;
+    type Output = PathORAM<U2048, U2, SC::Output, R, CircuitOramNonobliviousEvict, DeterministicBranchSelector>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = Box::new(CircuitOramNonobliviousEvict::default());
-        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
+        let evictor = CircuitOramNonobliviousEvict::default();
+        let branch_selector = DeterministicBranchSelector::new(1);
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor, branch_selector)
     }
 }
 
@@ -198,7 +198,6 @@ mod tests {
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAMCreator};
     use std::vec;
     use test_helper::{run_with_one_seed, run_with_several_seeds};
-    const NUMBER_OF_BRANCHES_TO_EVICT: usize = 0;
     // Run the exercise oram tests for 200,000 rounds in 131072 sized z4 oram
     #[test]
     fn exercise_path_oram_z4_131072() {
@@ -209,7 +208,6 @@ mod tests {
             let mut oram = InsecurePathORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >::create(131072, stash_size, &mut maker);
             testing::exercise_oram(200_000, &mut oram, &mut rng);
         });
@@ -225,7 +223,6 @@ mod tests {
             let mut oram = InsecurePathORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >::create(262144, stash_size, &mut maker);
             testing::exercise_oram(400_000, &mut oram, &mut rng);
         });
@@ -249,7 +246,6 @@ mod tests {
             let mut oram = InsecurePathORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >::create(base.pow(10), STASH_SIZE, &mut maker);
             let stash_stats = testing::measure_oram_stash_size_distribution(
                 num_prerounds.try_into().unwrap(),
@@ -302,7 +298,6 @@ mod tests {
                 let mut oram = InsecurePathORAM4096Z4Creator::<
                     RngType,
                     HeapORAMStorageCreator,
-                    NUMBER_OF_BRANCHES_TO_EVICT,
                 >::create(oram_size, STASH_SIZE, &mut maker);
                 let stash_stats = testing::measure_oram_stash_size_distribution(
                     NUM_PREROUNDS.try_into().unwrap(),
@@ -354,13 +349,12 @@ mod tests {
         run_with_several_seeds(|rng| {
             let base: u64 = 2;
             let num_prerounds: u64 = base.pow(10);
-            let num_rounds: u64 = base.pow(30);
+            let num_rounds: u64 = base.pow(20);
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let mut oram = InsecureNonObliviousCircuitORAM4096Z4Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >::create(base.pow(10), STASH_SIZE, &mut maker);
             let stash_stats = testing::measure_oram_stash_size_distribution(
                 num_prerounds.try_into().unwrap(),
@@ -405,13 +399,12 @@ mod tests {
         run_with_several_seeds(|rng| {
             let base: u64 = 2;
             let num_prerounds: u64 = base.pow(10);
-            let num_rounds: u64 = base.pow(30);
+            let num_rounds: u64 = base.pow(20);
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let mut oram = InsecureNonObliviousCircuitORAM4096Z2Creator::<
                 RngType,
                 HeapORAMStorageCreator,
-                NUMBER_OF_BRANCHES_TO_EVICT,
             >::create(base.pow(10), STASH_SIZE, &mut maker);
             let stash_stats = testing::measure_oram_stash_size_distribution(
                 num_prerounds.try_into().unwrap(),
