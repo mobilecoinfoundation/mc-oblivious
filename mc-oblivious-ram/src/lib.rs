@@ -27,6 +27,7 @@ extern crate alloc;
 use aligned_cmov::typenum::{U1024, U2, U2048, U32, U4, U4096, U64};
 use core::marker::PhantomData;
 use mc_oblivious_traits::{ORAMCreator, ORAMStorageCreator};
+use path_oram::evictor::CircuitOramEvict;
 use rand_core::{CryptoRng, RngCore};
 
 mod position_map;
@@ -143,6 +144,41 @@ where
     ) -> Self::Output {
         let evictor = CircuitOramNonobliviousEvict::default();
         let branch_selector = DeterministicBranchSelector::new(1);
+        PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
+            size,
+            stash_size,
+            rng_maker,
+            evictor,
+            branch_selector,
+        )
+    }
+}
+
+/// Creator for CircuitORAM based on 4096-sized blocks of storage
+/// and bucket size (Z) of 4, and a basic recursive position map implementation
+pub struct CircuitORAM4096Z4Creator<R, SC>
+where
+    R: RngCore + CryptoRng + 'static,
+    SC: ORAMStorageCreator<U4096, U64>,
+{
+    _rng: PhantomData<fn() -> R>,
+    _sc: PhantomData<fn() -> SC>,
+}
+
+impl<R, SC> ORAMCreator<U1024, R> for CircuitORAM4096Z4Creator<R, SC>
+where
+    R: RngCore + CryptoRng + Send + Sync + 'static,
+    SC: ORAMStorageCreator<U4096, U64>,
+{
+    type Output = PathORAM<U1024, U4, SC::Output, R, CircuitOramEvict, DeterministicBranchSelector>;
+
+    fn create<M: 'static + FnMut() -> R>(
+        size: u64,
+        stash_size: usize,
+        rng_maker: &mut M,
+    ) -> Self::Output {
+        let evictor = CircuitOramEvict::default();
+        let branch_selector = DeterministicBranchSelector::new(3);
         PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
             size,
             stash_size,
@@ -460,6 +496,57 @@ mod testing {
         });
     }
 
+    // Sanity check the z4 circuit oram
+    #[test]
+    fn sanity_check_circuit_oram_z4_262144() {
+        run_with_several_seeds(|rng| {
+            let mut oram = CircuitORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                262144,
+                STASH_SIZE,
+                &mut rng_maker(rng),
+            );
+            assert_eq!(a64_bytes(0), oram.write(0, &a64_bytes(1)));
+            assert_eq!(a64_bytes(1), oram.write(0, &a64_bytes(2)));
+            assert_eq!(a64_bytes(2), oram.write(0, &a64_bytes(3)));
+            assert_eq!(a64_bytes(0), oram.write(2, &a64_bytes(4)));
+            assert_eq!(a64_bytes(4), oram.write(2, &a64_bytes(5)));
+            assert_eq!(a64_bytes(3), oram.write(0, &a64_bytes(6)));
+            assert_eq!(a64_bytes(6), oram.write(0, &a64_bytes(7)));
+            assert_eq!(a64_bytes(0), oram.write(9, &a64_bytes(8)));
+            assert_eq!(a64_bytes(5), oram.write(2, &a64_bytes(10)));
+            assert_eq!(a64_bytes(7), oram.write(0, &a64_bytes(11)));
+            assert_eq!(a64_bytes(8), oram.write(9, &a64_bytes(12)));
+            assert_eq!(a64_bytes(12), oram.read(9));
+        })
+    }
+
+    // Run the exercise oram tests for 20,000 rounds in 8192 sized z4 oram circuit
+    // oram
+    #[test]
+    fn exercise_circuit_oram_z4_8192() {
+        run_with_several_seeds(|rng| {
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = CircuitORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                8192, STASH_SIZE, &mut maker,
+            );
+            testing::exercise_oram(20_000, &mut oram, &mut rng);
+        });
+    }
+
+    // Run the exercise oram tests for 20,000 rounds in 8192 sized z4 oram circuit
+    // oram
+    #[test]
+    fn exercise_consecutive_circuit_oram_z4_8192() {
+        run_with_several_seeds(|rng| {
+            let mut maker = rng_maker(rng);
+            let mut rng = maker();
+            let mut oram = CircuitORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                8192, STASH_SIZE, &mut maker,
+            );
+            testing::exercise_oram_consecutive(20_000, &mut oram, &mut rng);
+        });
+    }
     // Run the exercise oram tests for 50,000 rounds in 32768 sized z4 oram
     #[test]
     #[cfg(not(debug_assertions))]
