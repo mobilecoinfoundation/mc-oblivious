@@ -7,3 +7,5 @@ edition = "2018"
 [dependencies]
 rand_core = { version = "0.6", default-features = false }
 rand_hc = "0.3"
+aligned-array = { version = "1", features = ["subtle"] }
+aligned-cmov = { path = "../aligned-cmov", version = "2.2" }
