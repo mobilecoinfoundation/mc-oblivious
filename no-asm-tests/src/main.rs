@@ -5,10 +5,11 @@ use aligned_cmov::{
     ArrayLength,
 };
 use core::marker::PhantomData;
-use mc_oblivious_ram::{PathORAM, PathOramEvict, DeterministicBranchSelector};
+use mc_oblivious_ram::{PathORAM, PathOramDeterministicEvict, derive_tree_height_from_size};
 use mc_oblivious_traits::{
     rng_maker, HeapORAMStorageCreator, ORAMCreator, ORAMStorageCreator, ORAM,
 };
+
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use test_helper::{CryptoRng, RngCore, RngType, SeedableRng};
 extern crate alloc;
@@ -112,17 +113,16 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, SC::Output, R, PathOramEvict, DeterministicBranchSelector>;
+    type Output = PathORAM<U1024, U4, SC::Output, R, PathOramDeterministicEvict>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = PathOramEvict::default();
-        let branch_selector = DeterministicBranchSelector::default();
+        let evictor = PathOramDeterministicEvict::new(0, derive_tree_height_from_size(size, 4), size);
 
-        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor, branch_selector)
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
     }
 }
 
