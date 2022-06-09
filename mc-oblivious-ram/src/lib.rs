@@ -27,7 +27,6 @@ extern crate alloc;
 use aligned_cmov::typenum::{U1024, U2, U2048, U32, U4, U4096, U64};
 use core::marker::PhantomData;
 use mc_oblivious_traits::{ORAMCreator, ORAMStorageCreator};
-pub use path_oram::derive_tree_height_from_size;
 use rand_core::{CryptoRng, RngCore};
 
 mod position_map;
@@ -35,7 +34,7 @@ pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCre
 
 mod path_oram;
 pub use path_oram::{
-    evictor::{PathOramDeterministicEvict, PathOramRandomEvict},
+    evictor::{PathOramDeterministicEvict, PathOramRandomEvict, PathOramDeterministicEvictCreator},
     PathORAM,
 };
 /// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
@@ -64,12 +63,14 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor =
-            PathOramDeterministicEvict::new(0, derive_tree_height_from_size(size, 2), size);
+        let evictor_factory = PathOramDeterministicEvictCreator::new(0);
 
-        PathORAM::new::<U32PositionMapCreator<U2048, R, Self>, SC, M>(
-            size, stash_size, rng_maker, evictor,
-        )
+        PathORAM::new::<
+            U32PositionMapCreator<U2048, R, Self>,
+            SC,
+            M,
+            PathOramDeterministicEvictCreator,
+        >(size, stash_size, rng_maker, evictor_factory)
     }
 }
 
@@ -96,11 +97,13 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor =
-            PathOramDeterministicEvict::new(0, derive_tree_height_from_size(size, 4), size);
-        PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(
-            size, stash_size, rng_maker, evictor,
-        )
+        let evictor_factory = PathOramDeterministicEvictCreator::new(0);
+        PathORAM::new::<
+            U32PositionMapCreator<U1024, R, Self>,
+            SC,
+            M,
+            PathOramDeterministicEvictCreator,
+        >(size, stash_size, rng_maker, evictor_factory)
     }
 }
 

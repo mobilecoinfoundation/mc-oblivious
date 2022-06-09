@@ -15,7 +15,7 @@
 
 use alloc::vec;
 
-use self::evictor::{BranchSelector, EvictionStrategy};
+use self::evictor::{BranchSelector, EvictionStrategy, EvictorCreator};
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
     typenum::{PartialDiv, Prod, Unsigned, U16, U64, U8},
@@ -132,17 +132,18 @@ where
         PMC: PositionMapCreator<RngType>,
         SC: ORAMStorageCreator<Prod<Z, ValueSize>, Prod<Z, MetaSize>, Output = StorageType>,
         F: FnMut() -> RngType + 'static,
+        EVC: EvictorCreator<ValueSize, Z, Output = EvictorType>,
     >(
         size: u64,
         stash_size: usize,
         rng_maker: &mut F,
-        evictor: EvictorType,
+        evictor_factory: EVC,
     ) -> Self {
         assert!(size != 0, "size cannot be zero");
         assert!(size & (size - 1) == 0, "size must be a power of two");
         let height = derive_tree_height_from_size(size, Z::U64);
         let mut rng = rng_maker();
-
+        let evictor = evictor_factory.create(size, height);
         // This is 2u64 << height because it must be 2^{h+1}, we have defined
         // the height of the root to be 0, so in a tree where the lowest level
         // is h, there are 2^{h+1} nodes.
@@ -746,6 +747,51 @@ pub mod evictor {
             stash_meta: &mut [A8Bytes<MetaSize>],
             branch: &mut BranchCheckout<ValueSize, Z>,
         );
+    }
+
+    /// A factory which creates an Evictor
+    pub trait EvictorCreator<ValueSize, Z>
+    where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        type Output: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static;
+
+        fn create(&self, size: u64, height: u32) -> Self::Output;
+    }
+
+    /// A factory which creates an PathOramDeterministicEvictor that evicts an additional number_of_additional_branches_to_evict
+    pub struct PathOramDeterministicEvictCreator {
+        number_of_additional_branches_to_evict: usize,
+    }
+    impl PathOramDeterministicEvictCreator {
+        /// Create a factory for a deterministic branch selector that will evict
+        /// number_of_additional_branches_to_evict branches per access
+        pub fn new(number_of_additional_branches_to_evict: usize) -> Self {
+            Self {
+                number_of_additional_branches_to_evict,
+            }
+        }
+    }
+
+    impl<ValueSize, Z> EvictorCreator<ValueSize, Z> for PathOramDeterministicEvictCreator
+    where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        type Output = PathOramDeterministicEvict;
+
+        fn create(&self, size: u64, height: u32) -> Self::Output {
+            PathOramDeterministicEvict::new(
+                self.number_of_additional_branches_to_evict,
+                height,
+                size,
+            )
+        }
     }
 
     #[cfg(test)]

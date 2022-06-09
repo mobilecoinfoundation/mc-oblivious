@@ -5,7 +5,7 @@ use aligned_cmov::{
     ArrayLength,
 };
 use core::marker::PhantomData;
-use mc_oblivious_ram::{PathORAM, PathOramDeterministicEvict, derive_tree_height_from_size};
+use mc_oblivious_ram::{PathORAM, PathOramDeterministicEvict, PathOramDeterministicEvictCreator};
 use mc_oblivious_traits::{
     rng_maker, HeapORAMStorageCreator, ORAMCreator, ORAMStorageCreator, ORAM,
 };
@@ -120,9 +120,9 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor = PathOramDeterministicEvict::new(0, derive_tree_height_from_size(size, 4), size);
+        let evictor_factory = PathOramDeterministicEvictCreator::new(0);
 
-        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M>(size, stash_size, rng_maker, evictor)
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M, PathOramDeterministicEvictCreator>(size, stash_size, rng_maker, evictor_factory)
     }
 }
 
