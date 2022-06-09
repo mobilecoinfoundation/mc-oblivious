@@ -611,21 +611,15 @@ pub mod evictor {
         //related to the goal, for the element that can go the deepest that has been
         // seen so far, what is the src level of that element
         let mut src: usize = FLOOR_INDEX;
-        //Iterate over the stash to find the element that can go deepest.
-        for stash_elem in stash_meta {
-            let elem_destination: usize =
-                BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                    *meta_leaf_num(stash_elem),
-                    leaf,
-                    meta_len,
-                );
-            let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
-            //lower is closer to the leaf.
-            let is_elem_deeper = elem_destination_64.ct_lt(&u64::try_from(goal).unwrap())
-                & !meta_is_vacant(stash_elem);
-            goal.cmov(is_elem_deeper, &elem_destination);
-            src.cmov(is_elem_deeper, &meta_len);
-        }
+        update_goal_and_deepest_for_a_single_bucket::<ValueSize, Z>(
+            &mut src,
+            &mut goal,
+            deepest_meta,
+            meta_len,
+            stash_meta,
+            leaf,
+            meta_len,
+        );
         //Iterate over the branch from root to leaf to find the element that can go the
         // deepest. Noting that 0 is the leaf.
         for bucket_num in (0..meta_len).rev() {
