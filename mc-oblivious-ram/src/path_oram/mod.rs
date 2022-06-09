@@ -676,7 +676,7 @@ pub mod evictor {
     /// level of the deepest block in path[0..i − 1] that can
     /// legally reside in path[i], offset by BranchOffset s.t. 0 corresponds
     /// to a special floor value, and the stash is the 1st level
-    fn prepare_deepest_test<ValueSize, Z>(
+    fn prepare_deepest_non_oblivious_for_testing<ValueSize, Z>(
         deepest_meta: &mut [usize],
         stash_meta: &[A8Bytes<MetaSize>],
         branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
@@ -690,12 +690,10 @@ pub mod evictor {
         //Need one extra for the stash.
         debug_assert!(deepest_meta.len() == (branch_meta.len() + 1));
         for (i, deepest_at_i) in deepest_meta.iter_mut().enumerate() {
-            let deepest_test = find_source_for_deepest_elem_in_stash_to_test::<ValueSize, Z>(
-                stash_meta,
-                branch_meta,
-                leaf,
-                i + 1,
-            );
+            let deepest_test = find_source_for_deepest_elem_in_stash_non_oblivious_for_testing::<
+                ValueSize,
+                Z,
+            >(stash_meta, branch_meta, leaf, i + 1);
             if deepest_test.destination_bucket <= i && deepest_test.source_bucket > i {
                 *deepest_at_i = deepest_test.source_bucket;
             } else {
@@ -704,7 +702,7 @@ pub mod evictor {
         }
     }
     //find the source for the deepest element from test_level up to the stash.
-    fn find_source_for_deepest_elem_in_stash_to_test<ValueSize, Z>(
+    fn find_source_for_deepest_elem_in_stash_non_oblivious_for_testing<ValueSize, Z>(
         stash_meta: &[A8Bytes<MetaSize>],
         branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
         leaf: u64,
@@ -827,7 +825,7 @@ pub mod evictor {
     //at the end, the target array should be indices that would have elements moved
     // into it. Scan from leaf to root skipping to the source from deepest when an
     // element is taken
-    fn test_prepare_target<ValueSize, Z>(
+    fn prepare_target_nonoblivious_for_testing<ValueSize, Z>(
         target_meta: &mut [usize],
         deepest_meta: &mut [usize],
         branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
@@ -1230,7 +1228,7 @@ pub mod evictor {
                     branch.leaf,
                 );
 
-                prepare_deepest_test::<U64, U4>(
+                prepare_deepest_non_oblivious_for_testing::<U64, U4>(
                     &mut deepest_meta_compare,
                     &stash_meta,
                     &branch.meta,
@@ -1246,7 +1244,7 @@ pub mod evictor {
                 let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
                 let mut test_target_meta = vec![FLOOR_INDEX; adjusted_data_len];
 
-                test_prepare_target::<U64, U4>(
+                prepare_target_nonoblivious_for_testing::<U64, U4>(
                     &mut test_target_meta,
                     &mut deepest_meta,
                     &branch.meta,
