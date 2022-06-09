@@ -1354,9 +1354,11 @@ pub mod evictor {
             Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
         {
             //need one more for stash.
-            let adjusted_data_len = branch.meta.len() + 1;
-            let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
-            let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
+            let meta_len = branch.meta.len();
+            let meta_len_with_stash = meta_len + 1;
+
+            let mut deepest_meta = vec![FLOOR_INDEX; meta_len_with_stash];
+            let mut target_meta = vec![FLOOR_INDEX; meta_len_with_stash];
             prepare_deepest::<ValueSize, Z>(
                 &mut deepest_meta,
                 stash_meta,
@@ -1375,11 +1377,11 @@ pub mod evictor {
             let held_meta: &mut A8Bytes<MetaSize> = &mut dummy_held_meta;
             // Dest represents the bucket where we will swap the held element for a new one.
             let mut dest = FLOOR_INDEX;
-            let stash_index = adjusted_data_len - 1;
+            let stash_index = meta_len;
             //Look through the stash to find the element that can go the deepest, then
             // putting it in the hold and setting dest to the target[STASH_INDEX]
             let (_deepest_target, id_of_the_deepest_target_for_level) =
-                find_index_of_deepest_target_for_bucket(stash_meta, &branch);
+            find_index_of_deepest_target_for_bucket::<ValueSize, Z>(stash_meta, branch.leaf, meta_len);
             update_dest_and_take_an_item_to_hold_if_appropriate(
                 stash_index,
                 &target_meta,
@@ -1392,7 +1394,6 @@ pub mod evictor {
             );
             //Go through the branch from root to leaf, holding up to one element, swapping
             // held blocks into destinations closer to the leaf.
-            let meta_len = branch.meta.len();
             for bucket_num in (0..meta_len).rev() {
                 //lower contains from [0..bucket_num), upper contains from [bucket_num..len).
                 // lower is the side closer to the leaf, while upper is the side closer to the
@@ -1421,24 +1422,8 @@ pub mod evictor {
                         to_write_data,
                     );
                 debug_assert!(bucket_data.len() == bucket_meta.len());
-                let mut deepest_target_for_level = FLOOR_INDEX;
-                let mut id_of_the_deepest_target_for_level = 0;
-                for idx in 0..bucket_data.len() {
-                    let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
-                    let elem_destination: usize =
-                        BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                            *meta_leaf_num(src_meta),
-                            branch.leaf,
-                            meta_len,
-                        );
-                    let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
-
-                    let is_elem_deeper = elem_destination_64
-                        .ct_lt(&u64::try_from(deepest_target_for_level).unwrap())
-                        & !meta_is_vacant(src_meta);
-                    deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
-                    id_of_the_deepest_target_for_level.cmov(is_elem_deeper, &idx);
-                }
+                let (_deepest_target, id_of_the_deepest_target_for_level) =
+                find_index_of_deepest_target_for_bucket::<ValueSize, Z>(bucket_meta, branch.leaf, meta_len);
                 update_dest_and_take_an_item_to_hold_if_appropriate(
                     bucket_num,
                     &target_meta,
@@ -1515,7 +1500,8 @@ pub mod evictor {
 
     fn find_index_of_deepest_target_for_bucket<ValueSize, Z>(
         bucket_meta: &mut [A8Bytes<MetaSize>],
-        branch: &&mut BranchCheckout<ValueSize, Z>,
+        leaf: u64,
+        branch_length: usize
     ) -> (usize, usize)
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -1528,7 +1514,11 @@ pub mod evictor {
         for idx in 0..bucket_meta.len() {
             let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
             let elem_destination: usize =
-                branch.lowest_height_legal_index(*meta_leaf_num(src_meta));
+            BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                *meta_leaf_num(src_meta),
+                leaf,
+                branch_length,
+            );
             let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
             let is_elem_deeper = elem_destination_64
                 .ct_lt(&u64::try_from(deepest_target_for_level).unwrap())
