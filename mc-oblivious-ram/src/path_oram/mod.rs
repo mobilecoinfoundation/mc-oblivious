@@ -670,98 +670,7 @@ pub mod evictor {
             src.cmov(is_elem_deeper, &bucket_num);
         }
     }
-    #[allow(dead_code)]
-    /// Make a root-to-leaf linear metadata scan to prepare the deepest
-    /// array. After this algorithm, deepest[i] stores the source
-    /// level of the deepest block in path[0..i − 1] that can
-    /// legally reside in path[i], offset by BranchOffset s.t. 0 corresponds
-    /// to a special floor value, and the stash is the 1st level
-    fn prepare_deepest_non_oblivious_for_testing<ValueSize, Z>(
-        deepest_meta: &mut [usize],
-        stash_meta: &[A8Bytes<MetaSize>],
-        branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
-        leaf: u64,
-    ) where
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
-        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
-    {
-        //Need one extra for the stash.
-        debug_assert!(deepest_meta.len() == (branch_meta.len() + 1));
-        for (i, deepest_at_i) in deepest_meta.iter_mut().enumerate() {
-            let deepest_test = find_source_for_deepest_elem_in_stash_non_oblivious_for_testing::<
-                ValueSize,
-                Z,
-            >(stash_meta, branch_meta, leaf, i + 1);
-            if deepest_test.destination_bucket <= i && deepest_test.source_bucket > i {
-                *deepest_at_i = deepest_test.source_bucket;
-            } else {
-                *deepest_at_i = FLOOR_INDEX;
-            }
-        }
-    }
-    //find the source for the deepest element from test_level up to the stash.
-    fn find_source_for_deepest_elem_in_stash_non_oblivious_for_testing<ValueSize, Z>(
-        stash_meta: &[A8Bytes<MetaSize>],
-        branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
-        leaf: u64,
-        test_level: usize,
-    ) -> LowestHeightAndSource
-    where
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
-        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
-    {
-        let mut lowest_so_far = FLOOR_INDEX;
-        let mut source_of_lowest_so_far = FLOOR_INDEX;
-        let meta_len = branch_meta.len();
 
-        for stash_elem in stash_meta {
-            let elem_destination: usize =
-                BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                    *meta_leaf_num(stash_elem),
-                    leaf,
-                    meta_len,
-                );
-            if elem_destination < lowest_so_far {
-                lowest_so_far = elem_destination;
-                source_of_lowest_so_far = meta_len;
-            }
-        }
-        //Iterate over the branch from root to leaf to find the element that can go the
-        // deepest. Noting that 0 is the leaf.
-        for (bucket_num, bucket) in branch_meta
-            .iter()
-            .enumerate()
-            .take(meta_len)
-            .skip(test_level)
-        {
-            let bucket_meta: &[A8Bytes<MetaSize>] = bucket.as_aligned_chunks();
-            for idx in 0..bucket_meta.len() {
-                let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
-                let elem_destination: usize =
-                    BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                        *meta_leaf_num(src_meta),
-                        leaf,
-                        meta_len,
-                    );
-                if elem_destination < lowest_so_far {
-                    lowest_so_far = elem_destination;
-                    source_of_lowest_so_far = bucket_num;
-                }
-            }
-        }
-        LowestHeightAndSource {
-            source_bucket: source_of_lowest_so_far,
-            destination_bucket: lowest_so_far,
-        }
-    }
-    struct LowestHeightAndSource {
-        source_bucket: usize,
-        destination_bucket: usize,
-    }
     /// Make a leaf-to-root linear metadata scan to prepare the target
     /// array. This prepares the circuit oram such that if target[i]
     /// 6 is not -1, then one block shall be moved from path[i] to
@@ -819,39 +728,6 @@ pub mod evictor {
             bucket_has_empty_slot |= meta_is_vacant(src_meta);
         }
         bucket_has_empty_slot
-    }
-
-    #[allow(dead_code)]
-    //at the end, the target array should be indices that would have elements moved
-    // into it. Scan from leaf to root skipping to the source from deepest when an
-    // element is taken
-    fn prepare_target_nonoblivious_for_testing<ValueSize, Z>(
-        target_meta: &mut [usize],
-        deepest_meta: &mut [usize],
-        branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
-    ) where
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
-        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
-    {
-        let mut i = 0usize;
-        let mut has_vacancy = false;
-        while i < branch_meta.len() {
-            has_vacancy |=
-                bool::try_from(bucket_has_empty_slot(branch_meta[i].as_aligned_chunks())).unwrap();
-            if deepest_meta[i] == FLOOR_INDEX {
-                target_meta[i] = FLOOR_INDEX;
-                has_vacancy = false;
-                i += 1;
-            } else if has_vacancy {
-                let target = i;
-                i = deepest_meta[i];
-                target_meta[i] = target;
-            } else {
-                i += 1;
-            }
-        }
     }
 
     pub trait BranchSelector {
@@ -1159,6 +1035,129 @@ pub mod evictor {
         type Z = U4;
         type ValueSize = U64;
         type StorageType = HeapORAMStorage<U256, U64>;
+        /// Make a root-to-leaf linear metadata scan to prepare the deepest
+        /// array. After this algorithm, deepest[i] stores the source
+        /// level of the deepest block in path[0..i − 1] that can
+        /// legally reside in path[i], offset by BranchOffset s.t. 0 corresponds
+        /// to a special floor value, and the stash is the 1st level
+        fn prepare_deepest_non_oblivious_for_testing<ValueSize, Z>(
+            deepest_meta: &mut [usize],
+            stash_meta: &[A8Bytes<MetaSize>],
+            branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
+            leaf: u64,
+        ) where
+            ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+            Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+            Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+            Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        {
+            //Need one extra for the stash.
+            debug_assert!(deepest_meta.len() == (branch_meta.len() + 1));
+            for (i, deepest_at_i) in deepest_meta.iter_mut().enumerate() {
+                let deepest_test = find_source_for_deepest_elem_in_stash_non_oblivious_for_testing::<
+                    ValueSize,
+                    Z,
+                >(stash_meta, branch_meta, leaf, i + 1);
+                if deepest_test.destination_bucket <= i && deepest_test.source_bucket > i {
+                    *deepest_at_i = deepest_test.source_bucket;
+                } else {
+                    *deepest_at_i = FLOOR_INDEX;
+                }
+            }
+        }
+        //find the source for the deepest element from test_level up to the stash.
+        fn find_source_for_deepest_elem_in_stash_non_oblivious_for_testing<ValueSize, Z>(
+            stash_meta: &[A8Bytes<MetaSize>],
+            branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
+            leaf: u64,
+            test_level: usize,
+        ) -> LowestHeightAndSource
+        where
+            ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+            Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+            Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+            Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        {
+            let mut lowest_so_far = FLOOR_INDEX;
+            let mut source_of_lowest_so_far = FLOOR_INDEX;
+            let meta_len = branch_meta.len();
+
+            for stash_elem in stash_meta {
+                let elem_destination: usize =
+                    BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                        *meta_leaf_num(stash_elem),
+                        leaf,
+                        meta_len,
+                    );
+                if elem_destination < lowest_so_far {
+                    lowest_so_far = elem_destination;
+                    source_of_lowest_so_far = meta_len;
+                }
+            }
+            //Iterate over the branch from root to leaf to find the element that can go the
+            // deepest. Noting that 0 is the leaf.
+            for (bucket_num, bucket) in branch_meta
+                .iter()
+                .enumerate()
+                .take(meta_len)
+                .skip(test_level)
+            {
+                let bucket_meta: &[A8Bytes<MetaSize>] = bucket.as_aligned_chunks();
+                for idx in 0..bucket_meta.len() {
+                    let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
+                    let elem_destination: usize =
+                        BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                            *meta_leaf_num(src_meta),
+                            leaf,
+                            meta_len,
+                        );
+                    if elem_destination < lowest_so_far {
+                        lowest_so_far = elem_destination;
+                        source_of_lowest_so_far = bucket_num;
+                    }
+                }
+            }
+            LowestHeightAndSource {
+                source_bucket: source_of_lowest_so_far,
+                destination_bucket: lowest_so_far,
+            }
+        }
+        struct LowestHeightAndSource {
+            source_bucket: usize,
+            destination_bucket: usize,
+        }
+        //at the end, the target array should be indices that would have elements moved
+        // into it. Scan from leaf to root skipping to the source from deepest when an
+        // element is taken
+        fn prepare_target_nonoblivious_for_testing<ValueSize, Z>(
+            target_meta: &mut [usize],
+            deepest_meta: &mut [usize],
+            branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
+        ) where
+            ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+            Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+            Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+            Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        {
+            let mut i = 0usize;
+            let mut has_vacancy = false;
+            while i < branch_meta.len() {
+                has_vacancy |=
+                    bool::try_from(bucket_has_empty_slot(branch_meta[i].as_aligned_chunks()))
+                        .unwrap();
+                if deepest_meta[i] == FLOOR_INDEX {
+                    target_meta[i] = FLOOR_INDEX;
+                    has_vacancy = false;
+                    i += 1;
+                } else if has_vacancy {
+                    let target = i;
+                    i = deepest_meta[i];
+                    target_meta[i] = target;
+                } else {
+                    i += 1;
+                }
+            }
+        }
 
         #[test]
         // Check that deterministic oram correctly chooses leaf values
@@ -1381,7 +1380,11 @@ pub mod evictor {
             //Look through the stash to find the element that can go the deepest, then
             // putting it in the hold and setting dest to the target[STASH_INDEX]
             let (_deepest_target, id_of_the_deepest_target_for_level) =
-            find_index_of_deepest_target_for_bucket::<ValueSize, Z>(stash_meta, branch.leaf, meta_len);
+                find_index_of_deepest_target_for_bucket::<ValueSize, Z>(
+                    stash_meta,
+                    branch.leaf,
+                    meta_len,
+                );
             update_dest_and_take_an_item_to_hold_if_appropriate(
                 stash_index,
                 &target_meta,
@@ -1423,7 +1426,11 @@ pub mod evictor {
                     );
                 debug_assert!(bucket_data.len() == bucket_meta.len());
                 let (_deepest_target, id_of_the_deepest_target_for_level) =
-                find_index_of_deepest_target_for_bucket::<ValueSize, Z>(bucket_meta, branch.leaf, meta_len);
+                    find_index_of_deepest_target_for_bucket::<ValueSize, Z>(
+                        bucket_meta,
+                        branch.leaf,
+                        meta_len,
+                    );
                 update_dest_and_take_an_item_to_hold_if_appropriate(
                     bucket_num,
                     &target_meta,
@@ -1501,7 +1508,7 @@ pub mod evictor {
     fn find_index_of_deepest_target_for_bucket<ValueSize, Z>(
         bucket_meta: &mut [A8Bytes<MetaSize>],
         leaf: u64,
-        branch_length: usize
+        branch_length: usize,
     ) -> (usize, usize)
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -1514,11 +1521,11 @@ pub mod evictor {
         for idx in 0..bucket_meta.len() {
             let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
             let elem_destination: usize =
-            BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                *meta_leaf_num(src_meta),
-                leaf,
-                branch_length,
-            );
+                BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                    *meta_leaf_num(src_meta),
+                    leaf,
+                    branch_length,
+                );
             let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
             let is_elem_deeper = elem_destination_64
                 .ct_lt(&u64::try_from(deepest_target_for_level).unwrap())
