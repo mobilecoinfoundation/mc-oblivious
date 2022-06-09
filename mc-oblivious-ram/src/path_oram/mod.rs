@@ -1375,20 +1375,21 @@ pub mod evictor {
             let held_meta: &mut A8Bytes<MetaSize> = &mut dummy_held_meta;
             // Dest represents the bucket where we will swap the held element for a new one.
             let mut dest = FLOOR_INDEX;
-
+            let stash_index = adjusted_data_len - 1;
             //Look through the stash to find the element that can go the deepest, then
             // putting it in the hold and setting dest to the target[STASH_INDEX]
-            find_deepest_target_for_level(
+            let (_deepest_target, id_of_the_deepest_target_for_level) =
+                find_index_of_deepest_target_for_bucket(stash_meta, &branch);
+            update_dest_and_take_an_item_to_hold_if_appropriate(
+                stash_index,
                 &target_meta,
-                adjusted_data_len,
-                &mut dest,
                 stash_meta,
-                &branch,
-                held_data,
                 stash_data,
+                id_of_the_deepest_target_for_level,
                 held_meta,
+                held_data,
+                &mut dest,
             );
-
             //Go through the branch from root to leaf, holding up to one element, swapping
             // held blocks into destinations closer to the leaf.
             let meta_len = branch.meta.len();
@@ -1419,8 +1420,6 @@ pub mod evictor {
                         to_write_meta,
                         to_write_data,
                     );
-                let should_take_an_element_for_level =
-                    !target_meta.get(bucket_num).unwrap().ct_eq(&FLOOR_INDEX);
                 debug_assert!(bucket_data.len() == bucket_meta.len());
                 let mut deepest_target_for_level = FLOOR_INDEX;
                 let mut id_of_the_deepest_target_for_level = 0;
@@ -1440,22 +1439,15 @@ pub mod evictor {
                     deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
                     id_of_the_deepest_target_for_level.cmov(is_elem_deeper, &idx);
                 }
-
-                held_data.cmov(
-                    should_take_an_element_for_level,
-                    &bucket_data[id_of_the_deepest_target_for_level],
-                );
-                held_meta.cmov(
-                    should_take_an_element_for_level,
-                    &bucket_meta[id_of_the_deepest_target_for_level],
-                );
-                dest.cmov(
-                    should_take_an_element_for_level,
-                    target_meta.get(bucket_num).unwrap(),
-                );
-                meta_set_vacant(
-                    should_take_an_element_for_level,
-                    &mut bucket_meta[id_of_the_deepest_target_for_level],
+                update_dest_and_take_an_item_to_hold_if_appropriate(
+                    bucket_num,
+                    &target_meta,
+                    bucket_meta,
+                    bucket_data,
+                    id_of_the_deepest_target_for_level,
+                    held_meta,
+                    held_data,
+                    &mut dest,
                 );
 
                 ct_insert(
@@ -1467,6 +1459,35 @@ pub mod evictor {
                 );
             }
         }
+    }
+
+    fn update_dest_and_take_an_item_to_hold_if_appropriate<ValueSize>(
+        bucket_index: usize,
+        target_meta: &[usize],
+        bucket_meta: &mut [A8Bytes<MetaSize>],
+        bucket_data: &mut [A64Bytes<ValueSize>],
+        id_of_the_deepest_target_for_level: usize,
+        held_meta: &mut A8Bytes<MetaSize>,
+        held_data: &mut A64Bytes<ValueSize>,
+        dest: &mut usize,
+    ) where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    {
+        let target_meta_for_bucket = target_meta.get(bucket_index).unwrap();
+        let should_take_an_element_for_level = !(target_meta_for_bucket).ct_eq(&FLOOR_INDEX);
+        dest.cmov(should_take_an_element_for_level, target_meta_for_bucket);
+        held_data.cmov(
+            should_take_an_element_for_level,
+            &bucket_data[id_of_the_deepest_target_for_level],
+        );
+        held_meta.cmov(
+            should_take_an_element_for_level,
+            &bucket_meta[id_of_the_deepest_target_for_level],
+        );
+        meta_set_vacant(
+            should_take_an_element_for_level,
+            &mut bucket_meta[id_of_the_deepest_target_for_level],
+        );
     }
 
     fn swap_held_element_if_at_destination<ValueSize>(
@@ -1492,29 +1513,20 @@ pub mod evictor {
         held_elem_is_not_vacant_and_bucket_num_is_at_dest
     }
 
-    fn find_deepest_target_for_level<ValueSize, Z>(
-        target_meta: &[usize],
-        adjusted_data_len: usize,
-        dest: &mut usize,
-        stash_meta: &mut [A8Bytes<MetaSize>],
+    fn find_index_of_deepest_target_for_bucket<ValueSize, Z>(
+        bucket_meta: &mut [A8Bytes<MetaSize>],
         branch: &&mut BranchCheckout<ValueSize, Z>,
-        held_data: &mut A64Bytes<ValueSize>,
-        stash_data: &mut [A64Bytes<ValueSize>],
-        held_meta: &mut A8Bytes<MetaSize>,
-    ) -> (Choice, usize, usize)
+    ) -> (usize, usize)
     where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
-        let stash_target = target_meta.get(adjusted_data_len - 1).unwrap();
-        let should_take_an_element_for_level = !(stash_target).ct_eq(&FLOOR_INDEX);
-        dest.cmov(should_take_an_element_for_level, stash_target);
         let mut deepest_target_for_level = FLOOR_INDEX;
         let mut id_of_the_deepest_target_for_level = 0usize;
-        for idx in 0..stash_meta.len() {
-            let src_meta: &mut A8Bytes<MetaSize> = &mut stash_meta[idx];
+        for idx in 0..bucket_meta.len() {
+            let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
             let elem_destination: usize =
                 branch.lowest_height_legal_index(*meta_leaf_num(src_meta));
             let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
@@ -1524,22 +1536,6 @@ pub mod evictor {
             id_of_the_deepest_target_for_level.cmov(is_elem_deeper, &idx);
             deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
         }
-        held_data.cmov(
-            should_take_an_element_for_level,
-            &stash_data[id_of_the_deepest_target_for_level],
-        );
-        held_meta.cmov(
-            should_take_an_element_for_level,
-            &stash_meta[id_of_the_deepest_target_for_level],
-        );
-        meta_set_vacant(
-            should_take_an_element_for_level,
-            &mut stash_meta[id_of_the_deepest_target_for_level],
-        );
-        (
-            should_take_an_element_for_level,
-            deepest_target_for_level,
-            id_of_the_deepest_target_for_level,
-        )
+        (deepest_target_for_level, id_of_the_deepest_target_for_level)
     }
 }
