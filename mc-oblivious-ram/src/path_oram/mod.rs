@@ -762,7 +762,8 @@ pub mod evictor {
         fn create(&self, size: u64, height: u32) -> Self::Output;
     }
 
-    /// A factory which creates an PathOramDeterministicEvictor that evicts an additional number_of_additional_branches_to_evict
+    /// A factory which creates an PathOramDeterministicEvictor that evicts an
+    /// additional number_of_additional_branches_to_evict
     pub struct PathOramDeterministicEvictCreator {
         number_of_additional_branches_to_evict: usize,
     }
