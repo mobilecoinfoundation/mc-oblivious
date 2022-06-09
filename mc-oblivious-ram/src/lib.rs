@@ -27,7 +27,6 @@ extern crate alloc;
 use aligned_cmov::typenum::{U1024, U2, U2048, U32, U4, U4096, U64};
 use core::marker::PhantomData;
 use mc_oblivious_traits::{ORAMCreator, ORAMStorageCreator};
-use path_oram::evictor::CircuitOramEvict;
 use rand_core::{CryptoRng, RngCore};
 
 mod position_map;
@@ -35,7 +34,9 @@ pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCre
 
 mod path_oram;
 pub use path_oram::{
-    evictor::{CircuitOramNonobliviousEvict, DeterministicBranchSelector, PathOramEvict},
+    evictor::{
+        CircuitOramEvict, CircuitOramNonobliviousEvict, DeterministicBranchSelector, PathOramEvict,
+    },
     PathORAM,
 };
 /// Creator for PathORAM based on 4096-sized blocks of storage and bucket size

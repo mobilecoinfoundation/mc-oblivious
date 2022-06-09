@@ -12,16 +12,14 @@
 //!
 //! Height of storage tree is set as log size - log bucket_size
 //! This is informed by Gentry et al.
-
-use alloc::vec;
-
+#![allow(clippy::needless_range_loop)]
 use self::evictor::{BranchSelector, Evictor};
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
     typenum::{PartialDiv, Prod, Unsigned, U16, U64, U8},
     A64Bytes, A8Bytes, ArrayLength, AsAlignedChunks, AsNeSlice, CMov,
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use balanced_tree_index::TreeIndex;
 use core::{marker::PhantomData, ops::Mul};
 use mc_oblivious_traits::{
@@ -579,7 +577,6 @@ mod details {
 
 /// Evictor functions
 pub mod evictor {
-
     use super::*;
     use crate::path_oram::details::ct_insert;
     use core::convert::TryFrom;
@@ -597,7 +594,7 @@ pub mod evictor {
     fn prepare_deepest<ValueSize, Z>(
         deepest_meta: &mut [usize],
         stash_meta: &[A8Bytes<MetaSize>],
-        branch_meta: &Vec<A8Bytes<Prod<Z, MetaSize>>>,
+        branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
         leaf: u64,
     ) where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -618,7 +615,7 @@ pub mod evictor {
         for stash_elem in stash_meta {
             let elem_destination: usize =
                 BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                    *meta_leaf_num(&stash_elem),
+                    *meta_leaf_num(stash_elem),
                     leaf,
                     meta_len,
                 );
@@ -667,7 +664,7 @@ pub mod evictor {
         for elem in src_meta {
             let elem_destination: usize =
                 BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                    *meta_leaf_num(&elem),
+                    *meta_leaf_num(elem),
                     leaf,
                     meta_len,
                 );
@@ -688,7 +685,7 @@ pub mod evictor {
     fn prepare_deepest_test<ValueSize, Z>(
         deepest_meta: &mut [usize],
         stash_meta: &[A8Bytes<MetaSize>],
-        branch_meta: &Vec<A8Bytes<Prod<Z, MetaSize>>>,
+        branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
         leaf: u64,
     ) where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -698,7 +695,7 @@ pub mod evictor {
     {
         //Need one extra for the stash.
         debug_assert!(deepest_meta.len() == (branch_meta.len() + 1));
-        for i in 0..deepest_meta.len() {
+        for (i, deepest_at_i) in deepest_meta.iter_mut().enumerate() {
             let deepest_test = find_source_for_deepest_elem_in_stash_to_test::<ValueSize, Z>(
                 stash_meta,
                 branch_meta,
@@ -706,16 +703,16 @@ pub mod evictor {
                 i + 1,
             );
             if deepest_test.destination_bucket <= i && deepest_test.source_bucket > i {
-                deepest_meta[i] = deepest_test.source_bucket;
+                *deepest_at_i = deepest_test.source_bucket;
             } else {
-                deepest_meta[i] = FLOOR_INDEX;
+                *deepest_at_i = FLOOR_INDEX;
             }
         }
     }
     //find the source for the deepest element from test_level up to the stash.
     fn find_source_for_deepest_elem_in_stash_to_test<ValueSize, Z>(
         stash_meta: &[A8Bytes<MetaSize>],
-        branch_meta: &Vec<A8Bytes<Prod<Z, MetaSize>>>,
+        branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
         leaf: u64,
         test_level: usize,
     ) -> LowestHeightAndSource
@@ -732,7 +729,7 @@ pub mod evictor {
         for stash_elem in stash_meta {
             let elem_destination: usize =
                 BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                    *meta_leaf_num(&stash_elem),
+                    *meta_leaf_num(stash_elem),
                     leaf,
                     meta_len,
                 );
@@ -743,13 +740,18 @@ pub mod evictor {
         }
         //Iterate over the branch from root to leaf to find the element that can go the
         // deepest. Noting that 0 is the leaf.
-        for bucket_num in test_level..meta_len {
-            let bucket_meta: &[A8Bytes<MetaSize>] = branch_meta[bucket_num].as_aligned_chunks();
+        for (bucket_num, bucket) in branch_meta
+            .iter()
+            .enumerate()
+            .take(meta_len)
+            .skip(test_level)
+        {
+            let bucket_meta: &[A8Bytes<MetaSize>] = bucket.as_aligned_chunks();
             for idx in 0..bucket_meta.len() {
                 let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
                 let elem_destination: usize =
                     BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                        *meta_leaf_num(&src_meta),
+                        *meta_leaf_num(src_meta),
                         leaf,
                         meta_len,
                     );
@@ -768,7 +770,6 @@ pub mod evictor {
         source_bucket: usize,
         destination_bucket: usize,
     }
-
     /// Make a leaf-to-root linear metadata scan to prepare the target
     /// array. This prepares the circuit oram such that if target[i]
     /// 6 is not -1, then one block shall be moved from path[i] to
@@ -776,7 +777,7 @@ pub mod evictor {
     fn prepare_target<ValueSize, Z>(
         target_meta: &mut [usize],
         deepest_meta: &mut [usize],
-        branch_meta: &Vec<A8Bytes<Prod<Z, MetaSize>>>,
+        branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
     ) where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -828,13 +829,14 @@ pub mod evictor {
         bucket_has_empty_slot
     }
 
+    #[allow(dead_code)]
     //at the end, the target array should be indices that would have elements moved
     // into it. Scan from leaf to root skipping to the source from deepest when an
     // element is taken
     fn test_prepare_target<ValueSize, Z>(
         target_meta: &mut [usize],
         deepest_meta: &mut [usize],
-        branch_meta: &Vec<A8Bytes<Prod<Z, MetaSize>>>,
+        branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
     ) where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -850,14 +852,12 @@ pub mod evictor {
                 target_meta[i] = FLOOR_INDEX;
                 has_vacancy = false;
                 i += 1;
+            } else if has_vacancy {
+                let target = i;
+                i = deepest_meta[i];
+                target_meta[i] = target;
             } else {
-                if has_vacancy {
-                    let target = i;
-                    i = deepest_meta[i];
-                    target_meta[i] = target;
-                } else {
-                    i += 1;
-                }
+                i += 1;
             }
         }
     }
@@ -1270,7 +1270,7 @@ pub mod evictor {
             let mut bucket_meta = A8Bytes::<Prod<Z, MetaSize>>::default();
             let reader = bucket_meta.as_aligned_chunks();
             let bucket_has_vacancy: bool = bucket_has_empty_slot(reader).into();
-            assert_eq!(bucket_has_vacancy, true);
+            assert!(bucket_has_vacancy);
 
             //Test partially full bucket returns true
             let meta_as_chunks = bucket_meta.as_mut_aligned_chunks();
@@ -1279,7 +1279,7 @@ pub mod evictor {
             }
             let reader = bucket_meta.as_aligned_chunks();
             let bucket_has_vacancy: bool = bucket_has_empty_slot(reader).into();
-            assert_eq!(bucket_has_vacancy, true);
+            assert!(bucket_has_vacancy);
 
             //Test full bucket returns false
             let mut bucket_meta = A8Bytes::<Prod<Z, MetaSize>>::default();
@@ -1289,7 +1289,7 @@ pub mod evictor {
             }
             let reader = bucket_meta.as_aligned_chunks();
             let bucket_has_vacancy: bool = bucket_has_empty_slot(reader).into();
-            assert_eq!(bucket_has_vacancy, false);
+            assert!(!bucket_has_vacancy);
         }
 
         fn populate_branch_with_random_data(
@@ -1326,6 +1326,8 @@ pub mod evictor {
             dbg!(bucket_num, to_print);
         }
     }
+
+    /// Oblivious Circuit Oram Evictor
     pub struct CircuitOramEvict {}
 
     impl CircuitOramEvict {
@@ -1434,7 +1436,7 @@ pub mod evictor {
                     let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
                     let elem_destination: usize =
                         BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                            *meta_leaf_num(&src_meta),
+                            *meta_leaf_num(src_meta),
                             branch.leaf,
                             meta_len,
                         );
@@ -1487,7 +1489,7 @@ pub mod evictor {
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     {
         let held_elem_is_not_vacant_and_bucket_num_is_at_dest =
-            !meta_is_vacant(&mut *held_meta) & bucket_num.ct_eq(&*dest);
+            !meta_is_vacant(held_meta) & bucket_num.ct_eq(dest);
         to_write_data.cmov(held_elem_is_not_vacant_and_bucket_num_is_at_dest, held_data);
         to_write_meta.cmov(held_elem_is_not_vacant_and_bucket_num_is_at_dest, held_meta);
         dest.cmov(
@@ -1499,7 +1501,7 @@ pub mod evictor {
     }
 
     fn find_deepest_target_for_level<ValueSize, Z>(
-        target_meta: &Vec<usize>,
+        target_meta: &[usize],
         adjusted_data_len: usize,
         dest: &mut usize,
         stash_meta: &mut [A8Bytes<MetaSize>],
@@ -1516,7 +1518,7 @@ pub mod evictor {
     {
         let stash_target = target_meta.get(adjusted_data_len - 1).unwrap();
         let should_take_an_element_for_level = !(stash_target).ct_eq(&FLOOR_INDEX);
-        dest.cmov(should_take_an_element_for_level, &stash_target);
+        dest.cmov(should_take_an_element_for_level, stash_target);
         let mut deepest_target_for_level = FLOOR_INDEX;
         let mut id_of_the_deepest_target_for_level = 0usize;
         for idx in 0..stash_meta.len() {
