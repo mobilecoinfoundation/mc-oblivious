@@ -632,31 +632,51 @@ pub mod evictor {
         //Iterate over the branch from root to leaf to find the element that can go the
         // deepest. Noting that 0 is the leaf.
         for bucket_num in (0..meta_len).rev() {
-            let bucket_num_64 = u64::try_from(bucket_num).unwrap();
             let bucket_meta: &[A8Bytes<MetaSize>] = branch_meta[bucket_num].as_aligned_chunks();
-            for idx in 0..bucket_meta.len() {
-                let src_meta: &A8Bytes<MetaSize> = &bucket_meta[idx];
-                //We should take the src and insert into deepest if our current bucket num is
-                // at the same level as our goal or closer to the root.
-                let should_take_src_for_deepest =
-                    !bucket_num_64.ct_lt(&u64::try_from(goal).unwrap());
-                deepest_meta[bucket_num].cmov(should_take_src_for_deepest, &src);
+            update_goal_and_deepest_for_a_single_bucket::<ValueSize, Z>(
+                &mut src,
+                &mut goal,
+                deepest_meta,
+                bucket_num,
+                bucket_meta,
+                leaf,
+                meta_len,
+            );
+        }
+    }
 
-                let elem_destination: usize =
-                    BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                        *meta_leaf_num(&src_meta),
-                        leaf,
-                        meta_len,
-                    );
-                let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
-                //This element is only taken if it can go deeper than the current level and is
-                // deeper than the currently held element.
-                let is_elem_deeper = elem_destination_64.ct_lt(&u64::try_from(goal).unwrap())
-                    & elem_destination_64.ct_lt(&bucket_num_64)
-                    & !meta_is_vacant(src_meta);
-                goal.cmov(is_elem_deeper, &elem_destination);
-                src.cmov(is_elem_deeper, &bucket_num);
-            }
+    fn update_goal_and_deepest_for_a_single_bucket<ValueSize, Z>(
+        src: &mut usize,
+        goal: &mut usize,
+        deepest_meta: &mut [usize],
+        bucket_num: usize,
+        src_meta: &[A8Bytes<MetaSize>],
+        leaf: u64,
+        meta_len: usize,
+    ) where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        //We should take the src and insert into deepest if our current bucket num is
+        // at the same level as our goal or closer to the root.
+        let bucket_num_64 = u64::try_from(bucket_num).unwrap();
+        let should_take_src_for_deepest = !bucket_num_64.ct_lt(&u64::try_from(*goal).unwrap());
+        deepest_meta[bucket_num].cmov(should_take_src_for_deepest, src);
+        for elem in src_meta {
+            let elem_destination: usize =
+                BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                    *meta_leaf_num(&elem),
+                    leaf,
+                    meta_len,
+                );
+            let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
+            let is_elem_deeper = elem_destination_64.ct_lt(&u64::try_from(*goal).unwrap())
+                & elem_destination_64.ct_lt(&bucket_num_64)
+                & !meta_is_vacant(elem);
+            goal.cmov(is_elem_deeper, &elem_destination);
+            src.cmov(is_elem_deeper, &bucket_num);
         }
     }
     #[allow(dead_code)]
@@ -683,7 +703,7 @@ pub mod evictor {
                 stash_meta,
                 branch_meta,
                 leaf,
-                i,
+                i + 1,
             );
             if deepest_test.destination_bucket <= i && deepest_test.source_bucket > i {
                 deepest_meta[i] = deepest_test.source_bucket;
@@ -692,6 +712,7 @@ pub mod evictor {
             }
         }
     }
+    //find the source for the deepest element from test_level up to the stash.
     fn find_source_for_deepest_elem_in_stash_to_test<ValueSize, Z>(
         stash_meta: &[A8Bytes<MetaSize>],
         branch_meta: &Vec<A8Bytes<Prod<Z, MetaSize>>>,
@@ -1171,35 +1192,43 @@ pub mod evictor {
         }
         #[test]
         fn test_prepare_deepest_branch_checkout() {
-            let size=64;
+            let size = 64;
             let height = log2_ceil(size).saturating_sub(log2_ceil(Z::U64));
             dbg!(height);
             let stash_size = 4;
             let leaf = 1 << height;
             run_with_several_seeds(|mut rng| {
-                let mut branch = create_dummy_branch(height, &mut rng, leaf);
+                let mut storage: StorageType =
+                    HeapORAMStorageCreator::create(2u64 << height, &mut rng)
+                        .expect("Storage failed");
+                let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
+                branch.checkout(&mut storage, leaf + leaf / 4);
+
                 populate_branch_with_random_data(&mut branch, &mut rng, height, 4);
+                print_branch_checkout(&mut branch);
+
+                branch.checkin(&mut storage);
+                branch.checkout(&mut storage, leaf);
+                print_branch_checkout(&mut branch);
+
+                populate_branch_with_random_data(&mut branch, &mut rng, height, 4);
+                print_branch_checkout(&mut branch);
 
                 let adjusted_data_len = branch.meta.len() + 1;
                 let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
 
                 let mut stash_meta = vec![Default::default(); stash_size];
                 let mut deepest_meta_compare = vec![FLOOR_INDEX; adjusted_data_len];
-                // *meta_block_num_mut(&mut stash_meta[0]) = 2;
-                // // Set the new leaf destination for the item
-                // *meta_leaf_num_mut(&mut stash_meta[0]) = 11;
-
-                // *meta_block_num_mut(&mut stash_meta[1]) = 3;
-                // // Set the new leaf destination for the item
-                // *meta_leaf_num_mut(&mut stash_meta[1]) = 8;
                 let mut key_value = 2;
                 for i in 0..stash_meta.len() {
                     *meta_block_num_mut(&mut stash_meta[i]) = key_value;
                     // Set the new leaf destination for the item
-                    *meta_leaf_num_mut(&mut stash_meta[0]) = rng.next_u64() % (2 << height);
+                    *meta_leaf_num_mut(&mut stash_meta[i]) =
+                        1u64.random_child_at_height(height, &mut rng);
                     key_value += 1;
                 }
-                print_branch_checkout(&mut branch);
+                std::print!("Printing stash");
+                print_meta(&mut stash_meta, FLOOR_INDEX);
                 prepare_deepest::<U64, U4>(
                     &mut deepest_meta,
                     &stash_meta,
@@ -1215,8 +1244,11 @@ pub mod evictor {
                 );
                 for i in 0..adjusted_data_len {
                     dbg!(i, deepest_meta[i], deepest_meta_compare[i]);
+                }
+                for i in 0..adjusted_data_len {
                     assert_eq!(deepest_meta[i], deepest_meta_compare[i]);
                 }
+
                 let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
                 let mut test_target_meta = vec![FLOOR_INDEX; adjusted_data_len];
 
@@ -1242,14 +1274,14 @@ pub mod evictor {
 
             //Test partially full bucket returns true
             let meta_as_chunks = bucket_meta.as_mut_aligned_chunks();
-            for i in 0..(meta_as_chunks.len()-2) {
+            for i in 0..(meta_as_chunks.len() - 2) {
                 *meta_leaf_num_mut(&mut meta_as_chunks[i]) = 3;
             }
             let reader = bucket_meta.as_aligned_chunks();
             let bucket_has_vacancy: bool = bucket_has_empty_slot(reader).into();
             assert_eq!(bucket_has_vacancy, true);
 
-            //Test full bucket returns false 
+            //Test full bucket returns false
             let mut bucket_meta = A8Bytes::<Prod<Z, MetaSize>>::default();
             let meta_as_chunks = bucket_meta.as_mut_aligned_chunks();
             for meta in meta_as_chunks {
@@ -1258,20 +1290,6 @@ pub mod evictor {
             let reader = bucket_meta.as_aligned_chunks();
             let bucket_has_vacancy: bool = bucket_has_empty_slot(reader).into();
             assert_eq!(bucket_has_vacancy, false);
-
-        }
-
-
-        fn create_dummy_branch(
-            height: u32,
-            rng: &mut RngType,
-            leaf: u64,
-        ) -> BranchCheckout<ValueSize, Z> {
-            let mut storage: StorageType =
-                HeapORAMStorageCreator::create(2u64 << height, rng).expect("Storage failed");
-            let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
-            branch.checkout(&mut storage, leaf);
-            branch
         }
 
         fn populate_branch_with_random_data(
@@ -1295,15 +1313,18 @@ pub mod evictor {
             for bucket_num in (0..branch.data.len()).rev() {
                 let (_lower_meta, upper_meta) = branch.meta.split_at_mut(bucket_num);
                 let bucket_meta: &mut [A8Bytes<MetaSize>] = upper_meta[0].as_mut_aligned_chunks();
-                let mut to_print = vec![0; bucket_meta.len()];
-                for idx in 0..bucket_meta.len() {
-                    let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
-                    to_print[idx] = *meta_leaf_num(src_meta);
-                }
-                dbg!(bucket_num, to_print);
+                print_meta(bucket_meta, bucket_num);
             }
         }
 
+        fn print_meta(bucket_meta: &mut [A8Bytes<MetaSize>], bucket_num: usize) {
+            let mut to_print = vec![0; bucket_meta.len()];
+            for idx in 0..bucket_meta.len() {
+                let src_meta: &mut A8Bytes<MetaSize> = &mut bucket_meta[idx];
+                to_print[idx] = *meta_leaf_num(src_meta);
+            }
+            dbg!(bucket_num, to_print);
+        }
     }
     pub struct CircuitOramEvict {}
 
