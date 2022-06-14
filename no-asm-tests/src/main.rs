@@ -64,10 +64,7 @@ pub fn main() {
             let mut least_overflow: Option<usize> = None;
             for _ in 0..REPS {
                 let result = measure_stash_overflow::<
-                    InsecurePathORAM4096Z4Creator<
-                        RngType,
-                        HeapORAMStorageCreator,
-                    >,
+                    InsecurePathORAM4096Z4Creator<RngType, HeapORAMStorageCreator>,
                     U1024,
                     RngType,
                 >(
@@ -122,7 +119,12 @@ where
     ) -> Self::Output {
         let evictor_factory = PathOramDeterministicEvictCreator::new(0);
 
-        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M, PathOramDeterministicEvictCreator>(size, stash_size, rng_maker, evictor_factory)
+        PathORAM::new::<InsecurePositionMapCreator<R>, SC, M, PathOramDeterministicEvictCreator>(
+            size,
+            stash_size,
+            rng_maker,
+            evictor_factory,
+        )
     }
 }
 
@@ -141,10 +143,9 @@ mod tests {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let stash_size = 16;
-            let mut oram = InsecurePathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-            >::create(131072, stash_size, &mut maker);
+            let mut oram = InsecurePathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                131072, stash_size, &mut maker,
+            );
             testing::exercise_oram(200_000, &mut oram, &mut rng);
         });
     }
@@ -156,10 +157,9 @@ mod tests {
             let mut maker = rng_maker(rng);
             let mut rng = maker();
             let stash_size = 16;
-            let mut oram = InsecurePathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-            >::create(262144, stash_size, &mut maker);
+            let mut oram = InsecurePathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                262144, stash_size, &mut maker,
+            );
             testing::exercise_oram(400_000, &mut oram, &mut rng);
         });
     }
@@ -179,10 +179,11 @@ mod tests {
             let num_rounds: u64 = base.pow(20);
             let mut maker = rng_maker(rng);
             let mut rng = maker();
-            let mut oram = InsecurePathORAM4096Z4Creator::<
-                RngType,
-                HeapORAMStorageCreator,
-            >::create(base.pow(10), STASH_SIZE, &mut maker);
+            let mut oram = InsecurePathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                base.pow(10),
+                STASH_SIZE,
+                &mut maker,
+            );
             let stash_stats = testing::measure_oram_stash_size_distribution(
                 num_prerounds.try_into().unwrap(),
                 num_rounds.try_into().unwrap(),
@@ -231,10 +232,10 @@ mod tests {
             for oram_power in (10..24).step_by(2) {
                 let mut rng = maker();
                 let oram_size = BASE.pow(oram_power);
-                let mut oram = InsecurePathORAM4096Z4Creator::<
-                    RngType,
-                    HeapORAMStorageCreator,
-                >::create(oram_size, STASH_SIZE, &mut maker);
+                let mut oram =
+                    InsecurePathORAM4096Z4Creator::<RngType, HeapORAMStorageCreator>::create(
+                        oram_size, STASH_SIZE, &mut maker,
+                    );
                 let stash_stats = testing::measure_oram_stash_size_distribution(
                     NUM_PREROUNDS.try_into().unwrap(),
                     NUM_ROUNDS.try_into().unwrap(),

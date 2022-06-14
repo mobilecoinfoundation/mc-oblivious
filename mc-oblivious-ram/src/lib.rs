@@ -31,12 +31,10 @@ use rand_core::{CryptoRng, RngCore};
 
 mod position_map;
 pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCreator};
-
+mod evictor;
+pub use evictor::{PathOramDeterministicEvict, PathOramDeterministicEvictCreator};
 mod path_oram;
-pub use path_oram::{
-    evictor::{PathOramDeterministicEvict, PathOramDeterministicEvictCreator, PathOramRandomEvict},
-    PathORAM,
-};
+pub use path_oram::PathORAM;
 /// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
 /// (Z) of 2, and a basic recursive position map implementation
 ///
