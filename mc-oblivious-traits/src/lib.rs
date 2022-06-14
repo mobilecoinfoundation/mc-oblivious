@@ -598,6 +598,7 @@ pub const fn log2_ceil(arg: u64) -> u32 {
 #[cfg(test)]
 mod test {
     use super::*;
+
     // Sanity check the log2_ceil function
     #[test]
     fn test_log2_ceil() {

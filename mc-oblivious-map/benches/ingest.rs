@@ -1,12 +1,13 @@
 // Copyright (c) 2018-2021 The MobileCoin Foundation
 
-use aligned_cmov::{typenum, A8Bytes, ArrayLength};
+use aligned_cmov::{typenum, A8Bytes};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use mc_crypto_rand::McRng;
 use mc_oblivious_map::{CuckooHashTable, CuckooHashTableCreator};
 use mc_oblivious_ram::PathORAM4096Z4Creator;
 use mc_oblivious_traits::{HeapORAMStorageCreator, OMapCreator, ORAMCreator, ObliviousHashMap};
 use std::time::Duration;
+use test_helper::a8_8;
 use typenum::{U1024, U32};
 
 type ORAMCreatorZ4 = PathORAM4096Z4Creator<McRng, HeapORAMStorageCreator>;
@@ -16,16 +17,6 @@ type CuckooCreatorZ4 = CuckooHashTableCreator<U1024, McRng, ORAMCreatorZ4>;
 
 fn make_omap(capacity: u64) -> Table {
     CuckooCreatorZ4::create(capacity, 32, || McRng {})
-}
-
-/// Make a8-bytes that are initialized to a particular byte value
-/// This makes tests shorter to write
-fn a8_8<N: ArrayLength<u8>>(src: u8) -> A8Bytes<N> {
-    let mut result = A8Bytes::<N>::default();
-    for byte in result.as_mut_slice() {
-        *byte = src;
-    }
-    result
 }
 
 pub fn path_oram_4096_z4_1mil_ingest_write(c: &mut Criterion) {
