@@ -26,7 +26,7 @@ siphasher = "0.3"
 mc-oblivious-ram = { path = "../mc-oblivious-ram" }
 test-helper = { path = "../test-helper" }
 
-criterion = "0.3"
+criterion = {version = "0.3", features = ["html_reports"]}
 
 # This is only needed by benchmarks... we should really put this on crates.io
 mc-crypto-rand = { git = "https://github.com/mobilecoinfoundation/mobilecoin", rev = "9653694d5fcd8fb9438728547467518b634d6cf5" }
