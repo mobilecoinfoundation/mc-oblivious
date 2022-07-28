@@ -1,4 +1,8 @@
-//! Evictor functions
+//! Evictor functions for ORAM
+//!
+//! These are intended to be a module containing different eviction strategies
+//! for tree based orams which include path oram and circuit oram. These
+//! strategies will be used for evicting stash elements to the tree oram.
 
 use aligned_cmov::A8Bytes;
 
