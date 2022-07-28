@@ -32,6 +32,8 @@ use rand_core::{CryptoRng, RngCore};
 mod position_map;
 pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCreator};
 
+mod evictor;
+
 mod path_oram;
 pub use path_oram::PathORAM;
 

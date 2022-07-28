@@ -15,7 +15,7 @@
 
 use alloc::vec;
 
-use self::evictor::{Evictor, PathOramEvict};
+use crate::evictor::{Evictor, PathOramEvict};
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
     typenum::{PartialDiv, Prod, Unsigned, U16, U64, U8},
@@ -35,7 +35,7 @@ use rand_core::{CryptoRng, RngCore};
 /// In many cases block-num and leaf can be u32's. But I suspect that there will
 /// be other stuff in this metadata as well in the end so the savings isn't
 /// much.
-type MetaSize = U16;
+pub(crate) type MetaSize = U16;
 
 // A metadata object is always associated to any Value in the PathORAM
 // structure. A metadata consists of two fields: leaf_num and block_num
@@ -540,58 +540,6 @@ mod details {
             dest_data[idx].cmov(test, src_data);
             meta_set_vacant(test, src_meta);
             condition &= !test;
-        }
-    }
-}
-
-/// Evictor functions
-pub mod evictor {
-
-    use super::*;
-
-    /// Evictor trait conceptually is a mechanism for moving stash elements into
-    /// the oram.
-    pub trait Evictor<ValueSize, Z>
-    where
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
-        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
-    {
-        /// Method that takes a branch and a stash and moves elements from the
-        /// stash into the branch.
-        fn evict_from_stash_to_branch(
-            &self,
-            stash_data: &mut [A64Bytes<ValueSize>],
-            stash_meta: &mut [A8Bytes<MetaSize>],
-            branch: &mut BranchCheckout<ValueSize, Z>,
-        );
-    }
-    pub struct PathOramEvict {}
-    impl<ValueSize, Z> Evictor<ValueSize, Z> for PathOramEvict
-    where
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
-        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
-    {
-        fn evict_from_stash_to_branch(
-            &self,
-            stash_data: &mut [A64Bytes<ValueSize>],
-            stash_meta: &mut [A8Bytes<MetaSize>],
-            branch: &mut BranchCheckout<ValueSize, Z>,
-        ) {
-            branch.pack();
-            //Greedily place elements of the stash into the branch as close to the leaf as
-            // they can go.
-            for idx in 0..stash_data.len() {
-                branch.ct_insert(1.into(), &stash_data[idx], &mut stash_meta[idx]);
-            }
-        }
-    }
-    impl PathOramEvict {
-        pub fn new() -> Self {
-            Self {}
         }
     }
 }
