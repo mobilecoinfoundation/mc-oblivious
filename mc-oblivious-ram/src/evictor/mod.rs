@@ -29,6 +29,13 @@ use crate::path_oram::{BranchCheckout, MetaSize};
 use rand_core::RngCore;
 
 fn deterministic_get_next_branch_to_evict(num_bits_needed: u32, iteration: u64) -> u64 {
+    // Return 1 if the number of bits needed is 0. This is to shortcut the
+    // calculation furtherdown that would overflow, and does not leak
+    // information because the number of bits is structural information rather
+    // than query specific.
+    if num_bits_needed == 0 {
+        return 1;
+    }
     let leaf_significant_index: u64 = 1 << (num_bits_needed);
     let test_position: u64 =
         ((iteration).reverse_bits() >> (64 - num_bits_needed)) % leaf_significant_index;
@@ -98,7 +105,8 @@ where
     }
 }
 
-/// An evictor that implements a deterministc branch selection and the path
+/// An evictor that implements a deterministic branch selection in reverse
+/// lexicographic order and the path
 /// oram eviction strategy
 pub struct PathOramDeterministicEvict {
     number_of_additional_branches_to_evict: usize,
@@ -215,8 +223,9 @@ where
     fn create(&self, size: u64, height: u32) -> Self::Output;
 }
 
-/// A factory which creates an PathOramDeterministicEvictor that evicts an
-/// additional number_of_additional_branches_to_evict
+/// A factory which creates an PathOramDeterministicEvictor that evicts from the
+/// stash into an additional number_of_additional_branches_to_evict branches in
+/// addition to the currently checked out branch in reverse lexicographic order
 pub struct PathOramDeterministicEvictCreator {
     number_of_additional_branches_to_evict: usize,
 }
