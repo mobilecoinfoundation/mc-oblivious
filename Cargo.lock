@@ -597,6 +597,8 @@ dependencies = [
 name = "test-helper"
 version = "2.0.0"
 dependencies = [
+ "aligned-array",
+ "aligned-cmov",
  "rand_core",
  "rand_hc",
 ]
