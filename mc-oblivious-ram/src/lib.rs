@@ -33,6 +33,7 @@ mod position_map;
 pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCreator};
 
 mod evictor;
+pub use evictor::{PathOramDeterministicEvict, PathOramDeterministicEvictCreator};
 
 mod path_oram;
 pub use path_oram::PathORAM;
@@ -56,14 +57,21 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
-    type Output = PathORAM<U2048, U2, SC::Output, R>;
+    type Output = PathORAM<U2048, U2, SC::Output, R, PathOramDeterministicEvict>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        PathORAM::new::<U32PositionMapCreator<U2048, R, Self>, SC, M>(size, stash_size, rng_maker)
+        let evictor_factory = PathOramDeterministicEvictCreator::new(0);
+
+        PathORAM::new::<
+            U32PositionMapCreator<U2048, R, Self>,
+            SC,
+            M,
+            PathOramDeterministicEvictCreator,
+        >(size, stash_size, rng_maker, evictor_factory)
     }
 }
 
@@ -83,14 +91,21 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R, PathOramDeterministicEvict>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(size, stash_size, rng_maker)
+        let evictor_factory = PathOramDeterministicEvictCreator::new(0);
+
+        PathORAM::new::<
+            U32PositionMapCreator<U1024, R, Self>,
+            SC,
+            M,
+            PathOramDeterministicEvictCreator,
+        >(size, stash_size, rng_maker, evictor_factory)
     }
 }
 

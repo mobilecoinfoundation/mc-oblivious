@@ -5,7 +5,7 @@ use aligned_cmov::{
     ArrayLength,
 };
 use core::marker::PhantomData;
-use mc_oblivious_ram::PathORAM;
+use mc_oblivious_ram::{PathORAM, PathOramDeterministicEvict, PathOramDeterministicEvictCreator};
 use mc_oblivious_traits::{
     rng_maker, HeapORAMStorageCreator, ORAMCreator, ORAMStorageCreator, ORAM,
 };
@@ -48,7 +48,7 @@ where
         }
     }
 
-    return None;
+    None
 }
 
 pub fn main() {
@@ -103,14 +103,20 @@ pub struct InsecurePathORAM4096Z4Creator<SC: ORAMStorageCreator<U4096, U64>> {
 impl<SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, RngType>
     for InsecurePathORAM4096Z4Creator<SC>
 {
-    type Output = PathORAM<U1024, U4, SC::Output, RngType>;
+    type Output = PathORAM<U1024, U4, SC::Output, RngType, PathOramDeterministicEvict>;
 
     fn create<M: 'static + FnMut() -> RngType>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        PathORAM::new::<InsecurePositionMapCreator<RngType>, SC, M>(size, stash_size, rng_maker)
+        let evictor_factory = PathOramDeterministicEvictCreator::new(0);
+        PathORAM::new::<InsecurePositionMapCreator<RngType>, SC, M, PathOramDeterministicEvictCreator>(
+            size,
+            stash_size,
+            rng_maker,
+            evictor_factory,
+        )
     }
 }
 
@@ -121,7 +127,7 @@ mod tests {
     use core::convert::TryInto;
     use mc_oblivious_traits::{rng_maker, testing, HeapORAMStorageCreator, ORAMCreator};
     use std::vec;
-    use test_helper::{run_with_several_seeds, run_with_one_seed};
+    use test_helper::{run_with_one_seed, run_with_several_seeds};
 
     // Run the exercise oram tests for 200,000 rounds in 131072 sized z4 oram
     #[test]
@@ -211,7 +217,8 @@ mod tests {
         const VARIANCE_THRESHOLD: f64 = 0.15;
 
         run_with_one_seed(|rng| {
-            let mut oram_size_to_stash_size_by_count = BTreeMap::<u32, BTreeMap<usize, usize>>::default();
+            let mut oram_size_to_stash_size_by_count =
+                BTreeMap::<u32, BTreeMap<usize, usize>>::default();
             let mut maker = rng_maker(rng);
             for oram_power in (10..24).step_by(2) {
                 let mut rng = maker();
@@ -229,7 +236,7 @@ mod tests {
             }
             for stash_num in 1..6 {
                 let mut probability_of_stash_size = vec::Vec::new();
-                for (_oram_power, stash_size_by_count) in &oram_size_to_stash_size_by_count { 
+                for (_oram_power, stash_size_by_count) in &oram_size_to_stash_size_by_count {
                     if let Some(stash_count) = stash_size_by_count.get(&stash_num) {
                         let stash_count_probability =
                             (NUM_ROUNDS as f64 / *stash_count as f64).log2();
