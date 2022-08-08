@@ -98,42 +98,42 @@ fn prepare_deepest<ValueSize, Z>(
             meta_len,
         );
     }
-}
-
-/// Iterate over a particular bucket and set goal set to the deepest allowed
-/// value in the bucket if the bucket can go deeper than the current goal.
-fn update_goal_and_deepest_for_a_single_bucket<ValueSize, Z>(
-    src: &mut usize,
-    goal: &mut usize,
-    deepest_meta: &mut [usize],
-    bucket_num: usize,
-    src_meta: &[A8Bytes<MetaSize>],
-    leaf: u64,
-    meta_len: usize,
-) where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
-    Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
-{
-    // Take the src and insert into deepest if our current bucket num is at the
-    // same level as our goal or closer to the root.
-    let bucket_num_64 = u64::try_from(bucket_num).unwrap();
-    let should_take_src_for_deepest = !bucket_num_64.ct_lt(&u64::try_from(*goal).unwrap());
-    deepest_meta[bucket_num].cmov(should_take_src_for_deepest, src);
-    for elem in src_meta {
-        let elem_destination: usize =
-            BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                *meta_leaf_num(elem),
-                leaf,
-                meta_len,
-            );
-        let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
-        let is_elem_deeper = elem_destination_64.ct_lt(&u64::try_from(*goal).unwrap())
-            & elem_destination_64.ct_lt(&bucket_num_64)
-            & !meta_is_vacant(elem);
-        goal.cmov(is_elem_deeper, &elem_destination);
-        src.cmov(is_elem_deeper, &bucket_num);
+    /// Iterate over a particular bucket and set goal to the deepest allowed
+    /// value in the bucket if the bucket can go deeper than the current
+    /// goal.
+    fn update_goal_and_deepest_for_a_single_bucket<ValueSize, Z>(
+        src: &mut usize,
+        goal: &mut usize,
+        deepest_meta: &mut [usize],
+        bucket_num: usize,
+        src_meta: &[A8Bytes<MetaSize>],
+        leaf: u64,
+        meta_len: usize,
+    ) where
+        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    {
+        // Take the src and insert into deepest if our current bucket num is at the
+        // same level as our goal or closer to the root.
+        let bucket_num_64 = u64::try_from(bucket_num).unwrap();
+        let should_take_src_for_deepest = !bucket_num_64.ct_lt(&u64::try_from(*goal).unwrap());
+        deepest_meta[bucket_num].cmov(should_take_src_for_deepest, src);
+        for elem in src_meta {
+            let elem_destination: usize =
+                BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                    *meta_leaf_num(elem),
+                    leaf,
+                    meta_len,
+                );
+            let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
+            let is_elem_deeper = elem_destination_64.ct_lt(&u64::try_from(*goal).unwrap())
+                & elem_destination_64.ct_lt(&bucket_num_64)
+                & !meta_is_vacant(elem);
+            goal.cmov(is_elem_deeper, &elem_destination);
+            src.cmov(is_elem_deeper, &bucket_num);
+        }
     }
 }
 
