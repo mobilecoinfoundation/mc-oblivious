@@ -3,38 +3,26 @@
 //! These are intended to be a module containing different eviction strategies
 //! for tree based orams which include path oram and circuit oram. These
 //! strategies will be used for evicting stash elements to the tree oram.
+//Only temporarily adding until prepare deepest and target are used by Circuit
+//Oram in the next PR in this chain.
 #![allow(dead_code)]
-use aligned_cmov::A8Bytes;
-
-use aligned_cmov::A64Bytes;
-
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
-    typenum::Prod,
-    AsAlignedChunks,
+    typenum::{PartialDiv, Prod, Unsigned, U64, U8},
+    A64Bytes, A8Bytes, ArrayLength, AsAlignedChunks, CMov,
 };
+
 use balanced_tree_index::TreeIndex;
 
 use core::ops::Mul;
-
-use aligned_cmov::typenum::Unsigned;
-
-use aligned_cmov::typenum::U64;
-
-use aligned_cmov::typenum::U8;
-
-use aligned_cmov::typenum::PartialDiv;
-
-use aligned_cmov::ArrayLength;
-
-use aligned_cmov::CMov;
-
-use rand_core::CryptoRng;
+use rand_core::{CryptoRng, RngCore};
 
 use crate::path_oram::{meta_is_vacant, meta_leaf_num, BranchCheckout, MetaSize};
-use rand_core::RngCore;
 
 use core::convert::TryFrom;
+
+// FLOOR_INDEX corresponds to ⊥ from the Circuit Oram paper, and is treated
+// similarly as one might a null value.
 const FLOOR_INDEX: usize = usize::MAX;
 
 fn deterministic_get_next_branch_to_evict(num_bits_needed: u32, iteration: u64) -> u64 {
@@ -117,7 +105,7 @@ fn prepare_deepest<ValueSize, Z>(
     {
         // Take the src and insert into deepest if our current bucket num is at the
         // same level as our goal or closer to the root.
-        let bucket_num_64 = u64::try_from(bucket_num).unwrap();
+        let bucket_num_64 = bucket_num as u64;
         let should_take_src_for_deepest = !bucket_num_64.ct_lt(&u64::try_from(*goal).unwrap());
         deepest_meta[bucket_num].cmov(should_take_src_for_deepest, src);
         for elem in src_meta {
