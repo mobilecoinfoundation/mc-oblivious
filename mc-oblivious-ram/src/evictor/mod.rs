@@ -4,23 +4,12 @@
 //! for tree based orams which include path oram and circuit oram. These
 //! strategies will be used for evicting stash elements to the tree oram.
 
-use aligned_cmov::A8Bytes;
-
-use aligned_cmov::A64Bytes;
-
-use aligned_cmov::typenum::Prod;
+use aligned_cmov::{
+    typenum::{PartialDiv, Prod, Unsigned, U64, U8},
+    A64Bytes, A8Bytes, ArrayLength,
+};
 
 use core::ops::Mul;
-
-use aligned_cmov::typenum::Unsigned;
-
-use aligned_cmov::typenum::U64;
-
-use aligned_cmov::typenum::U8;
-
-use aligned_cmov::typenum::PartialDiv;
-
-use aligned_cmov::ArrayLength;
 
 use crate::path_oram::{BranchCheckout, MetaSize};
 
