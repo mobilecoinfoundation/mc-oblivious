@@ -19,8 +19,6 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::path_oram::{meta_is_vacant, meta_leaf_num, BranchCheckout, MetaSize};
 
-use core::convert::TryFrom;
-
 // FLOOR_INDEX corresponds to ⊥ from the Circuit Oram paper, and is treated
 // similarly as one might a null value.
 const FLOOR_INDEX: usize = usize::MAX;
@@ -106,7 +104,7 @@ fn prepare_deepest<ValueSize, Z>(
         // Take the src and insert into deepest if our current bucket num is at the
         // same level as our goal or closer to the root.
         let bucket_num_64 = bucket_num as u64;
-        let should_take_src_for_deepest = !bucket_num_64.ct_lt(&u64::try_from(*goal).unwrap());
+        let should_take_src_for_deepest = !bucket_num_64.ct_lt(&(*goal as u64));
         deepest_meta[bucket_num].cmov(should_take_src_for_deepest, src);
         for elem in src_meta {
             let elem_destination: usize =
@@ -115,8 +113,8 @@ fn prepare_deepest<ValueSize, Z>(
                     leaf,
                     meta_len,
                 );
-            let elem_destination_64: u64 = u64::try_from(elem_destination).unwrap();
-            let is_elem_deeper = elem_destination_64.ct_lt(&u64::try_from(*goal).unwrap())
+            let elem_destination_64: u64 = elem_destination as u64;
+            let is_elem_deeper = elem_destination_64.ct_lt(&(*goal as u64))
                 & elem_destination_64.ct_lt(&bucket_num_64)
                 & !meta_is_vacant(elem);
             goal.cmov(is_elem_deeper, &elem_destination);
@@ -403,7 +401,7 @@ mod internal_tests {
     use std::dbg;
 
     use crate::path_oram::{meta_block_num_mut, meta_leaf_num_mut};
-
+    use core::convert::TryFrom;
     use super::*;
     use aligned_cmov::typenum::{U256, U4};
     use alloc::vec;
