@@ -58,26 +58,6 @@ where
     branches_evicted: u64,
     tree_height: u32,
 }
-#[allow(dead_code)]
-impl<RngType> PathOramRandomEvict<RngType>
-where
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
-{
-    /// Create a new deterministic branch selector that will select
-    /// num_elements_to_evict branches per access
-    pub fn new(
-        number_of_additional_branches_to_evict: usize,
-        tree_height: u32,
-        rng: RngType,
-    ) -> Self {
-        Self {
-            rng,
-            number_of_additional_branches_to_evict,
-            tree_height,
-            branches_evicted: 0,
-        }
-    }
-}
 
 impl<RngType> BranchSelector for PathOramRandomEvict<RngType>
 where
