@@ -28,6 +28,9 @@ use rand_core::CryptoRng;
 use crate::path_oram::{BranchCheckout, MetaSize};
 use rand_core::RngCore;
 
+/// Selects branches in reverse lexicographic order. Num_bits_needed corresponds
+/// to the number of possible branches that need to be explored. The iteration i
+/// corresponds to the ith branch in reverse lexicographic order.
 fn deterministic_get_next_branch_to_evict(num_bits_needed: u32, iteration: u64) -> u64 {
     // Return 1 if the number of bits needed is 0. This is to shortcut the
     // calculation furtherdown that would overflow, and does not leak
@@ -36,6 +39,8 @@ fn deterministic_get_next_branch_to_evict(num_bits_needed: u32, iteration: u64) 
     if num_bits_needed == 0 {
         return 1;
     }
+    // This is the first index at which leafs exist, the most significant digit
+    // of all leafs is 1.
     let leaf_significant_index: u64 = 1 << (num_bits_needed);
     let test_position: u64 =
         ((iteration).reverse_bits() >> (64 - num_bits_needed)) % leaf_significant_index;
