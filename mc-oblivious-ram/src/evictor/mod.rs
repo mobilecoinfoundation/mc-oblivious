@@ -400,11 +400,11 @@ mod internal_tests {
     extern crate std;
     use std::dbg;
 
-    use crate::path_oram::{meta_block_num_mut, meta_leaf_num_mut};
-    use core::convert::TryFrom;
     use super::*;
+    use crate::path_oram::{meta_block_num_mut, meta_leaf_num_mut};
     use aligned_cmov::typenum::{U256, U4};
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
+    use core::convert::TryFrom;
     use mc_oblivious_traits::{
         log2_ceil, HeapORAMStorage, HeapORAMStorageCreator, ORAMStorageCreator,
     };
@@ -555,11 +555,12 @@ mod internal_tests {
     #[test]
     /// Compare prepare deepest with non oblivious prepare deepest and
     /// prepare_target with non oblivious prepare target
-    fn test_prepare_deepest_and_target() {
+    fn test_prepare_deepest_and_target_with_random_comparison() {
         let size = 64;
         let height = log2_ceil(size).saturating_sub(log2_ceil(Z::U64));
         dbg!(height);
         let stash_size = 4;
+        // The first leaf in the tree
         let leaf = 1 << height;
         run_with_several_seeds(|mut rng| {
             let mut storage: StorageType =
@@ -621,6 +622,46 @@ mod internal_tests {
             }
         })
     }
+
+    #[test]
+    /// Compare prepare deepest and prepare_target with a fixed tree that was
+    /// manually constructed to compare with the Circuit Oram paper.
+    fn test_prepare_deepest_and_target_with_fixed_tree() {
+        // let stash_size = 4;
+        run_with_several_seeds(|mut rng| {
+            let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
+
+            populate_branch_with_fixed_data(&mut branch, &mut rng);
+
+            let adjusted_data_len = branch.meta.len() + 1;
+            let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
+
+            let intended_leaves_for_stash = vec![26, 23, 21, 21];
+            let mut stash_meta = vec![Default::default(); intended_leaves_for_stash.len()];
+
+            for (key_value, src_meta) in stash_meta.iter_mut().enumerate() {
+                *meta_block_num_mut(src_meta) = key_value as u64;
+                // Set the new leaf destination for the item
+                *meta_leaf_num_mut(src_meta) = intended_leaves_for_stash[key_value];
+            }
+            print_meta(&mut stash_meta, FLOOR_INDEX);
+            prepare_deepest::<U64, U4>(&mut deepest_meta, &stash_meta, &branch.meta, branch.leaf);
+            let deepest_meta_expected = vec![FLOOR_INDEX, FLOOR_INDEX, 3, 5, 5, FLOOR_INDEX];
+            for i in 0..adjusted_data_len {
+                assert_eq!(deepest_meta[i], deepest_meta_expected[i]);
+            }
+
+            let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
+            let target_meta_expected =
+                vec![FLOOR_INDEX, FLOOR_INDEX, FLOOR_INDEX, 2, FLOOR_INDEX, 3];
+
+            prepare_target::<U64, U4>(&mut target_meta, &mut deepest_meta, &branch.meta);
+            for i in 0..adjusted_data_len {
+                assert_eq!(target_meta[i], target_meta_expected[i]);
+            }
+        })
+    }
+
     #[test]
     fn test_bucket_has_vacancy() {
         //Test empty bucket returns true
@@ -649,6 +690,49 @@ mod internal_tests {
         assert!(!bucket_has_vacancy);
     }
 
+    struct BranchDataConfig {
+        leaf: u64,
+        intended_leaves_for_data_to_insert: Vec<u64>,
+    }
+
+    fn populate_branch_with_fixed_data(
+        branch: &mut BranchCheckout<ValueSize, Z>,
+        rng: &mut RngType,
+    ) {
+        let size = 64;
+        let height = log2_ceil(size).saturating_sub(log2_ceil(Z::U64));
+        dbg!(height);
+        let mut storage: StorageType =
+            HeapORAMStorageCreator::create(2u64 << height, rng).expect("Storage failed");
+
+        branch.checkout(&mut storage, 20);
+        let branch_20 = BranchDataConfig {
+            leaf: 20,
+            intended_leaves_for_data_to_insert: vec![24, 27, 18, 23],
+        };
+        let branch_to_insert = branch_20;
+        for intended_leaf in branch_to_insert.intended_leaves_for_data_to_insert {
+            let mut meta = A8Bytes::<MetaSize>::default();
+            let data = A64Bytes::<ValueSize>::default();
+            *meta_block_num_mut(&mut meta) = intended_leaf;
+            *meta_leaf_num_mut(&mut meta) = intended_leaf;
+            branch.ct_insert(1.into(), &data, &mut meta);
+        }
+        branch.checkin(&mut storage);
+        branch.checkout(&mut storage, 16);
+        let branch_16 = BranchDataConfig {
+            leaf: 16,
+            intended_leaves_for_data_to_insert: vec![31, 30, 20, 19],
+        };
+        let branch_to_insert = branch_16;
+        for intended_leaf in branch_to_insert.intended_leaves_for_data_to_insert {
+            let mut meta = A8Bytes::<MetaSize>::default();
+            let data = A64Bytes::<ValueSize>::default();
+            *meta_block_num_mut(&mut meta) = intended_leaf;
+            *meta_leaf_num_mut(&mut meta) = intended_leaf;
+            branch.ct_insert(1.into(), &data, &mut meta);
+        }
+    }
     fn populate_branch_with_random_data(
         branch: &mut BranchCheckout<ValueSize, Z>,
         rng: &mut RngType,
@@ -665,6 +749,9 @@ mod internal_tests {
         }
     }
 
+    // Prints the intended leaf destinations for all buckets of a branch.
+    // Bucket_num 0 corresponds to the leaf, and bucket_num len corresponds to
+    // the root of the tree.
     fn print_branch_checkout(branch: &mut BranchCheckout<ValueSize, Z>) {
         dbg!(branch.leaf);
         for bucket_num in (0..branch.data.len()).rev() {
@@ -674,6 +761,7 @@ mod internal_tests {
         }
     }
 
+    // Prints the intended leaf destination for a bucket of a branch.
     fn print_meta(bucket_meta: &mut [A8Bytes<MetaSize>], bucket_num: usize) {
         let mut to_print = vec![0; bucket_meta.len()];
         for idx in 0..bucket_meta.len() {
