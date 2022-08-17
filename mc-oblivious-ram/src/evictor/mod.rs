@@ -624,8 +624,37 @@ mod internal_tests {
     }
 
     #[test]
+    #[rustfmt::skip]
     /// Compare prepare deepest and prepare_target with a fixed tree that was
     /// manually constructed to compare with the Circuit Oram paper.
+    /// This tree looks like: 
+    ///                                                           ┌───────────────────┐                
+    ///                                                           │ 1: 24, 27, 31, 30 │                
+    ///                                                           └─────────┬─────────┘                
+    ///                                               ┌─────────────────────┴──────────────────────┐   
+    ///                                      ┌────────┴────────┐                                ┌──┴──┐
+    ///                                      │ 2: 18, 20, 0, 0 │                                │ ... │
+    ///                                      └────────┬────────┘                                └─────┘
+    ///                         ┌─────────────────────┴─────────────────────┐                          
+    ///                 ┌───────┴────────┐                          ┌───────┴────────┐                 
+    ///                 │ 4: 19, 0, 0, 0 │                          │ 5: 23, 0, 0, 0 │                 
+    ///                 └───────┬────────┘                          └───────┬────────┘                 
+    ///                ┌────────┴─────────┐                        ┌────────┴─────────┐                
+    ///        ┌───────┴───────┐        ┌─┴─┐              ┌───────┴────────┐       ┌─┴──┐             
+    ///        │ 8: 0, 0, 0, 0 │        │ 9 │              │ 10: 0, 0, 0, 0 │       │ 11 │             
+    ///        └───────┬───────┘        └─┬─┘              └───────┬────────┘       └─┬──┘             
+    ///         ┌──────┴──────┐       ┌───┴───┐             ┌──────┴──────┐       ┌───┴───┐            
+    /// ┌───────┴────────┐  ┌─┴──┐  ┌─┴──┐  ┌─┴──┐  ┌───────┴────────┐  ┌─┴──┐  ┌─┴──┐  ┌─┴──┐         
+    /// │ 16: 0, 0, 0, 0 │  │ 17 │  │ 18 │  │ 19 │  │ 20: 0, 0, 0, 0 │  │ 21 │  │ 22 │  │ 23 │         
+    /// └────────────────┘  └────┘  └────┘  └────┘  └────────────────┘  └────┘  └────┘  └────┘         
+    /// The stash contents are: {26, 23, 21, 21}
+    /// We expect that the contents of prepare deepest for branch 16 to be: {⊥, ⊥, 3, 5, 5, ⊥}
+    /// Because the stash contains 21, which can go down to bucket index 2.
+    /// In bucket 2, we have 18, which can go in bucket 4.
+    /// We expect that the contents of prepare target for branch 16 to be: {⊥, ⊥, ⊥, 2, ⊥, 3}
+    /// This is because corresponding to deepest, we will want to take the block
+    /// from the stash and drop it off in bucket 2. 
+    /// We will then take the block from bucket 2 and drop it in bucket 4.
     fn test_prepare_deepest_and_target_with_fixed_tree() {
         // let stash_size = 4;
         run_with_several_seeds(|mut rng| {
