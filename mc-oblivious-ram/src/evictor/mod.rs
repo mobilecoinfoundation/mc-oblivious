@@ -9,8 +9,9 @@ use aligned_cmov::{
     typenum::{PartialDiv, Prod, Unsigned, U64, U8},
     A64Bytes, A8Bytes, ArrayLength,
 };
+use balanced_tree_index::TreeIndex;
 use core::ops::Mul;
-use rand_core::RngCore;
+use rand_core::{CryptoRng, RngCore};
 
 /// Selects branches in reverse lexicographic order. Num_bits_needed corresponds
 /// to the number of possible branches that need to be explored. The iteration i
