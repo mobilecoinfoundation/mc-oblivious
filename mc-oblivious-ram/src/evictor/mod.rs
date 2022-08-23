@@ -1,3 +1,5 @@
+// Copyright (c) 2018-2022 The MobileCoin Foundation
+
 //! Evictor functions for ORAM
 //!
 //! These are intended to be a module containing different eviction strategies
