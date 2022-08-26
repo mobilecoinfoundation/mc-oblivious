@@ -12,3 +12,6 @@ balanced-tree-index = { path = "../balanced-tree-index" }
 mc-oblivious-traits = { path = "../mc-oblivious-traits", features = ["no_asm_insecure"] }
 mc-oblivious-ram = { path = "../mc-oblivious-ram", features = ["no_asm_insecure"] }
 test-helper = { path = "../test-helper" }
+
+[dev-dependencies]
+GSL = "6.0.0"
