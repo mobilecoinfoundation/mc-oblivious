@@ -1,3 +1,5 @@
+// Copyright (c) 2018-2022 The MobileCoin Foundation
+
 //! Evictor functions for ORAM
 //!
 //! These are intended to be a module containing different eviction strategies
@@ -65,6 +67,8 @@ where
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     RngType: RngCore + CryptoRng + Send + Sync + 'static,
 {
+    /// Method that takes a branch and a stash and moves elements from the
+    /// stash into the branch.
     fn evict_from_stash_to_branch(
         &self,
         stash_data: &mut [A64Bytes<ValueSize>],
