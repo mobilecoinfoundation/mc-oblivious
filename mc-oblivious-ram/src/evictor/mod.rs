@@ -2,9 +2,9 @@
 
 //! Evictor functions for ORAM
 //!
-//! These are intended to be a module containing different eviction strategies
-//! for tree based orams which include path oram and circuit oram. These
-//! strategies will be used for evicting stash elements to the tree oram.
+//! A module containing different eviction strategies for tree based ORAMs which
+//! include path ORAM and circuit ORAM. These strategies will be used for
+//! evicting stash elements to the tree ORAM.
 
 use crate::path_oram::{BranchCheckout, MetaSize};
 use aligned_cmov::{
