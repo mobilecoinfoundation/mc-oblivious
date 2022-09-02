@@ -147,7 +147,7 @@ where
         // the height of the root to be 0, so in a tree where the lowest level
         // is h, there are 2^{h+1} nodes.
         let mut rng = rng_maker();
-        let evictor = evictor_factory.create(size, height);
+        let evictor = evictor_factory.create(height);
         let storage = SC::create(2u64 << height, &mut rng).expect("Storage failed");
         let pos = PMC::create(size, height, stash_size, rng_maker);
         Self {

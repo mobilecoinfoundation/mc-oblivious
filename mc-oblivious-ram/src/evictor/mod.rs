@@ -17,26 +17,26 @@ use rand_core::{CryptoRng, RngCore};
 
 /// Selects branches in reverse lexicographic order, where the most significant
 /// digit of the branch is always 1, corresponding to the leaf node that
-/// represents that branch.
+/// represents that branch. Reverse lexicographic ordering only on the `num_bits_to_be_reversed`
 /// E.g. for a depth of 3:
 /// 100, 110, 101, 111
-/// num_bits_needed corresponds to the number of possible branches that need to
+/// `num_bits_to_be_reversed` corresponds to the number of possible branches that need to
 /// be explored, and is 1 less than the number of bits in the leaf node.
 /// The iteration i corresponds to the ith branch in reverse lexicographic
 /// order.
 /// 
-fn deterministic_get_next_branch_to_evict(num_bits_needed: u32, iteration: u64) -> u64 {
+fn deterministic_get_next_branch_to_evict(num_bits_to_be_reversed: u32, iteration: u64) -> u64 {
     // Return 1 if the number of bits needed is 0. Calculation furtherdown would
     // overflow, and shortcutting here does not leak information because the
     // number of bits is structural information rather than query specific.
-    if num_bits_needed == 0 {
+    if num_bits_to_be_reversed == 0 {
         return 1;
     }
     // This is the first index at which leafs exist, the most significant digit
     // of all leafs is 1.
-    let leaf_significant_index: u64 = 1 << (num_bits_needed);
+    let leaf_significant_index: u64 = 1 << (num_bits_to_be_reversed);
     let test_position: u64 =
-        ((iteration).reverse_bits() >> (64 - num_bits_needed)) % leaf_significant_index;
+        ((iteration).reverse_bits() >> (64 - num_bits_to_be_reversed)) % leaf_significant_index;
     leaf_significant_index + test_position
 }
 
@@ -91,23 +91,20 @@ pub struct PathOramDeterministicEvict {
     number_of_additional_branches_to_evict: usize,
     branches_evicted: u64,
     tree_height: u32,
-    tree_size: u64,
+    tree_breadth: u64,
 }
 impl PathOramDeterministicEvict {
     /// Create a new deterministic branch selector that will select
     /// num_elements_to_evict branches per access
     /// tree height: corresponds to the height of tree
-    /// tree_size: corresponds to the number of elements that can be stored in
-    /// the tree (normal size of the tree*bucket size)
     pub fn new(
         number_of_additional_branches_to_evict: usize,
         tree_height: u32,
-        tree_size: u64,
     ) -> Self {
         Self {
             number_of_additional_branches_to_evict,
             tree_height,
-            tree_size,
+            tree_breadth: 2u64^(tree_height as u64),
             branches_evicted: 0,
         }
     }
@@ -118,7 +115,7 @@ impl BranchSelector for PathOramDeterministicEvict {
         //The height of the root is 0, so the number of bits needed for the leaves is
         // just the height
         let iteration = self.branches_evicted;
-        self.branches_evicted = (self.branches_evicted + 1) % self.tree_size;
+        self.branches_evicted = (self.branches_evicted + 1) % self.tree_breadth;
         deterministic_get_next_branch_to_evict(self.tree_height, iteration)
     }
 
@@ -202,16 +199,18 @@ where
 {
     type Output: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static;
 
-    fn create(&self, size: u64, height: u32) -> Self::Output;
+    /// Creates an eviction strategy
+    /// height: height of the tree eviction will be called on, impacts branch selection.
+    fn create(&self, height: u32) -> Self::Output;
 }
 
 /// A factory which creates an PathOramDeterministicEvictor that evicts from the
-/// stash into an additional number_of_additional_branches_to_evict branches in
+/// stash into an additional `number_of_additional_branches_to_evict` branches in
 /// addition to the currently checked out branch in reverse lexicographic order
-pub struct PathOramDeterministicEvictCreator {
+pub struct PathOramDeterministicEvictorCreator {
     number_of_additional_branches_to_evict: usize,
 }
-impl PathOramDeterministicEvictCreator {
+impl PathOramDeterministicEvictorCreator {
     /// Create a factory for a deterministic branch selector that will evict
     /// number_of_additional_branches_to_evict branches per access
     pub fn new(number_of_additional_branches_to_evict: usize) -> Self {
@@ -221,7 +220,7 @@ impl PathOramDeterministicEvictCreator {
     }
 }
 
-impl<ValueSize, Z> EvictorCreator<ValueSize, Z> for PathOramDeterministicEvictCreator
+impl<ValueSize, Z> EvictorCreator<ValueSize, Z> for PathOramDeterministicEvictorCreator
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -230,13 +229,13 @@ where
 {
     type Output = PathOramDeterministicEvict;
 
-    fn create(&self, size: u64, height: u32) -> Self::Output {
-        PathOramDeterministicEvict::new(self.number_of_additional_branches_to_evict, height, size)
+    fn create(&self, height: u32) -> Self::Output {
+        PathOramDeterministicEvict::new(self.number_of_additional_branches_to_evict, height)
     }
 }
 
 #[cfg(test)]
-mod internal_tests {
+mod tests {
     use super::*;
     #[test]
     // Check that deterministic oram correctly chooses leaf values

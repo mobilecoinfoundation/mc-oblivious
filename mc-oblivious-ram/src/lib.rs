@@ -33,7 +33,7 @@ mod position_map;
 pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCreator};
 
 mod evictor;
-pub use evictor::{PathOramDeterministicEvict, PathOramDeterministicEvictCreator};
+pub use evictor::{PathOramDeterministicEvict, PathOramDeterministicEvictorCreator};
 
 mod path_oram;
 pub use path_oram::PathORAM;
@@ -64,13 +64,13 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor_factory = PathOramDeterministicEvictCreator::new(0);
+        let evictor_factory = PathOramDeterministicEvictorCreator::new(0);
 
         PathORAM::new::<
             U32PositionMapCreator<U2048, R, Self>,
             SC,
             M,
-            PathOramDeterministicEvictCreator,
+            PathOramDeterministicEvictorCreator,
         >(size, stash_size, rng_maker, evictor_factory)
     }
 }
@@ -98,13 +98,13 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor_factory = PathOramDeterministicEvictCreator::new(0);
+        let evictor_factory = PathOramDeterministicEvictorCreator::new(0);
 
         PathORAM::new::<
             U32PositionMapCreator<U1024, R, Self>,
             SC,
             M,
-            PathOramDeterministicEvictCreator,
+            PathOramDeterministicEvictorCreator,
         >(size, stash_size, rng_maker, evictor_factory)
     }
 }
