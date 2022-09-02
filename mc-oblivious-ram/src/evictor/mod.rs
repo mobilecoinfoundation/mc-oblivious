@@ -15,14 +15,20 @@ use balanced_tree_index::TreeIndex;
 use core::ops::Mul;
 use rand_core::{CryptoRng, RngCore};
 
-/// Selects branches in reverse lexicographic order. Num_bits_needed corresponds
-/// to the number of possible branches that need to be explored. The iteration i
-/// corresponds to the ith branch in reverse lexicographic order.
+/// Selects branches in reverse lexicographic order, where the most significant
+/// digit of the branch is always 1, corresponding to the leaf node that
+/// represents that branch.
+/// E.g. for a depth of 3:
+/// 100, 110, 101, 111
+/// num_bits_needed corresponds to the number of possible branches that need to
+/// be explored, and is 1 less than the number of bits in the leaf node.
+/// The iteration i corresponds to the ith branch in reverse lexicographic
+/// order.
+/// 
 fn deterministic_get_next_branch_to_evict(num_bits_needed: u32, iteration: u64) -> u64 {
-    // Return 1 if the number of bits needed is 0. This is to shortcut the
-    // calculation furtherdown that would overflow, and does not leak
-    // information because the number of bits is structural information rather
-    // than query specific.
+    // Return 1 if the number of bits needed is 0. Calculation furtherdown would
+    // overflow, and shortcutting here does not leak information because the
+    // number of bits is structural information rather than query specific.
     if num_bits_needed == 0 {
         return 1;
     }
