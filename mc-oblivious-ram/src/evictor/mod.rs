@@ -94,8 +94,9 @@ pub struct PathOramDeterministicEvictor {
 }
 impl PathOramDeterministicEvictor {
     /// Create a new deterministic branch selector that will select
-    /// num_elements_to_evict branches per access
-    /// tree height: corresponds to the height of tree
+    /// `number_of_additional_branches_to_evict`: branches per access in
+    /// excess of branch with accessed element.
+    /// `tree height`: corresponds to the height of tree
     pub fn new(number_of_additional_branches_to_evict: usize, tree_height: u32) -> Self {
         Self {
             number_of_additional_branches_to_evict,
@@ -196,7 +197,7 @@ where
     type Output: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static;
 
     /// Creates an eviction strategy
-    /// height: height of the tree eviction will be called on, impacts branch
+    /// `height`: height of the tree eviction will be called on, impacts branch
     /// selection.
     fn create(&self, height: u32) -> Self::Output;
 }
