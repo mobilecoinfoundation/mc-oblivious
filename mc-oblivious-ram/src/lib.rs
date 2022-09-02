@@ -64,6 +64,9 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
+        // Number of additional branches to evict is 0 because path oram densely packs
+        // the branch which contains the accessed element, and thus no additional
+        // branches need to be evicted to maintain performance.
         let evictor_factory = PathOramDeterministicEvictorCreator::new(0);
 
         PathORAM::new::<
@@ -98,6 +101,9 @@ where
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
+        // Number of additional branches to evict is 0 because path oram densely packs
+        // the branch which contains the accessed element, and thus no additional
+        // branches need to be evicted to maintain performance.
         let evictor_factory = PathOramDeterministicEvictorCreator::new(0);
 
         PathORAM::new::<
