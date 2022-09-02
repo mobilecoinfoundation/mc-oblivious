@@ -213,7 +213,7 @@ pub struct PathOramDeterministicEvictorCreator {
 }
 impl PathOramDeterministicEvictorCreator {
     /// Create a factory for a deterministic branch selector that will evict
-    /// number_of_additional_branches_to_evict branches per access
+    /// `number_of_additional_branches_to_evict` branches per access
     pub fn new(number_of_additional_branches_to_evict: usize) -> Self {
         Self {
             number_of_additional_branches_to_evict,
