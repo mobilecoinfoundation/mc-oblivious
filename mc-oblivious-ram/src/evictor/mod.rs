@@ -161,12 +161,13 @@ fn path_oram_eviction_strategy<ValueSize, Z>(
 }
 
 pub trait BranchSelector {
-    /// Returns the leaf index of the next branch to call evict from stash
-    /// to branch on.
+    /// Returns the leaf index of the next branch to call 
+    /// [EvictionStrategy::evict_from_stash_to_branch] on.
     fn get_next_branch_to_evict(&mut self) -> u64;
 
-    /// Returns the number of branches to call evict from stash to branch
-    /// on.
+    /// Returns the number of branches to call 
+    /// [EvictionStrategy::evict_from_stash_to_branch] on.
+
     fn get_number_of_additional_branches_to_evict(&self) -> usize;
 }
 
