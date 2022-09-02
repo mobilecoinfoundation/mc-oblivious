@@ -17,14 +17,13 @@ use rand_core::{CryptoRng, RngCore};
 
 /// Selects branches in reverse lexicographic order, where the most significant
 /// digit of the branch is always 1, corresponding to the leaf node that
-/// represents that branch. Reverse lexicographic ordering only on the `num_bits_to_be_reversed`
-/// E.g. for a depth of 3:
+/// represents that branch. Reverse lexicographic ordering only on the
+/// `num_bits_to_be_reversed` E.g. for a depth of 3:
 /// 100, 110, 101, 111
-/// `num_bits_to_be_reversed` corresponds to the number of possible branches that need to
-/// be explored, and is 1 less than the number of bits in the leaf node.
-/// The iteration i corresponds to the ith branch in reverse lexicographic
+/// `num_bits_to_be_reversed` corresponds to the number of possible branches
+/// that need to be explored, and is 1 less than the number of bits in the leaf
+/// node. `iteration` i corresponds to the ith branch in reverse lexicographic
 /// order.
-/// 
 fn deterministic_get_next_branch_to_evict(num_bits_to_be_reversed: u32, iteration: u64) -> u64 {
     // Return 1 if the number of bits needed is 0. Calculation furtherdown would
     // overflow, and shortcutting here does not leak information because the
@@ -97,14 +96,11 @@ impl PathOramDeterministicEvictor {
     /// Create a new deterministic branch selector that will select
     /// num_elements_to_evict branches per access
     /// tree height: corresponds to the height of tree
-    pub fn new(
-        number_of_additional_branches_to_evict: usize,
-        tree_height: u32,
-    ) -> Self {
+    pub fn new(number_of_additional_branches_to_evict: usize, tree_height: u32) -> Self {
         Self {
             number_of_additional_branches_to_evict,
             tree_height,
-            tree_breadth: 2u64^(tree_height as u64),
+            tree_breadth: 2u64 ^ (tree_height as u64),
             branches_evicted: 0,
         }
     }
@@ -161,13 +157,12 @@ fn path_oram_eviction_strategy<ValueSize, Z>(
 }
 
 pub trait BranchSelector {
-    /// Returns the leaf index of the next branch to call 
+    /// Returns the leaf index of the next branch to call
     /// [EvictionStrategy::evict_from_stash_to_branch] on.
     fn get_next_branch_to_evict(&mut self) -> u64;
 
-    /// Returns the number of branches to call 
+    /// Returns the number of branches to call
     /// [EvictionStrategy::evict_from_stash_to_branch] on.
-
     fn get_number_of_additional_branches_to_evict(&self) -> usize;
 }
 
@@ -201,13 +196,15 @@ where
     type Output: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static;
 
     /// Creates an eviction strategy
-    /// height: height of the tree eviction will be called on, impacts branch selection.
+    /// height: height of the tree eviction will be called on, impacts branch
+    /// selection.
     fn create(&self, height: u32) -> Self::Output;
 }
 
 /// A factory which creates an PathOramDeterministicEvictor that evicts from the
-/// stash into an additional `number_of_additional_branches_to_evict` branches in
-/// addition to the currently checked out branch in reverse lexicographic order
+/// stash into an additional `number_of_additional_branches_to_evict` branches
+/// in addition to the currently checked out branch in reverse lexicographic
+/// order.
 pub struct PathOramDeterministicEvictorCreator {
     number_of_additional_branches_to_evict: usize,
 }
