@@ -86,8 +86,7 @@ where
 }
 
 /// An evictor that implements a deterministic branch selection in reverse
-/// lexicographic order and the path
-/// oram eviction strategy
+/// lexicographic order and using the path oram eviction strategy
 pub struct PathOramDeterministicEvict {
     number_of_additional_branches_to_evict: usize,
     branches_evicted: u64,
@@ -97,6 +96,9 @@ pub struct PathOramDeterministicEvict {
 impl PathOramDeterministicEvict {
     /// Create a new deterministic branch selector that will select
     /// num_elements_to_evict branches per access
+    /// tree height: corresponds to the height of tree
+    /// tree_size: corresponds to the number of elements that can be stored in
+    /// the tree (normal size of the tree*bucket size)
     pub fn new(
         number_of_additional_branches_to_evict: usize,
         tree_height: u32,
