@@ -42,7 +42,7 @@ fn deterministic_get_next_branch_to_evict(num_bits_to_be_reversed: u32, iteratio
 
 /// An evictor that implements a random branch selection and the path oram
 /// eviction strategy
-pub struct PathOramRandomEvict<RngType>
+pub struct PathOramRandomEvictor<RngType>
 where
     RngType: RngCore + CryptoRng + Send + Sync + 'static,
 {
@@ -52,7 +52,7 @@ where
     tree_height: u32,
 }
 
-impl<RngType> BranchSelector for PathOramRandomEvict<RngType>
+impl<RngType> BranchSelector for PathOramRandomEvictor<RngType>
 where
     RngType: RngCore + CryptoRng + Send + Sync + 'static,
 {
@@ -65,7 +65,7 @@ where
         self.number_of_additional_branches_to_evict
     }
 }
-impl<ValueSize, Z, RngType> EvictionStrategy<ValueSize, Z> for PathOramRandomEvict<RngType>
+impl<ValueSize, Z, RngType> EvictionStrategy<ValueSize, Z> for PathOramRandomEvictor<RngType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -87,13 +87,13 @@ where
 
 /// An evictor that implements a deterministic branch selection in reverse
 /// lexicographic order and using the path oram eviction strategy
-pub struct PathOramDeterministicEvict {
+pub struct PathOramDeterministicEvictor {
     number_of_additional_branches_to_evict: usize,
     branches_evicted: u64,
     tree_height: u32,
     tree_breadth: u64,
 }
-impl PathOramDeterministicEvict {
+impl PathOramDeterministicEvictor {
     /// Create a new deterministic branch selector that will select
     /// num_elements_to_evict branches per access
     /// tree height: corresponds to the height of tree
@@ -110,7 +110,7 @@ impl PathOramDeterministicEvict {
     }
 }
 
-impl BranchSelector for PathOramDeterministicEvict {
+impl BranchSelector for PathOramDeterministicEvictor {
     fn get_next_branch_to_evict(&mut self) -> u64 {
         //The height of the root is 0, so the number of bits needed for the leaves is
         // just the height
@@ -123,7 +123,7 @@ impl BranchSelector for PathOramDeterministicEvict {
         self.number_of_additional_branches_to_evict
     }
 }
-impl<ValueSize, Z> EvictionStrategy<ValueSize, Z> for PathOramDeterministicEvict
+impl<ValueSize, Z> EvictionStrategy<ValueSize, Z> for PathOramDeterministicEvictor
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -227,10 +227,10 @@ where
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
-    type Output = PathOramDeterministicEvict;
+    type Output = PathOramDeterministicEvictor;
 
     fn create(&self, height: u32) -> Self::Output {
-        PathOramDeterministicEvict::new(self.number_of_additional_branches_to_evict, height)
+        PathOramDeterministicEvictor::new(self.number_of_additional_branches_to_evict, height)
     }
 }
 
