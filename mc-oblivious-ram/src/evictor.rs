@@ -389,7 +389,7 @@ where
 }
 
 #[cfg(test)]
-mod internal_tests {
+mod tests {
     extern crate std;
     use std::dbg;
 
