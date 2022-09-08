@@ -5,7 +5,9 @@ use aligned_cmov::{
     ArrayLength,
 };
 use core::marker::PhantomData;
-use mc_oblivious_ram::{PathORAM, PathOramDeterministicEvict, PathOramDeterministicEvictCreator};
+use mc_oblivious_ram::{
+    PathORAM, PathOramDeterministicEvictor, PathOramDeterministicEvictorCreator,
+};
 use mc_oblivious_traits::{
     rng_maker, HeapORAMStorageCreator, ORAMCreator, ORAMStorageCreator, ORAM,
 };
@@ -103,20 +105,20 @@ pub struct InsecurePathORAM4096Z4Creator<SC: ORAMStorageCreator<U4096, U64>> {
 impl<SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, RngType>
     for InsecurePathORAM4096Z4Creator<SC>
 {
-    type Output = PathORAM<U1024, U4, SC::Output, RngType, PathOramDeterministicEvict>;
+    type Output = PathORAM<U1024, U4, SC::Output, RngType, PathOramDeterministicEvictor>;
 
     fn create<M: 'static + FnMut() -> RngType>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        let evictor_factory = PathOramDeterministicEvictCreator::new(0);
-        PathORAM::new::<InsecurePositionMapCreator<RngType>, SC, M, PathOramDeterministicEvictCreator>(
-            size,
-            stash_size,
-            rng_maker,
-            evictor_factory,
-        )
+        let evictor_factory = PathOramDeterministicEvictorCreator::new(0);
+        PathORAM::new::<
+            InsecurePositionMapCreator<RngType>,
+            SC,
+            M,
+            PathOramDeterministicEvictorCreator,
+        >(size, stash_size, rng_maker, evictor_factory)
     }
 }
 
