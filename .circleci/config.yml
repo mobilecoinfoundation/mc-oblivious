@@ -238,6 +238,10 @@ jobs:
           name: Lint/fmt
           command: |
             ./tools/lint.sh
+      - run:
+          name: Lint/fmt no-asm
+          command: |
+            cd no-asm-tests && ../tools/lint.sh
       - when:
           condition: { equal: [ << pipeline.git.branch >>, master ] }
           steps: [ save-cargo-cache ]
