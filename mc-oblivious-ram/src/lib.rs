@@ -33,6 +33,7 @@ mod position_map;
 pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCreator};
 
 mod evictor;
+pub use evictor::{PathOramDeterministicEvictor, PathOramDeterministicEvictorCreator};
 
 mod path_oram;
 pub use path_oram::PathORAM;
@@ -56,14 +57,24 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
-    type Output = PathORAM<U2048, U2, SC::Output, R>;
+    type Output = PathORAM<U2048, U2, SC::Output, R, PathOramDeterministicEvictor>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        PathORAM::new::<U32PositionMapCreator<U2048, R, Self>, SC, M>(size, stash_size, rng_maker)
+        // Number of additional branches to evict is 0 because path oram densely packs
+        // the branch which contains the accessed element, and thus no additional
+        // branches need to be evicted to maintain performance.
+        let evictor_factory = PathOramDeterministicEvictorCreator::new(0);
+
+        PathORAM::new::<
+            U32PositionMapCreator<U2048, R, Self>,
+            SC,
+            M,
+            PathOramDeterministicEvictorCreator,
+        >(size, stash_size, rng_maker, evictor_factory)
     }
 }
 
@@ -83,14 +94,24 @@ where
     R: RngCore + CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
-    type Output = PathORAM<U1024, U4, SC::Output, R>;
+    type Output = PathORAM<U1024, U4, SC::Output, R, PathOramDeterministicEvictor>;
 
     fn create<M: 'static + FnMut() -> R>(
         size: u64,
         stash_size: usize,
         rng_maker: &mut M,
     ) -> Self::Output {
-        PathORAM::new::<U32PositionMapCreator<U1024, R, Self>, SC, M>(size, stash_size, rng_maker)
+        // Number of additional branches to evict is 0 because path oram densely packs
+        // the branch which contains the accessed element, and thus no additional
+        // branches need to be evicted to maintain performance.
+        let evictor_factory = PathOramDeterministicEvictorCreator::new(0);
+
+        PathORAM::new::<
+            U32PositionMapCreator<U1024, R, Self>,
+            SC,
+            M,
+            PathOramDeterministicEvictorCreator,
+        >(size, stash_size, rng_maker, evictor_factory)
     }
 }
 
