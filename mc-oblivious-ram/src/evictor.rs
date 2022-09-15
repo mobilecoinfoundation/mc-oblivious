@@ -397,7 +397,6 @@ mod tests {
     use crate::path_oram::{meta_block_num_mut, meta_leaf_num_mut};
     use aligned_cmov::typenum::{U256, U4};
     use alloc::{vec, vec::Vec};
-    use core::convert::TryFrom;
     use mc_oblivious_traits::{
         log2_ceil, HeapORAMStorage, HeapORAMStorageCreator, ORAMStorageCreator,
     };
@@ -450,12 +449,11 @@ mod tests {
         let meta_len = branch_meta.len();
 
         for stash_elem in stash_meta {
-            let elem_destination =
-                BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                    *meta_leaf_num(stash_elem),
-                    leaf,
-                    meta_len,
-                );
+            let elem_destination = BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                *meta_leaf_num(stash_elem),
+                leaf,
+                meta_len,
+            );
             if elem_destination < lowest_so_far {
                 lowest_so_far = elem_destination;
                 source_of_lowest_so_far = meta_len;
@@ -508,8 +506,7 @@ mod tests {
         let mut i = 0usize;
         let mut has_vacancy = false;
         while i < branch_meta.len() {
-            has_vacancy |=
-                bool::from(bucket_has_empty_slot(branch_meta[i].as_aligned_chunks()));
+            has_vacancy |= bool::from(bucket_has_empty_slot(branch_meta[i].as_aligned_chunks()));
             if deepest_meta[i] == FLOOR_INDEX {
                 target_meta[i] = FLOOR_INDEX;
                 has_vacancy = false;
@@ -707,7 +704,7 @@ mod tests {
         leaf: u64,
         intended_leaves_for_data_to_insert: Vec<u64>,
     }
-
+    /// Populate ORAM with specific test data and checks out the last branch to have data added to it.
     fn populate_branch_with_fixed_data(
         branch: &mut BranchCheckout<ValueSize, Z>,
         rng: &mut RngType,
@@ -737,6 +734,7 @@ mod tests {
             }
             branch.checkin(&mut storage);
         }
+        branch.checkout(&mut storage, 16);
     }
     fn populate_branch_with_random_data(
         branch: &mut BranchCheckout<ValueSize, Z>,
