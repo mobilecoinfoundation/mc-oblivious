@@ -459,13 +459,13 @@ mod tests {
                 source_of_lowest_so_far = meta_len;
             }
         }
-        //Iterate over the branch from root to leaf to find the element that can go the
+        // Iterate over the branch from root to the test_level to find the element that can go the
         // deepest. Noting that 0 is the leaf.
         for (bucket_num, bucket) in branch_meta
             .iter()
             .enumerate()
-            .take(meta_len)
             .skip(test_level)
+            .rev()
         {
             let bucket_meta = bucket.as_aligned_chunks();
             for src_meta in bucket_meta {
