@@ -138,7 +138,7 @@ fn prepare_deepest<ValueSize, Z>(
 /// `FLOOR_INDEX`, then one block shall be moved from path[i] to path[target[i]]
 fn prepare_target<ValueSize, Z>(
     target_meta: &mut [usize],
-    deepest_meta: &mut [usize],
+    deepest_meta: &[usize],
     branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
 ) where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
