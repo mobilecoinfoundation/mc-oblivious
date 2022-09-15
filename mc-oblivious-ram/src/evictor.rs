@@ -83,7 +83,7 @@ fn prepare_deepest<ValueSize, Z>(
     // Iterate over the branch from root to leaf to find the element that can go
     // the deepest. Noting that 0 is the leaf.
     for bucket_num in (0..meta_len).rev() {
-        let bucket_meta: &[A8Bytes<MetaSize>] = branch_meta[bucket_num].as_aligned_chunks();
+        let bucket_meta = branch_meta[bucket_num].as_aligned_chunks();
         update_goal_and_deepest_for_a_single_bucket::<ValueSize, Z>(
             &mut src,
             &mut goal,
@@ -159,7 +159,7 @@ fn prepare_target<ValueSize, Z>(
     // be moved from path[i] to path[target[i]]
     let data_len = branch_meta.len();
     for bucket_num in 0..data_len {
-        let bucket_meta: &[A8Bytes<MetaSize>] = branch_meta[bucket_num].as_aligned_chunks();
+        let bucket_meta = branch_meta[bucket_num].as_aligned_chunks();
         //If we encounter the src for the element, we save it to the target
         // array and floor out the dest and src.
         let should_set_target = bucket_num.ct_eq(&src);
@@ -759,7 +759,7 @@ mod tests {
         dbg!(branch.leaf);
         for bucket_num in (0..branch.data.len()).rev() {
             let (_lower_meta, upper_meta) = branch.meta.split_at_mut(bucket_num);
-            let bucket_meta: &mut [A8Bytes<MetaSize>] = upper_meta[0].as_mut_aligned_chunks();
+            let bucket_meta = upper_meta[0].as_mut_aligned_chunks();
             print_meta(bucket_meta, bucket_num);
         }
     }
