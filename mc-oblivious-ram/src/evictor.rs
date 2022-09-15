@@ -123,7 +123,7 @@ fn prepare_deepest<ValueSize, Z>(
                     leaf,
                     meta_len,
                 );
-            let elem_destination_64: u64 = elem_destination as u64;
+            let elem_destination_64 = elem_destination as u64;
             let is_elem_deeper = elem_destination_64.ct_lt(&(*goal as u64))
                 & elem_destination_64.ct_lt(&bucket_num_64)
                 & !meta_is_vacant(elem);
@@ -134,8 +134,8 @@ fn prepare_deepest<ValueSize, Z>(
 }
 
 /// Make a leaf-to-root linear metadata scan to prepare the target array.
-/// This prepares the circuit oram such that if target[i] is not the
-/// Floor_index, then one block shall be moved from path[i] to path[target[i]]
+/// This prepares the circuit ORAM such that if target[i] is not the
+/// `FLOOR_INDEX`, then one block shall be moved from path[i] to path[target[i]]
 fn prepare_target<ValueSize, Z>(
     target_meta: &mut [usize],
     deepest_meta: &mut [usize],
@@ -450,7 +450,7 @@ mod tests {
         let meta_len = branch_meta.len();
 
         for stash_elem in stash_meta {
-            let elem_destination: usize =
+            let elem_destination =
                 BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
                     *meta_leaf_num(stash_elem),
                     leaf,
@@ -469,9 +469,9 @@ mod tests {
             .take(meta_len)
             .skip(test_level)
         {
-            let bucket_meta: &[A8Bytes<MetaSize>] = bucket.as_aligned_chunks();
+            let bucket_meta = bucket.as_aligned_chunks();
             for src_meta in bucket_meta {
-                let elem_destination: usize =
+                let elem_destination =
                     BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
                         *meta_leaf_num(src_meta),
                         leaf,
@@ -509,7 +509,7 @@ mod tests {
         let mut has_vacancy = false;
         while i < branch_meta.len() {
             has_vacancy |=
-                bool::try_from(bucket_has_empty_slot(branch_meta[i].as_aligned_chunks())).unwrap();
+                bool::from(bucket_has_empty_slot(branch_meta[i].as_aligned_chunks()));
             if deepest_meta[i] == FLOOR_INDEX {
                 target_meta[i] = FLOOR_INDEX;
                 has_vacancy = false;
@@ -551,7 +551,6 @@ mod tests {
     fn test_prepare_deepest_and_target_with_random_comparison() {
         let size = 64;
         let height = log2_ceil(size).saturating_sub(log2_ceil(Z::U64));
-        dbg!(height);
         let stash_size = 4;
         // The first leaf in the tree
         let leaf = 1 << height;
@@ -596,9 +595,7 @@ mod tests {
             for i in 0..adjusted_data_len {
                 dbg!(i, deepest_meta[i], deepest_meta_compare[i]);
             }
-            for i in 0..adjusted_data_len {
-                assert_eq!(deepest_meta[i], deepest_meta_compare[i]);
-            }
+            assert_eq!(deepest_meta, deepest_meta_compare);
 
             let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
             let mut test_target_meta = vec![FLOOR_INDEX; adjusted_data_len];
@@ -611,15 +608,15 @@ mod tests {
             prepare_target::<U64, U4>(&mut target_meta, &mut deepest_meta, &branch.meta);
             for i in 0..adjusted_data_len {
                 dbg!(i, target_meta[i], test_target_meta[i]);
-                assert_eq!(target_meta[i], test_target_meta[i]);
             }
+            assert_eq!(target_meta, test_target_meta);
         })
     }
 
     #[test]
     #[rustfmt::skip]
     /// Compare prepare deepest and prepare_target with a fixed tree that was
-    /// manually constructed to compare with the Circuit Oram paper.
+    /// manually constructed to compare with the Circuit ORAM paper.
     /// This tree looks like: 
     ///                                                           ┌───────────────────┐                
     ///                                                           │ 1: 24, 27, 31, 30 │                
@@ -649,7 +646,6 @@ mod tests {
     /// from the stash and drop it off in bucket 2. 
     /// We will then take the block from bucket 2 and drop it in bucket 4.
     fn test_prepare_deepest_and_target_with_fixed_tree() {
-        // let stash_size = 4;
         run_with_several_seeds(|mut rng| {
             let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
 
@@ -663,24 +659,19 @@ mod tests {
 
             for (key_value, src_meta) in stash_meta.iter_mut().enumerate() {
                 *meta_block_num_mut(src_meta) = key_value as u64;
-                // Set the new leaf destination for the item
                 *meta_leaf_num_mut(src_meta) = intended_leaves_for_stash[key_value];
             }
             print_meta(&mut stash_meta, FLOOR_INDEX);
             prepare_deepest::<U64, U4>(&mut deepest_meta, &stash_meta, &branch.meta, branch.leaf);
             let deepest_meta_expected = vec![FLOOR_INDEX, FLOOR_INDEX, 3, 5, 5, FLOOR_INDEX];
-            for i in 0..adjusted_data_len {
-                assert_eq!(deepest_meta[i], deepest_meta_expected[i]);
-            }
+            assert_eq!(deepest_meta, deepest_meta_expected);
 
             let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
             let target_meta_expected =
                 vec![FLOOR_INDEX, FLOOR_INDEX, FLOOR_INDEX, 2, FLOOR_INDEX, 3];
 
             prepare_target::<U64, U4>(&mut target_meta, &mut deepest_meta, &branch.meta);
-            for i in 0..adjusted_data_len {
-                assert_eq!(target_meta[i], target_meta_expected[i]);
-            }
+            assert_eq!(target_meta, target_meta_expected);
         })
     }
 
@@ -694,7 +685,7 @@ mod tests {
 
         //Test partially full bucket returns true
         let meta_as_chunks = bucket_meta.as_mut_aligned_chunks();
-        for i in 0..(meta_as_chunks.len() - 2) {
+        for i in 0..(meta_as_chunks.len() - 1) {
             *meta_leaf_num_mut(&mut meta_as_chunks[i]) = 3;
         }
         let reader = bucket_meta.as_aligned_chunks();
@@ -727,32 +718,24 @@ mod tests {
         let mut storage: StorageType =
             HeapORAMStorageCreator::create(2u64 << height, rng).expect("Storage failed");
 
-        branch.checkout(&mut storage, 20);
         let branch_20 = BranchDataConfig {
             leaf: 20,
             intended_leaves_for_data_to_insert: vec![24, 27, 18, 23],
         };
-        let branch_to_insert = branch_20;
-        for intended_leaf in branch_to_insert.intended_leaves_for_data_to_insert {
-            let mut meta = A8Bytes::<MetaSize>::default();
-            let data = A64Bytes::<ValueSize>::default();
-            *meta_block_num_mut(&mut meta) = intended_leaf;
-            *meta_leaf_num_mut(&mut meta) = intended_leaf;
-            branch.ct_insert(1.into(), &data, &mut meta);
-        }
-        branch.checkin(&mut storage);
-        branch.checkout(&mut storage, 16);
         let branch_16 = BranchDataConfig {
             leaf: 16,
             intended_leaves_for_data_to_insert: vec![31, 30, 20, 19],
         };
-        let branch_to_insert = branch_16;
-        for intended_leaf in branch_to_insert.intended_leaves_for_data_to_insert {
-            let mut meta = A8Bytes::<MetaSize>::default();
-            let data = A64Bytes::<ValueSize>::default();
-            *meta_block_num_mut(&mut meta) = intended_leaf;
-            *meta_leaf_num_mut(&mut meta) = intended_leaf;
-            branch.ct_insert(1.into(), &data, &mut meta);
+        for branch_to_insert in [branch_20, branch_16] {
+            branch.checkout(&mut storage, branch_to_insert.leaf);
+            for intended_leaf in branch_to_insert.intended_leaves_for_data_to_insert {
+                let mut meta = A8Bytes::<MetaSize>::default();
+                let data = A64Bytes::<ValueSize>::default();
+                *meta_block_num_mut(&mut meta) = intended_leaf;
+                *meta_leaf_num_mut(&mut meta) = intended_leaf;
+                branch.ct_insert(1.into(), &data, &mut meta);
+            }
+            branch.checkin(&mut storage);
         }
     }
     fn populate_branch_with_random_data(
