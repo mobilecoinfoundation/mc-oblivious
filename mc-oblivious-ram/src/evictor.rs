@@ -576,11 +576,17 @@ mod tests {
     /// prepare_target with non oblivious prepare target
     fn test_prepare_deepest_and_target_with_random_comparison() {
         let size = 64;
+        // The height is the log of the size minus the log of the bucket size (4)
         let height = log2_ceil(size).saturating_sub(log2_ceil(Z::U64));
+        assert_eq!(height, 4);
         let stash_size = 4;
         // The first leaf in the tree
         let leaf = 1 << height;
         run_with_several_seeds(|mut rng| {
+            // This is 2u64 << height because it must be 2^{h+1}, we have defined
+            // the height of the root to be 0, so in a tree where the lowest level
+            // is h, there are 2^{h+1} nodes. This is similarly done in the oram
+            // constructor.
             let mut storage: StorageType =
                 HeapORAMStorageCreator::create(2u64 << height, &mut rng).expect("Storage failed");
             let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
@@ -781,8 +787,13 @@ mod tests {
         rng: &mut RngType,
     ) {
         let size = 64;
+        // The height is the log of the size minus the log of the bucket size (4)
         let height = log2_ceil(size).saturating_sub(log2_ceil(Z::U64));
-        dbg!(height);
+        assert_eq!(height, 4);
+        // This is 2u64 << height because it must be 2^{h+1}, we have defined
+        // the height of the root to be 0, so in a tree where the lowest level
+        // is h, there are 2^{h+1} nodes. This is similarly done in the oram
+        // constructor.
         let mut storage: StorageType =
             HeapORAMStorageCreator::create(2u64 << height, rng).expect("Storage failed");
 
