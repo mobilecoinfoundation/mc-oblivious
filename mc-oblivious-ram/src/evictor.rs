@@ -459,14 +459,9 @@ mod tests {
                 source_of_lowest_so_far = meta_len;
             }
         }
-        // Iterate over the branch from root to the test_level to find the element that can go the
-        // deepest. Noting that 0 is the leaf.
-        for (bucket_num, bucket) in branch_meta
-            .iter()
-            .enumerate()
-            .skip(test_level)
-            .rev()
-        {
+        // Iterate over the branch from root to the test_level to find the element that
+        // can go the deepest. Noting that 0 is the leaf.
+        for (bucket_num, bucket) in branch_meta.iter().enumerate().skip(test_level).rev() {
             let bucket_meta = bucket.as_aligned_chunks();
             for src_meta in bucket_meta {
                 let elem_destination =
@@ -602,7 +597,7 @@ mod tests {
                 &mut deepest_meta,
                 &branch.meta,
             );
-            prepare_target::<U64, U4>(&mut target_meta, &mut deepest_meta, &branch.meta);
+            prepare_target::<U64, U4>(&mut target_meta, &deepest_meta, &branch.meta);
             for i in 0..adjusted_data_len {
                 dbg!(i, target_meta[i], test_target_meta[i]);
             }
@@ -667,7 +662,7 @@ mod tests {
             let target_meta_expected =
                 vec![FLOOR_INDEX, FLOOR_INDEX, FLOOR_INDEX, 2, FLOOR_INDEX, 3];
 
-            prepare_target::<U64, U4>(&mut target_meta, &mut deepest_meta, &branch.meta);
+            prepare_target::<U64, U4>(&mut target_meta, &deepest_meta, &branch.meta);
             assert_eq!(target_meta, target_meta_expected);
         })
     }
@@ -704,7 +699,8 @@ mod tests {
         leaf: u64,
         intended_leaves_for_data_to_insert: Vec<u64>,
     }
-    /// Populate ORAM with specific test data and checks out the last branch to have data added to it.
+    /// Populate ORAM with specific test data and checks out the last branch to
+    /// have data added to it.
     fn populate_branch_with_fixed_data(
         branch: &mut BranchCheckout<ValueSize, Z>,
         rng: &mut RngType,
