@@ -445,6 +445,29 @@ mod tests {
         }
         deepest_meta
     }
+    /// Finds the deepest block destination from a bucket
+    /// # Arguments
+    /// * `bucket` - The bucket to find the deepest block from
+    /// * `leaf` - The leaf of the branch being processed.
+    /// * `height` - The height of the tree
+    fn find_deepest_block_destination_for_a_bucket(
+        bucket: &[A8Bytes<MetaSize>],
+        leaf: u64,
+        height: usize,
+    ) -> usize {
+        let mut lowest_in_bucket = FLOOR_INDEX;
+        for src_meta in bucket {
+            let elem_destination = BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
+                *meta_leaf_num(src_meta),
+                leaf,
+                height,
+            );
+            if elem_destination < lowest_in_bucket {
+                lowest_in_bucket = elem_destination;
+            }
+        }
+        lowest_in_bucket
+    }
     //find the source for the deepest element from test_level up to the stash.
     fn find_source_for_deepest_elem_in_stash_non_oblivious_for_testing<ValueSize, Z>(
         stash_meta: &[A8Bytes<MetaSize>],
@@ -462,32 +485,22 @@ mod tests {
         let mut source_of_lowest_so_far = FLOOR_INDEX;
         let meta_len = branch_meta.len();
 
-        for stash_elem in stash_meta {
-            let elem_destination = BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                *meta_leaf_num(stash_elem),
-                leaf,
-                meta_len,
-            );
-            if elem_destination < lowest_so_far {
-                lowest_so_far = elem_destination;
-                source_of_lowest_so_far = meta_len;
-            }
+        let lowest_in_bucket =
+            find_deepest_block_destination_for_a_bucket(stash_meta, leaf, meta_len);
+
+        if lowest_in_bucket < lowest_so_far {
+            source_of_lowest_so_far = meta_len;
+            lowest_so_far = lowest_in_bucket;
         }
         // Iterate over the branch from root to the test_level to find the element that
         // can go the deepest. Noting that 0 is the leaf.
         for (bucket_num, bucket) in branch_meta.iter().enumerate().skip(test_level).rev() {
             let bucket_meta = bucket.as_aligned_chunks();
-            for src_meta in bucket_meta {
-                let elem_destination =
-                    BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                        *meta_leaf_num(src_meta),
-                        leaf,
-                        meta_len,
-                    );
-                if elem_destination < lowest_so_far {
-                    lowest_so_far = elem_destination;
-                    source_of_lowest_so_far = bucket_num;
-                }
+            let lowest_in_bucket =
+                find_deepest_block_destination_for_a_bucket(bucket_meta, leaf, meta_len);
+            if lowest_in_bucket < lowest_so_far {
+                source_of_lowest_so_far = bucket_num;
+                lowest_so_far = lowest_in_bucket;
             }
         }
         LowestHeightAndSource {
