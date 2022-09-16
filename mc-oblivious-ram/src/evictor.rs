@@ -408,7 +408,7 @@ mod tests {
     use mc_oblivious_traits::{
         log2_ceil, HeapORAMStorage, HeapORAMStorageCreator, ORAMStorageCreator,
     };
-    use test_helper::{run_with_several_seeds, RngType};
+    use test_helper::{run_with_one_seed, run_with_several_seeds, RngType};
     type Z = U4;
     type ValueSize = U64;
     type StorageType = HeapORAMStorage<U256, U64>;
@@ -649,7 +649,7 @@ mod tests {
     /// from the stash and drop it off in bucket 2. 
     /// We will then take the block from bucket 2 and drop it in bucket 4.
     fn test_prepare_deepest_and_target_with_fixed_tree() {
-        run_with_several_seeds(|mut rng| {
+        run_with_one_seed(|mut rng| {
             let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
 
             populate_branch_with_fixed_data(&mut branch, &mut rng);
