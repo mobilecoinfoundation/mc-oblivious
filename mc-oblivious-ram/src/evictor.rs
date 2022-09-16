@@ -2,11 +2,11 @@
 
 //! Evictor functions for ORAM
 //!
-//! These are intended to be a module containing different eviction strategies
-//! for tree based orams which include path oram and circuit oram. These
-//! strategies will be used for evicting stash elements to the tree oram.
-//Only temporarily adding until prepare deepest and target are used by Circuit
-//Oram in the next PR in this chain.
+//! A module containing different eviction strategies for tree based ORAMs which
+//! include path ORAM and circuit ORAM. These strategies will be used for
+//! evicting stash elements to the tree ORAM.
+// Only temporarily adding until prepare deepest and target are used by Circuit
+// ORAM in the next PR in this chain.
 #![allow(dead_code)]
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
@@ -604,7 +604,6 @@ mod tests {
             let mut key_value = 2;
             for src_meta in &mut stash_meta {
                 *meta_block_num_mut(src_meta) = key_value;
-                // Set the new leaf destination for the item
                 *meta_leaf_num_mut(src_meta) = 1u64.random_child_at_height(height, &mut rng);
                 key_value += 1;
             }
