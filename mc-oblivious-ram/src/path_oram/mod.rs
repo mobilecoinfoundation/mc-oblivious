@@ -469,7 +469,7 @@ where
     /// - The first free spot in a bucket of index >= insert_after_index is used
     /// - The destination slices need not be the whole branch, they could be a
     ///   prefix
-    fn insert_into_branch_suffix(
+    pub(crate) fn insert_into_branch_suffix(
         condition: Choice,
         src_data: &A64Bytes<ValueSize>,
         src_meta: &mut A8Bytes<MetaSize>,

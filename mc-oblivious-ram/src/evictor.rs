@@ -410,6 +410,7 @@ mod tests {
     use mc_oblivious_traits::{
         log2_ceil, HeapORAMStorage, HeapORAMStorageCreator, ORAMStorageCreator,
     };
+    use rand_core::SeedableRng;
     use test_helper::{run_with_one_seed, run_with_several_seeds, RngType};
     type Z = U4;
     type ValueSize = U64;
@@ -748,6 +749,83 @@ mod tests {
 
         })
     }
+    /// This is a test intending to directly mimic the case from the Circuit ORAM paper https://eprint.iacr.org/2014/672.pdf Fig 2.
+    /// The indices are reversed due to our convention, so empty squares
+    /// correspond to floor index, and depth i corresponds to height-depth in
+    /// our test. s.t. 6 = 0, 5 = 1 etc.
+    #[test]
+    fn test_like_paper() {
+        //1 indexed height
+        let height = 6;
+        let zero_index_height = height - 1;
+        //The size of the tree times the bucket size is the total number of elements.
+        let size = 1 << zero_index_height * Z::U64; // 2^6
+        let stash_size = 2;
+        let mut rng = RngType::from_seed([3u8; 32]);
+        let mut storage: StorageType =
+            HeapORAMStorageCreator::create(1 << height, &mut rng).expect("Storage failed");
+
+        let leaf = 1 << zero_index_height;
+        let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
+        branch.checkout(&mut storage, leaf);
+        let buckets = vec![
+            // vec![1, 1], // (stash) 2 blocks for other side of tree (root)
+            vec![1, 3], // 1 block at depth 1, 1 block at depth 3
+            vec![4],    // 1 block at depth 4
+            vec![3],    // 1 block at current depth (3)
+            vec![],     // empty
+            vec![5, 6], // 1 block for the leaf, 1 irrelevant block.
+            vec![],     // leaf empty
+        ];
+        for (i, bucket) in buckets.into_iter().rev().enumerate() {
+            for block in bucket {
+                let mut meta = A8Bytes::<MetaSize>::default();
+                let data = A64Bytes::<ValueSize>::default();
+                let mask = if block < 6 {
+                    1 << (zero_index_height - block)
+                } else {
+                    0
+                };
+                let destination_leaf = mask | leaf;
+                dbg!(i);
+                dbg!(destination_leaf);
+                dbg!(block);
+                *meta_block_num_mut(&mut meta) = destination_leaf;
+                *meta_leaf_num_mut(&mut meta) = destination_leaf;
+                BranchCheckout::<ValueSize, Z>::insert_into_branch_suffix(
+                    1.into(),
+                    &data,
+                    &mut meta,
+                    i as usize,
+                    &mut branch.data,
+                    &mut branch.meta,
+                );
+            }
+        }
+        print_branch_checkout(&mut branch);
+
+        let mut stash_meta = vec![Default::default(); stash_size];
+        for src_meta in &mut stash_meta {
+            *meta_block_num_mut(src_meta) = size - 1;
+            *meta_leaf_num_mut(src_meta) = size - 1;
+        }
+        std::print!("Printing stash");
+        print_meta(&mut stash_meta, FLOOR_INDEX as usize);
+
+        let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
+        let test_deepest = prepare_deepest_non_oblivious_for_testing::<U64, U4>(
+            &stash_meta,
+            &branch.meta,
+            branch.leaf,
+        );
+        assert_eq!(deepest_meta, test_deepest);
+        let target = prepare_target::<U64, U4>(&deepest_meta, &branch.meta);
+
+        let test_target =
+            prepare_target_nonoblivious_for_testing::<U64, U4>(&test_deepest, &branch.meta);
+        assert_eq!(target, test_target);
+    }
+
     #[test]
     fn test_bucket_has_vacancy() {
         //Test empty bucket returns true
