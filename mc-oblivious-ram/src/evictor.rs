@@ -415,18 +415,21 @@ mod tests {
     /// Non obliviously prepare deepest by iterating over the array multiple
     /// times to find the element that can go deepest for each index.
     fn prepare_deepest_non_oblivious_for_testing<ValueSize, Z>(
-        deepest_meta: &mut [usize],
         stash_meta: &[A8Bytes<MetaSize>],
         branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
         leaf: u64,
-    ) where
+    ) -> alloc::vec::Vec<usize>
+    where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
+        let meta_len = branch_meta.len();
+        let meta_len_with_stash = meta_len + 1;
+
         //Need one extra for the stash.
-        debug_assert!(deepest_meta.len() == (branch_meta.len() + 1));
+        let mut deepest_meta = vec![FLOOR_INDEX; meta_len_with_stash];
         for (i, deepest_at_i) in deepest_meta.iter_mut().enumerate() {
             let deepest_test = find_source_for_deepest_elem_in_stash_non_oblivious_for_testing::<
                 ValueSize,
@@ -438,6 +441,7 @@ mod tests {
                 *deepest_at_i = FLOOR_INDEX;
             }
         }
+        deepest_meta
     }
     //find the source for the deepest element from test_level up to the stash.
     fn find_source_for_deepest_elem_in_stash_non_oblivious_for_testing<ValueSize, Z>(
@@ -497,15 +501,22 @@ mod tests {
     // would have elements moved into it. Scan from leaf to root skipping to the
     // source from deepest when an element is taken
     fn prepare_target_nonoblivious_for_testing<ValueSize, Z>(
-        target_meta: &mut [usize],
         deepest_meta: &[usize],
         branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
-    ) where
+    ) -> alloc::vec::Vec<usize>
+    where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
         Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
         Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
     {
+        let meta_len = branch_meta.len();
+        let meta_len_with_stash = meta_len + 1;
+
+        //Need one extra for the stash.
+        let mut target_meta = vec![FLOOR_INDEX; meta_len_with_stash];
+        debug_assert!(target_meta.len() == deepest_meta.len());
+
         let mut i = 0usize;
         let mut has_vacancy = false;
         while i < branch_meta.len() {
@@ -522,6 +533,7 @@ mod tests {
                 i += 1;
             }
         }
+        target_meta
     }
     #[test]
     // Check that deterministic oram correctly chooses leaf values
@@ -573,7 +585,6 @@ mod tests {
             let adjusted_data_len = branch.meta.len() + 1;
 
             let mut stash_meta = vec![Default::default(); stash_size];
-            let mut deepest_meta_compare = vec![FLOOR_INDEX; adjusted_data_len];
             let mut key_value = 2;
             for src_meta in &mut stash_meta {
                 *meta_block_num_mut(src_meta) = key_value;
@@ -585,8 +596,7 @@ mod tests {
             print_meta(&mut stash_meta, FLOOR_INDEX);
             let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
 
-            prepare_deepest_non_oblivious_for_testing::<U64, U4>(
-                &mut deepest_meta_compare,
+            let deepest_meta_compare = prepare_deepest_non_oblivious_for_testing::<U64, U4>(
                 &stash_meta,
                 &branch.meta,
                 branch.leaf,
@@ -596,13 +606,8 @@ mod tests {
             }
             assert_eq!(deepest_meta, deepest_meta_compare);
 
-            let mut test_target_meta = vec![FLOOR_INDEX; adjusted_data_len];
-
-            prepare_target_nonoblivious_for_testing::<U64, U4>(
-                &mut test_target_meta,
-                &deepest_meta,
-                &branch.meta,
-            );
+            let test_target_meta =
+                prepare_target_nonoblivious_for_testing::<U64, U4>(&deepest_meta, &branch.meta);
             let target_meta = prepare_target::<U64, U4>(&deepest_meta, &branch.meta);
             for i in 0..adjusted_data_len {
                 dbg!(i, target_meta[i], test_target_meta[i]);
