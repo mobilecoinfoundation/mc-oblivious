@@ -524,7 +524,6 @@ mod tests {
         while i < branch_meta.len() {
             has_vacancy |= bool::from(bucket_has_empty_slot(branch_meta[i].as_aligned_chunks()));
             if deepest_meta[i] == FLOOR_INDEX {
-                target_meta[i] = FLOOR_INDEX;
                 has_vacancy = false;
                 i += 1;
             } else if has_vacancy {
