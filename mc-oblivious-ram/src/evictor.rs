@@ -141,17 +141,20 @@ where
 /// This prepares the circuit ORAM such that if target[i] is not the
 /// `FLOOR_INDEX`, then one block shall be moved from path[i] to path[target[i]]
 fn prepare_target<ValueSize, Z>(
-    target_meta: &mut [usize],
     deepest_meta: &[usize],
     branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
-) where
+) -> alloc::vec::Vec<usize>
+where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
-    //Need 1 more for stash.
-    debug_assert!(deepest_meta.len() == (branch_meta.len() + 1));
+    let meta_len = branch_meta.len();
+    let meta_len_with_stash = meta_len + 1;
+
+    //Need one extra for the stash.
+    let mut target_meta = vec![FLOOR_INDEX; meta_len_with_stash];
     debug_assert!(target_meta.len() == deepest_meta.len());
     // dest is the last found location which has a vacancy that an element
     // can be placed into, Floor_index means there is no vacancy found.
@@ -186,6 +189,7 @@ fn prepare_target<ValueSize, Z>(
     }
     // Treat the stash as an extension of the branch.
     target_meta[data_len].cmov(data_len.ct_eq(&src), &dest);
+    target_meta
 }
 
 /// Obliviously look through the bucket to see if it has a vacancy which can
@@ -592,7 +596,6 @@ mod tests {
             }
             assert_eq!(deepest_meta, deepest_meta_compare);
 
-            let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
             let mut test_target_meta = vec![FLOOR_INDEX; adjusted_data_len];
 
             prepare_target_nonoblivious_for_testing::<U64, U4>(
@@ -600,7 +603,7 @@ mod tests {
                 &deepest_meta,
                 &branch.meta,
             );
-            prepare_target::<U64, U4>(&mut target_meta, &deepest_meta, &branch.meta);
+            let target_meta = prepare_target::<U64, U4>(&deepest_meta, &branch.meta);
             for i in 0..adjusted_data_len {
                 dbg!(i, target_meta[i], test_target_meta[i]);
             }
@@ -646,8 +649,6 @@ mod tests {
 
             populate_branch_with_fixed_data(&mut branch, &mut rng);
 
-            let adjusted_data_len = branch.meta.len() + 1;
-
             let intended_leaves_for_stash = vec![26, 23, 21, 21];
             let mut stash_meta = vec![Default::default(); intended_leaves_for_stash.len()];
 
@@ -660,11 +661,10 @@ mod tests {
             let deepest_meta_expected = vec![FLOOR_INDEX, FLOOR_INDEX, 3, 5, 5, FLOOR_INDEX];
             assert_eq!(deepest_meta, deepest_meta_expected);
 
-            let mut target_meta = vec![FLOOR_INDEX; adjusted_data_len];
             let target_meta_expected =
                 vec![FLOOR_INDEX, FLOOR_INDEX, FLOOR_INDEX, 2, FLOOR_INDEX, 3];
 
-            prepare_target::<U64, U4>(&mut target_meta, &deepest_meta, &branch.meta);
+            let target_meta = prepare_target::<U64, U4>( &deepest_meta, &branch.meta);
             assert_eq!(target_meta, target_meta_expected);
         })
     }
