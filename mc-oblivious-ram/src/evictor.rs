@@ -746,7 +746,7 @@ mod tests {
         let height = 6;
         let zero_index_height = height - 1;
         //The size of the tree times the bucket size is the total number of elements.
-        let size = 1 << zero_index_height * Z::U64; // 2^6
+        let size = (1 << zero_index_height) * Z::U64; // 2^6
         let stash_size = 2;
         let mut rng = RngType::from_seed([3u8; 32]);
         let mut storage: StorageType =
@@ -810,7 +810,8 @@ mod tests {
         assert_eq!(target, test_target);
     }
 
-    /// This is a test intending to verify that if 2 elements want to go to the same location, the higher one (closer to the root) is taken.
+    /// This is a test intending to verify that if 2 elements want to go to the
+    /// same location, the higher one (closer to the root) is taken.
     /// The indices are reversed due to our convention, so empty squares
     /// correspond to floor index, and depth i corresponds to height-depth in
     /// our test. s.t. 6 = 0, 5 = 1 etc.
@@ -820,7 +821,7 @@ mod tests {
         let height = 6;
         let zero_index_height = height - 1;
         //The size of the tree times the bucket size is the total number of elements.
-        let size = 1 << zero_index_height * Z::U64; // 2^6
+        let size = (1 << zero_index_height) * Z::U64; // 2^6
         let stash_size = 2;
         let mut rng = RngType::from_seed([3u8; 32]);
         let mut storage: StorageType =
@@ -877,7 +878,6 @@ mod tests {
             branch.leaf,
         );
         assert_eq!(deepest_meta, test_deepest);
-
     }
 
     #[test]
