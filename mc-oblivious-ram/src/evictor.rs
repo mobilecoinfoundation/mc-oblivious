@@ -20,7 +20,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::path_oram::{meta_is_vacant, meta_leaf_num, BranchCheckout, MetaSize};
 
-// FLOOR_INDEX corresponds to ⊥ from the Circuit Oram paper, and is treated
+// FLOOR_INDEX corresponds to ⊥ from the Circuit ORAM paper, and is treated
 // similarly as one might a null value.
 const FLOOR_INDEX: usize = usize::MAX;
 
@@ -204,7 +204,7 @@ fn bucket_has_empty_slot(bucket_meta: &[A8Bytes<MetaSize>]) -> Choice {
     bucket_has_empty_slot
 }
 
-/// An evictor that implements a random branch selection and the path oram
+/// An evictor that implements a random branch selection and the Path ORAM
 /// eviction strategy
 pub struct PathOramRandomEvictor<RngType>
 where
@@ -250,7 +250,7 @@ where
 }
 
 /// An evictor that implements a deterministic branch selection in reverse
-/// lexicographic order and using the path oram eviction strategy
+/// lexicographic order and using the Path ORAM eviction strategy
 pub struct PathOramDeterministicEvictor {
     number_of_additional_branches_to_evict: usize,
     branches_evicted: u64,
@@ -302,7 +302,7 @@ where
     }
 }
 
-/// Eviction algorithm defined in path oram. Packs the branch and greedily
+/// Eviction algorithm defined in Path ORAM. Packs the branch and greedily
 /// tries to evict everything from the stash into the checked out branch
 fn path_oram_eviction_strategy<ValueSize, Z>(
     stash_data: &mut [A64Bytes<ValueSize>],
@@ -333,7 +333,7 @@ pub trait BranchSelector {
 }
 
 /// Evictor trait conceptually is a mechanism for moving stash elements into
-/// the oram.
+/// the ORAM.
 pub trait EvictionStrategy<ValueSize, Z>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -551,7 +551,7 @@ mod tests {
         target_meta
     }
     #[test]
-    // Check that deterministic oram correctly chooses leaf values
+    // Check that deterministic ORAM correctly chooses leaf values
     fn test_deterministic_oram_get_branches_to_evict() {
         let test_branch = deterministic_get_next_branch_to_evict(3, 0);
         assert_eq!(test_branch, 8);
@@ -586,7 +586,7 @@ mod tests {
         run_with_several_seeds(|mut rng| {
             // This is 2u64 << height because it must be 2^{h+1}, we have defined
             // the height of the root to be 0, so in a tree where the lowest level
-            // is h, there are 2^{h+1} nodes. This is similarly done in the oram
+            // is h, there are 2^{h+1} nodes. This is similarly done in the ORAM
             // constructor.
             let mut storage: StorageType =
                 HeapORAMStorageCreator::create(2u64 << height, &mut rng).expect("Storage failed");
@@ -923,7 +923,7 @@ mod tests {
         assert_eq!(height, 4);
         // This is 2u64 << height because it must be 2^{h+1}, we have defined
         // the height of the root to be 0, so in a tree where the lowest level
-        // is h, there are 2^{h+1} nodes. This is similarly done in the oram
+        // is h, there are 2^{h+1} nodes. This is similarly done in the ORAM
         // constructor.
         let mut storage: StorageType =
             HeapORAMStorageCreator::create(2u64 << height, rng).expect("Storage failed");
