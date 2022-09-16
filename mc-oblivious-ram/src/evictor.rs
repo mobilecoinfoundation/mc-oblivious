@@ -128,6 +128,8 @@ where
                     meta_len,
                 );
             let elem_destination_64 = elem_destination as u64;
+            // It is necessary to test that the meta is not vacant, because elements that
+            // are deleted return a legal height corresponding to the root.
             let is_elem_deeper = elem_destination_64.ct_lt(&(*goal as u64))
                 & elem_destination_64.ct_lt(&bucket_num_64)
                 & !meta_is_vacant(elem);
@@ -402,7 +404,7 @@ mod tests {
     use std::dbg;
 
     use super::*;
-    use crate::path_oram::{meta_block_num_mut, meta_leaf_num_mut};
+    use crate::path_oram::{meta_block_num_mut, meta_leaf_num_mut, meta_set_vacant};
     use aligned_cmov::typenum::{U256, U4};
     use alloc::{vec, vec::Vec};
     use mc_oblivious_traits::{
@@ -673,7 +675,61 @@ mod tests {
             assert_eq!(target_meta, target_meta_expected);
         })
     }
+    #[test]
+    #[rustfmt::skip]
+    /// Test prepare deepest on a fixed tree that was manually constructed to compare with the Circuit 
+    /// ORAM paper, and a stash that has its elements deleted.
+    /// This tree looks like: 
+    ///                                                           ┌───────────────────┐                
+    ///                                                           │ 1: 24, 27, 31, 30 │                
+    ///                                                           └─────────┬─────────┘                
+    ///                                               ┌─────────────────────┴──────────────────────┐   
+    ///                                      ┌────────┴────────┐                                ┌──┴──┐
+    ///                                      │ 2: 18, 20, 0, 0 │                                │ ... │
+    ///                                      └────────┬────────┘                                └─────┘
+    ///                         ┌─────────────────────┴─────────────────────┐                          
+    ///                 ┌───────┴────────┐                          ┌───────┴────────┐                 
+    ///                 │ 4: 19, 0, 0, 0 │                          │ 5: 23, 0, 0, 0 │                 
+    ///                 └───────┬────────┘                          └───────┬────────┘                 
+    ///                ┌────────┴─────────┐                        ┌────────┴─────────┐                
+    ///        ┌───────┴───────┐        ┌─┴─┐              ┌───────┴────────┐       ┌─┴──┐             
+    ///        │ 8: 0, 0, 0, 0 │        │ 9 │              │ 10: 0, 0, 0, 0 │       │ 11 │             
+    ///        └───────┬───────┘        └─┬─┘              └───────┬────────┘       └─┬──┘             
+    ///         ┌──────┴──────┐       ┌───┴───┐             ┌──────┴──────┐       ┌───┴───┐            
+    /// ┌───────┴────────┐  ┌─┴──┐  ┌─┴──┐  ┌─┴──┐  ┌───────┴────────┐  ┌─┴──┐  ┌─┴──┐  ┌─┴──┐         
+    /// │ 16: 0, 0, 0, 0 │  │ 17 │  │ 18 │  │ 19 │  │ 20: 0, 0, 0, 0 │  │ 21 │  │ 22 │  │ 23 │         
+    /// └────────────────┘  └────┘  └────┘  └────┘  └────────────────┘  └────┘  └────┘  └────┘         
+    /// The stash contents are: {0, 0, 0, 0}, because its elements have been deleted.
+    /// We expect that the contents of prepare deepest for branch 16 to be: {⊥, ⊥, 3, ⊥, ⊥, ⊥}
+    /// Because none of the elements can go deeper than they currently reside until bucket 2.
+    /// In bucket 2 (array index 3), we have 18, which can go in bucket 4 (array index 2).
+    fn test_prepare_deepest_for_tree_with_deleted_elements() {
+        run_with_one_seed(|mut rng| {
+            let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
 
+            populate_branch_with_fixed_data(&mut branch, &mut rng);
+
+            let intended_leaves_for_stash = vec![26, 23, 21, 21];
+            let mut stash_meta = vec![Default::default(); intended_leaves_for_stash.len()];
+
+            for (key_value, src_meta) in stash_meta.iter_mut().enumerate() {
+                *meta_block_num_mut(src_meta) = key_value as u64;
+                *meta_leaf_num_mut(src_meta) = intended_leaves_for_stash[key_value];
+            }
+            print_meta(&mut stash_meta, FLOOR_INDEX);
+
+            // Delete stash elements
+            for src_meta in stash_meta.iter_mut() {
+                meta_set_vacant(1.into(), src_meta);
+            }
+            print_meta(&mut stash_meta, FLOOR_INDEX);
+
+            let deepest_meta = prepare_deepest::<U64, U4>( &stash_meta, &branch.meta, branch.leaf);
+            let deepest_meta_expected = vec![FLOOR_INDEX, FLOOR_INDEX, 3, FLOOR_INDEX, FLOOR_INDEX, FLOOR_INDEX];
+            assert_eq!(deepest_meta, deepest_meta_expected);
+
+        })
+    }
     #[test]
     fn test_bucket_has_vacancy() {
         //Test empty bucket returns true
