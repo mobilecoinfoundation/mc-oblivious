@@ -594,16 +594,11 @@ mod tests {
             branch.checkout(&mut storage, leaf + leaf / 4);
 
             populate_branch_with_random_data(&mut branch, &mut rng, height, 4);
-            print_branch_checkout(&mut branch);
 
             branch.checkin(&mut storage);
             branch.checkout(&mut storage, leaf);
-            print_branch_checkout(&mut branch);
 
             populate_branch_with_random_data(&mut branch, &mut rng, height, 4);
-            print_branch_checkout(&mut branch);
-
-            let adjusted_data_len = branch.meta.len() + 1;
 
             let mut stash_meta = vec![Default::default(); stash_size];
             let mut key_value = 2;
@@ -613,8 +608,7 @@ mod tests {
                 *meta_leaf_num_mut(src_meta) = 1u64.random_child_at_height(height, &mut rng);
                 key_value += 1;
             }
-            std::print!("Printing stash");
-            print_meta(&mut stash_meta, FLOOR_INDEX);
+
             let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
 
             let deepest_meta_compare = prepare_deepest_non_oblivious_for_testing::<U64, U4>(
@@ -622,17 +616,12 @@ mod tests {
                 &branch.meta,
                 branch.leaf,
             );
-            for i in 0..adjusted_data_len {
-                dbg!(i, deepest_meta[i], deepest_meta_compare[i]);
-            }
+            assert_eq!(deepest_meta, deepest_meta_compare);
             assert_eq!(deepest_meta, deepest_meta_compare);
 
             let test_target_meta =
                 prepare_target_nonoblivious_for_testing::<U64, U4>(&deepest_meta, &branch.meta);
             let target_meta = prepare_target::<U64, U4>(&deepest_meta, &branch.meta);
-            for i in 0..adjusted_data_len {
-                dbg!(i, target_meta[i], test_target_meta[i]);
-            }
             assert_eq!(target_meta, test_target_meta);
         })
     }
@@ -682,7 +671,7 @@ mod tests {
                 *meta_block_num_mut(src_meta) = key_value as u64;
                 *meta_leaf_num_mut(src_meta) = intended_leaves_for_stash[key_value];
             }
-            print_meta(&mut stash_meta, FLOOR_INDEX);
+
             let deepest_meta = prepare_deepest::<U64, U4>( &stash_meta, &branch.meta, branch.leaf);
             let deepest_meta_expected = vec![FLOOR_INDEX, FLOOR_INDEX, 3, 5, 5, FLOOR_INDEX];
             assert_eq!(deepest_meta, deepest_meta_expected);
@@ -735,13 +724,11 @@ mod tests {
                 *meta_block_num_mut(src_meta) = key_value as u64;
                 *meta_leaf_num_mut(src_meta) = intended_leaves_for_stash[key_value];
             }
-            print_meta(&mut stash_meta, FLOOR_INDEX);
 
             // Delete stash elements
             for src_meta in stash_meta.iter_mut() {
                 meta_set_vacant(1.into(), src_meta);
             }
-            print_meta(&mut stash_meta, FLOOR_INDEX);
 
             let deepest_meta = prepare_deepest::<U64, U4>( &stash_meta, &branch.meta, branch.leaf);
             let deepest_meta_expected = vec![FLOOR_INDEX, FLOOR_INDEX, 3, FLOOR_INDEX, FLOOR_INDEX, FLOOR_INDEX];
@@ -802,15 +789,12 @@ mod tests {
                 );
             }
         }
-        print_branch_checkout(&mut branch);
 
         let mut stash_meta = vec![Default::default(); stash_size];
         for src_meta in &mut stash_meta {
             *meta_block_num_mut(src_meta) = size - 1;
             *meta_leaf_num_mut(src_meta) = size - 1;
         }
-        std::print!("Printing stash");
-        print_meta(&mut stash_meta, FLOOR_INDEX as usize);
 
         let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
         let test_deepest = prepare_deepest_non_oblivious_for_testing::<U64, U4>(
