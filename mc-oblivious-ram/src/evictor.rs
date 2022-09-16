@@ -13,6 +13,7 @@ use aligned_cmov::{
     typenum::{PartialDiv, Prod, Unsigned, U64, U8},
     A64Bytes, A8Bytes, ArrayLength, AsAlignedChunks, CMov,
 };
+use alloc::vec;
 use balanced_tree_index::TreeIndex;
 use core::ops::Mul;
 use rand_core::{CryptoRng, RngCore};
@@ -52,19 +53,21 @@ fn deterministic_get_next_branch_to_evict(num_bits_to_be_reversed: u32, iteratio
 /// block in path[len..i + 1] that can legally reside in path[i], where
 /// path[len] corresponds to the stash
 fn prepare_deepest<ValueSize, Z>(
-    deepest_meta: &mut [usize],
     stash_meta: &[A8Bytes<MetaSize>],
     branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
     leaf: u64,
-) where
+) -> alloc::vec::Vec<usize>
+where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
-    //Need one extra for the stash.
-    debug_assert!(deepest_meta.len() == (branch_meta.len() + 1));
     let meta_len = branch_meta.len();
+    let meta_len_with_stash = meta_len + 1;
+
+    //Need one extra for the stash.
+    let mut deepest_meta = vec![FLOOR_INDEX; meta_len_with_stash];
     //for each level, the goal should represent the lowest in the branch that
     // any element seen so far can go
     let mut goal: usize = FLOOR_INDEX;
@@ -74,7 +77,7 @@ fn prepare_deepest<ValueSize, Z>(
     update_goal_and_deepest_for_a_single_bucket::<ValueSize, Z>(
         &mut src,
         &mut goal,
-        deepest_meta,
+        &mut deepest_meta,
         meta_len,
         stash_meta,
         leaf,
@@ -87,13 +90,14 @@ fn prepare_deepest<ValueSize, Z>(
         update_goal_and_deepest_for_a_single_bucket::<ValueSize, Z>(
             &mut src,
             &mut goal,
-            deepest_meta,
+            &mut deepest_meta,
             bucket_num,
             bucket_meta,
             leaf,
             meta_len,
         );
     }
+    return deepest_meta;
     /// Iterate over a particular bucket and set goal to the deepest allowed
     /// value in the bucket if the bucket can go deeper than the current
     /// goal.
@@ -490,7 +494,7 @@ mod tests {
     // source from deepest when an element is taken
     fn prepare_target_nonoblivious_for_testing<ValueSize, Z>(
         target_meta: &mut [usize],
-        deepest_meta: &mut [usize],
+        deepest_meta: &[usize],
         branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
     ) where
         ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -563,7 +567,6 @@ mod tests {
             print_branch_checkout(&mut branch);
 
             let adjusted_data_len = branch.meta.len() + 1;
-            let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
 
             let mut stash_meta = vec![Default::default(); stash_size];
             let mut deepest_meta_compare = vec![FLOOR_INDEX; adjusted_data_len];
@@ -576,7 +579,7 @@ mod tests {
             }
             std::print!("Printing stash");
             print_meta(&mut stash_meta, FLOOR_INDEX);
-            prepare_deepest::<U64, U4>(&mut deepest_meta, &stash_meta, &branch.meta, branch.leaf);
+            let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
 
             prepare_deepest_non_oblivious_for_testing::<U64, U4>(
                 &mut deepest_meta_compare,
@@ -594,7 +597,7 @@ mod tests {
 
             prepare_target_nonoblivious_for_testing::<U64, U4>(
                 &mut test_target_meta,
-                &mut deepest_meta,
+                &deepest_meta,
                 &branch.meta,
             );
             prepare_target::<U64, U4>(&mut target_meta, &deepest_meta, &branch.meta);
@@ -644,7 +647,6 @@ mod tests {
             populate_branch_with_fixed_data(&mut branch, &mut rng);
 
             let adjusted_data_len = branch.meta.len() + 1;
-            let mut deepest_meta = vec![FLOOR_INDEX; adjusted_data_len];
 
             let intended_leaves_for_stash = vec![26, 23, 21, 21];
             let mut stash_meta = vec![Default::default(); intended_leaves_for_stash.len()];
@@ -654,7 +656,7 @@ mod tests {
                 *meta_leaf_num_mut(src_meta) = intended_leaves_for_stash[key_value];
             }
             print_meta(&mut stash_meta, FLOOR_INDEX);
-            prepare_deepest::<U64, U4>(&mut deepest_meta, &stash_meta, &branch.meta, branch.leaf);
+            let deepest_meta = prepare_deepest::<U64, U4>( &stash_meta, &branch.meta, branch.leaf);
             let deepest_meta_expected = vec![FLOOR_INDEX, FLOOR_INDEX, 3, 5, 5, FLOOR_INDEX];
             assert_eq!(deepest_meta, deepest_meta_expected);
 
