@@ -616,7 +616,6 @@ mod tests {
                 branch.leaf,
             );
             assert_eq!(deepest_meta, deepest_meta_compare);
-            assert_eq!(deepest_meta, deepest_meta_compare);
 
             let test_target_meta =
                 prepare_target_nonoblivious_for_testing::<U64, U4>(&deepest_meta, &branch.meta);
