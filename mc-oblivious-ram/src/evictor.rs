@@ -772,9 +772,6 @@ mod tests {
                     0
                 };
                 let destination_leaf = mask | leaf;
-                dbg!(i);
-                dbg!(destination_leaf);
-                dbg!(block);
                 *meta_block_num_mut(&mut meta) = destination_leaf;
                 *meta_leaf_num_mut(&mut meta) = destination_leaf;
                 BranchCheckout::<ValueSize, Z>::insert_into_branch_suffix(
@@ -795,17 +792,11 @@ mod tests {
         }
 
         let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
-        let test_deepest = prepare_deepest_non_oblivious_for_testing::<U64, U4>(
-            &stash_meta,
-            &branch.meta,
-            branch.leaf,
-        );
-        assert_eq!(deepest_meta, test_deepest);
+        let expected_deepest = vec![1, FLOOR_INDEX, 4, 4, 5, 6, FLOOR_INDEX];
+        assert_eq!(deepest_meta, expected_deepest);
         let target = prepare_target::<U64, U4>(&deepest_meta, &branch.meta);
-
-        let test_target =
-            prepare_target_nonoblivious_for_testing::<U64, U4>(&test_deepest, &branch.meta);
-        assert_eq!(target, test_target);
+        let expected_target = vec![FLOOR_INDEX, 0, FLOOR_INDEX, FLOOR_INDEX, 2, 4, 5];
+        assert_eq!(target, expected_target);
     }
 
     /// This is a test intending to verify that if 2 elements want to go to the
@@ -847,9 +838,6 @@ mod tests {
                     0
                 };
                 let destination_leaf = mask | leaf;
-                dbg!(i);
-                dbg!(destination_leaf);
-                dbg!(block);
                 *meta_block_num_mut(&mut meta) = destination_leaf;
                 *meta_leaf_num_mut(&mut meta) = destination_leaf;
                 BranchCheckout::<ValueSize, Z>::insert_into_branch_suffix(
@@ -870,12 +858,8 @@ mod tests {
         }
 
         let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
-        let test_deepest = prepare_deepest_non_oblivious_for_testing::<U64, U4>(
-            &stash_meta,
-            &branch.meta,
-            branch.leaf,
-        );
-        assert_eq!(deepest_meta, test_deepest);
+        let expected_deepest = vec![5, 5, 5, 5, 5, 6, FLOOR_INDEX];
+        assert_eq!(deepest_meta, expected_deepest);
     }
 
     #[test]
