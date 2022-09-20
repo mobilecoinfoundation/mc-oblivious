@@ -268,7 +268,7 @@ impl PathOramDeterministicEvictor {
         Self {
             number_of_additional_branches_to_evict,
             tree_height,
-            tree_breadth: 2u64 ^ (tree_height as u64),
+            tree_breadth: 2u64 << (tree_height as u64),
             branches_evicted: 0,
         }
     }
@@ -449,7 +449,7 @@ impl CircuitOramDeterministicEvictor {
         Self {
             number_of_additional_branches_to_evict,
             tree_height,
-            tree_breadth: 2u64 ^ (tree_height as u64),
+            tree_breadth: 2u64 << (tree_height as u64),
             branches_evicted: 0,
         }
     }
