@@ -499,7 +499,7 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     //need one more for stash.
     let meta_len = branch.meta.len();
 
-    let deepest_meta = prepare_deepest::<ValueSize, Z>(&stash_meta, &branch.meta, branch.leaf);
+    let deepest_meta = prepare_deepest::<ValueSize, Z>(stash_meta, &branch.meta, branch.leaf);
     let target_meta = prepare_target::<ValueSize, Z>(&deepest_meta, &branch.meta);
 
     // Initializing the held data and held meta with some default values.
@@ -576,7 +576,7 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
 
         ct_insert(
             held_elem_is_not_vacant_and_bucket_num_is_at_dest,
-            &mut temp_to_write_data,
+            &temp_to_write_data,
             &mut temp_to_write_meta,
             bucket_data,
             bucket_meta,
