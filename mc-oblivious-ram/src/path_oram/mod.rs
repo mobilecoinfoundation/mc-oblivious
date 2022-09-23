@@ -58,27 +58,27 @@ pub(crate) type MetaSize = U16;
 // overwritten with a real item.
 
 /// Get the leaf num of a metadata
-fn meta_leaf_num(src: &A8Bytes<MetaSize>) -> &u64 {
+pub(crate) fn meta_leaf_num(src: &A8Bytes<MetaSize>) -> &u64 {
     &src.as_ne_u64_slice()[0]
 }
 /// Get the leaf num of a mutable metadata
-fn meta_leaf_num_mut(src: &mut A8Bytes<MetaSize>) -> &mut u64 {
+pub(crate) fn meta_leaf_num_mut(src: &mut A8Bytes<MetaSize>) -> &mut u64 {
     &mut src.as_mut_ne_u64_slice()[0]
 }
 /// Get the block num of a metadata
-fn meta_block_num(src: &A8Bytes<MetaSize>) -> &u64 {
+pub(crate) fn meta_block_num(src: &A8Bytes<MetaSize>) -> &u64 {
     &src.as_ne_u64_slice()[1]
 }
 /// Get the block num of a mutable metadata
-fn meta_block_num_mut(src: &mut A8Bytes<MetaSize>) -> &mut u64 {
+pub(crate) fn meta_block_num_mut(src: &mut A8Bytes<MetaSize>) -> &mut u64 {
     &mut src.as_mut_ne_u64_slice()[1]
 }
 /// Test if a metadata is "vacant"
-fn meta_is_vacant(src: &A8Bytes<MetaSize>) -> Choice {
+pub(crate) fn meta_is_vacant(src: &A8Bytes<MetaSize>) -> Choice {
     meta_leaf_num(src).ct_eq(&0)
 }
 /// Set a metadata to vacant, obliviously, if a condition is true
-fn meta_set_vacant(condition: Choice, src: &mut A8Bytes<MetaSize>) {
+pub(crate) fn meta_set_vacant(condition: Choice, src: &mut A8Bytes<MetaSize>) {
     meta_leaf_num_mut(src).cmov(condition, &0);
 }
 
@@ -290,11 +290,11 @@ where
 {
     /// The leaf of branch that is currently checked-out. 0 if no existing
     /// checkout.
-    leaf: u64,
+    pub(crate) leaf: u64,
     /// The scratch-space for checked-out branch data
-    data: Vec<A64Bytes<Prod<Z, ValueSize>>>,
+    pub(crate) data: Vec<A64Bytes<Prod<Z, ValueSize>>>,
     /// The scratch-space for checked-out branch metadata
-    meta: Vec<A8Bytes<Prod<Z, MetaSize>>>,
+    pub(crate) meta: Vec<A8Bytes<Prod<Z, MetaSize>>>,
     /// Phantom data for ValueSize
     _value_size: PhantomData<fn() -> ValueSize>,
 }
@@ -447,7 +447,11 @@ where
     /// This stand-alone version is needed to get around the borrow checker,
     /// because we cannot call functions that take &self as a parameter
     /// while data or meta are mutably borrowed.
-    fn lowest_height_legal_index_impl(mut query: u64, leaf: u64, data_len: usize) -> usize {
+    pub(crate) fn lowest_height_legal_index_impl(
+        mut query: u64,
+        leaf: u64,
+        data_len: usize,
+    ) -> usize {
         // Set query to point to root (1) if it is currently 0 (none / vacant)
         query.cmov(query.ct_eq(&0), &1);
         debug_assert!(
@@ -465,7 +469,7 @@ where
     /// - The first free spot in a bucket of index >= insert_after_index is used
     /// - The destination slices need not be the whole branch, they could be a
     ///   prefix
-    fn insert_into_branch_suffix(
+    pub(crate) fn insert_into_branch_suffix(
         condition: Choice,
         src_data: &A64Bytes<ValueSize>,
         src_meta: &mut A8Bytes<MetaSize>,
@@ -487,7 +491,7 @@ where
 }
 
 /// Constant time helper functions
-mod details {
+pub(crate) mod details {
     use super::*;
 
     /// ct_find_and_remove tries to find and remove an item with a particular
