@@ -509,12 +509,12 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     let stash_index = meta_len;
     //Look through the stash to find the element that can go the deepest, then
     // putting it in the hold and setting dest to the target[STASH_INDEX]
-    let (_deepest_target, id_of_the_deepest_target_for_level) =
+    let (_deepest_target, index_of_deepest_block) =
         find_index_of_deepest_target_for_bucket::<ValueSize, Z>(stash_meta, branch.leaf, meta_len);
     take_block_if_appropriate(
         target_meta[stash_index],
-        &mut stash_meta[id_of_the_deepest_target_for_level],
-        &stash_data[id_of_the_deepest_target_for_level],
+        &mut stash_meta[index_of_deepest_block],
+        &stash_data[index_of_deepest_block],
         held_meta,
         held_data,
         &mut dest,
@@ -543,16 +543,16 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
             &mut temp_to_write_data,
         );
         debug_assert!(bucket_data.len() == bucket_meta.len());
-        let (_deepest_target, id_of_the_deepest_target_for_level) =
-            find_index_of_deepest_target_for_bucket::<ValueSize, Z>(
-                bucket_meta,
-                branch.leaf,
-                meta_len,
-            );
+        let (_deepest_target, index_of_deepest_block) = find_index_of_deepest_target_for_bucket::<
+            ValueSize,
+            Z,
+        >(
+            bucket_meta, branch.leaf, meta_len
+        );
         take_block_if_appropriate(
             target_meta[bucket_num],
-            &mut bucket_meta[id_of_the_deepest_target_for_level],
-            &bucket_data[id_of_the_deepest_target_for_level],
+            &mut bucket_meta[index_of_deepest_block],
+            &bucket_data[index_of_deepest_block],
             held_meta,
             held_data,
             &mut dest,
