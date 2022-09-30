@@ -44,7 +44,7 @@ pub use path_oram::PathORAM;
 /// branches that are sufficiently non overlapping must be evicted every time.
 /// This constant is passed into the evictor creator to specify the number of
 /// additional branches to evict per eviction
-const ADDITIONAL_BRANCHES_TO_EVICT: usize = 2;
+const CIRCUIT_ORAM_ADDITIONAL_BRANCHES_TO_EVICT: usize = 2;
 /// Creator for PathORAM based on 4096-sized blocks of storage and bucket size
 /// (Z) of 2, and a basic recursive position map implementation
 ///
@@ -146,7 +146,7 @@ where
         rng_maker: &mut M,
     ) -> Self::Output {
         let evictor_factory =
-            CircuitOramDeterministicEvictorCreator::new(ADDITIONAL_BRANCHES_TO_EVICT);
+            CircuitOramDeterministicEvictorCreator::new(CIRCUIT_ORAM_ADDITIONAL_BRANCHES_TO_EVICT);
         PathORAM::new::<
             U32PositionMapCreator<U1024, R, Self>,
             SC,
@@ -180,7 +180,7 @@ where
         rng_maker: &mut M,
     ) -> Self::Output {
         let evictor_factory =
-            CircuitOramDeterministicEvictorCreator::new(ADDITIONAL_BRANCHES_TO_EVICT);
+            CircuitOramDeterministicEvictorCreator::new(CIRCUIT_ORAM_ADDITIONAL_BRANCHES_TO_EVICT);
         PathORAM::new::<
             U32PositionMapCreator<U2048, R, Self>,
             SC,
