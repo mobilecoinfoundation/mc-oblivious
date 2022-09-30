@@ -509,8 +509,8 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     let stash_index = meta_len;
     //Look through the stash to find the element that can go the deepest, then
     // putting it in the hold and setting dest to the target[STASH_INDEX]
-    let (_deepest_target, index_of_deepest_block) =
-        find_index_of_deepest_target_for_bucket::<ValueSize, Z>(stash_meta, branch.leaf, meta_len);
+    let index_of_deepest_block =
+        index_of_deepest_block_from_bucket::<ValueSize, Z>(stash_meta, branch.leaf, meta_len);
     take_block_if_appropriate(
         target_meta[stash_index],
         &mut stash_meta[index_of_deepest_block],
@@ -542,13 +542,11 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
             &mut temp_to_write_meta,
             &mut temp_to_write_data,
         );
+
         debug_assert!(bucket_data.len() == bucket_meta.len());
-        let (_deepest_target, index_of_deepest_block) = find_index_of_deepest_target_for_bucket::<
-            ValueSize,
-            Z,
-        >(
-            bucket_meta, branch.leaf, meta_len
-        );
+
+        let index_of_deepest_block =
+            index_of_deepest_block_from_bucket::<ValueSize, Z>(bucket_meta, branch.leaf, meta_len);
         take_block_if_appropriate(
             target_meta[bucket_num],
             &mut bucket_meta[index_of_deepest_block],
@@ -607,11 +605,11 @@ where
     should_drop
 }
 
-fn find_index_of_deepest_target_for_bucket<ValueSize, Z>(
+fn index_of_deepest_block_from_bucket<ValueSize, Z>(
     bucket_meta: &[A8Bytes<MetaSize>],
     leaf: u64,
     branch_length: usize,
-) -> (usize, usize)
+) -> usize
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -633,7 +631,7 @@ where
         id_of_the_deepest_target_for_level.cmov(is_elem_deeper, &id);
         deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
     }
-    (deepest_target_for_level, id_of_the_deepest_target_for_level)
+    id_of_the_deepest_target_for_level
 }
 
 #[cfg(test)]
