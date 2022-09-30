@@ -1157,6 +1157,46 @@ mod tests {
         assert_eq!(held_meta, a8_8::<MetaSize>(1));
         assert_eq!(held_data, a64_8::<ValueSize>(1));
     }
+
+    #[test]
+    fn test_index_of_deepest_block_from_bucket() {
+        let height = 6;
+        let zero_index_height = height - 1;
+        let mut rng = RngType::from_seed([3u8; 32]);
+        let mut storage: StorageType =
+            HeapORAMStorageCreator::create(1 << height, &mut rng).expect("Storage failed");
+        let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
+        let leaf = 1 << zero_index_height;
+        branch.checkout(&mut storage, leaf);
+
+        //Test empty bucket returns 0.
+        let mut bucket_meta = A8Bytes::<Prod<Z, MetaSize>>::default();
+        let meta_as_chunks = bucket_meta.as_mut_aligned_chunks();
+
+        let index = index_of_deepest_block_from_bucket(meta_as_chunks, &branch);
+
+        assert_eq!(index, 0);
+
+        //Test partially full bucket returns first index that goes to this leaf.
+        for i in 0..(meta_as_chunks.len() - 1) {
+            *meta_leaf_num_mut(&mut meta_as_chunks[i]) = leaf;
+        }
+        let index = index_of_deepest_block_from_bucket(meta_as_chunks, &branch);
+        assert_eq!(index, 0);
+
+        //Test partially full bucket does not return index of vacant element.
+        meta_set_vacant(1.into(), &mut meta_as_chunks[0]);
+        let index = index_of_deepest_block_from_bucket(meta_as_chunks, &branch);
+        assert_eq!(index, 1);
+
+        //Test full bucket does returns the element that can go the deepest.
+        for (i, meta_chunk) in meta_as_chunks.iter_mut().enumerate() {
+            *meta_leaf_num_mut(meta_chunk) =
+                destination_leaf_for_bucket_dest((i + 1) as i32, zero_index_height, leaf);
+        }
+        let index = index_of_deepest_block_from_bucket(meta_as_chunks, &branch);
+        assert_eq!(index, meta_as_chunks.len() - 1);
+    }
     struct BranchDataConfig {
         leaf: u64,
         intended_leaves_for_data_to_insert: Vec<u64>,
