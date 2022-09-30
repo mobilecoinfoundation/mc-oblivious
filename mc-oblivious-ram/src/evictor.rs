@@ -647,7 +647,7 @@ mod tests {
         log2_ceil, HeapORAMStorage, HeapORAMStorageCreator, ORAMStorageCreator,
     };
     use rand_core::SeedableRng;
-    use test_helper::{run_with_one_seed, run_with_several_seeds, RngType};
+    use test_helper::{a64_8, a8_8, run_with_one_seed, run_with_several_seeds, RngType};
     type Z = U4;
     type ValueSize = U64;
     type StorageType = HeapORAMStorage<U256, U64>;
@@ -1125,7 +1125,48 @@ mod tests {
         let bucket_has_vacancy: bool = bucket_has_empty_slot(reader).into();
         assert!(!bucket_has_vacancy);
     }
+    #[test]
 
+    fn test_take_block_if_appropriate() {
+        let mut block_dest = FLOOR_INDEX;
+        let mut held_dest = 5usize;
+        let mut block_meta = a8_8::<MetaSize>(1);
+        let block_data = a64_8::<ValueSize>(1);
+        let mut held_meta = a8_8::<MetaSize>(2);
+        let mut held_data = a64_8::<ValueSize>(2);
+
+        take_block_if_appropriate(
+            block_dest,
+            &mut block_meta,
+            &block_data,
+            &mut held_meta,
+            &mut held_data,
+            &mut held_dest,
+        );
+
+        //Element should not be taken because the block_dest is the floor_index.
+        assert_eq!(held_dest, 5);
+        let block_was_moved: bool = meta_is_vacant(&block_meta).into();
+        assert!(!block_was_moved);
+        assert_eq!(held_meta, a8_8::<MetaSize>(2));
+        assert_eq!(held_data, a64_8::<ValueSize>(2));
+
+        block_dest = 0;
+        take_block_if_appropriate(
+            block_dest,
+            &mut block_meta,
+            &block_data,
+            &mut held_meta,
+            &mut held_data,
+            &mut held_dest,
+        );
+        //Element should be taken because the block dest is not the floor index
+        assert_eq!(held_dest, 0);
+        let block_was_moved: bool = meta_is_vacant(&block_meta).into();
+        assert!(block_was_moved);
+        assert_eq!(held_meta, a8_8::<MetaSize>(1));
+        assert_eq!(held_data, a64_8::<ValueSize>(1));
+    }
     struct BranchDataConfig {
         leaf: u64,
         intended_leaves_for_data_to_insert: Vec<u64>,
