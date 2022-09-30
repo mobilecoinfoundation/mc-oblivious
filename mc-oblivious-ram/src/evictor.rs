@@ -642,7 +642,7 @@ where
 {
     let mut deepest_target_for_level = FLOOR_INDEX;
     let mut id_of_the_deepest_target_for_level = 0usize;
-    for (id, src_meta) in bucket_meta.iter_mut().enumerate() {
+    for (id, src_meta) in bucket_meta.iter().enumerate() {
         let elem_destination: usize =
             BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
                 *meta_leaf_num(src_meta),
