@@ -410,7 +410,7 @@ pub struct CircuitOramDeterministicEvictorCreator {
 }
 impl CircuitOramDeterministicEvictorCreator {
     /// Create a factory for a deterministic branch selector that will evict
-    /// number_of_additional_branches_to_evict branches per access in addition
+    /// `number_of_additional_branches_to_evict` branches per access in addition
     /// to the checked out branch
     pub fn new(number_of_additional_branches_to_evict: usize) -> Self {
         Self {
