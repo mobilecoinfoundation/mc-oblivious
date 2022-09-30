@@ -1063,12 +1063,8 @@ mod tests {
             for block in bucket {
                 let mut meta = A8Bytes::<MetaSize>::default();
                 let data = A64Bytes::<ValueSize>::default();
-                let mask = if block < 6 {
-                    1 << (zero_index_height - block)
-                } else {
-                    0
-                };
-                let destination_leaf = mask | leaf;
+                let destination_leaf =
+                    destination_leaf_for_bucket_dest(block, zero_index_height, leaf);
                 *meta_block_num_mut(&mut meta) = destination_leaf;
                 *meta_leaf_num_mut(&mut meta) = destination_leaf;
                 BranchCheckout::<ValueSize, Z>::insert_into_branch_suffix(
@@ -1081,6 +1077,15 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn destination_leaf_for_bucket_dest(block: i32, zero_index_height: i32, leaf: u64) -> u64 {
+        let mask = if block < zero_index_height + 1 {
+            1 << (zero_index_height - block)
+        } else {
+            0
+        };
+        mask | leaf
     }
 
     #[test]
