@@ -606,6 +606,10 @@ fn compare_and_take_held_item_if_appropriate<ValueSize>(
     );
 }
 
+/// Checks if the current `bucket_num` is exactly the intended destination
+/// `dest` if so, do the appropriate cmovs into of the held element into the
+/// write elements. Dest will be set to `FLOOR_INDEX` in that case but the held
+/// element will not be vacated for efficiency.
 fn drop_held_element_if_at_destination<ValueSize>(
     held_meta: &mut A8Bytes<MetaSize>,
     held_data: &mut A64Bytes<ValueSize>,
@@ -617,11 +621,10 @@ fn drop_held_element_if_at_destination<ValueSize>(
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
 {
-    let should_drop = !meta_is_vacant(held_meta) & bucket_num.ct_eq(dest);
+    let should_drop = bucket_num.ct_eq(dest);
     to_write_data.cmov(should_drop, held_data);
     to_write_meta.cmov(should_drop, held_meta);
     dest.cmov(should_drop, &FLOOR_INDEX);
-    meta_set_vacant(should_drop, held_meta);
     should_drop
 }
 
