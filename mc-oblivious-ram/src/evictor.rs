@@ -510,7 +510,7 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     //Look through the stash to find the element that can go the deepest, then
     // putting it in the hold and setting dest to the target[STASH_INDEX]
     let index_of_deepest_block =
-        index_of_deepest_block_from_bucket::<ValueSize, Z>(stash_meta, branch.leaf, meta_len);
+        index_of_deepest_block_from_bucket::<ValueSize, Z>(stash_meta, branch);
     take_block_if_appropriate(
         target_meta[stash_index],
         &mut stash_meta[index_of_deepest_block],
@@ -529,9 +529,6 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     //Go through the branch from root to leaf, holding up to one element, swapping
     // held blocks into destinations closer to the leaf.
     for bucket_num in (0..meta_len).rev() {
-        let bucket_data = branch.data[bucket_num].as_mut_aligned_chunks();
-        let bucket_meta = branch.meta[bucket_num].as_mut_aligned_chunks();
-
         //If held element is not vacant and bucket_num is dest. We will write this elem
         // so zero out the held/dest.
         let should_write_to_bucket = drop_held_element_if_at_destination(
@@ -543,10 +540,16 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
             &mut temp_to_write_data,
         );
 
+        let index_of_deepest_block = index_of_deepest_block_from_bucket::<ValueSize, Z>(
+            branch.meta[bucket_num].as_aligned_chunks(),
+            branch,
+        );
+
+        let bucket_data = branch.data[bucket_num].as_mut_aligned_chunks();
+        let bucket_meta = branch.meta[bucket_num].as_mut_aligned_chunks();
+
         debug_assert!(bucket_data.len() == bucket_meta.len());
 
-        let index_of_deepest_block =
-            index_of_deepest_block_from_bucket::<ValueSize, Z>(bucket_meta, branch.leaf, meta_len);
         take_block_if_appropriate(
             target_meta[bucket_num],
             &mut bucket_meta[index_of_deepest_block],
@@ -607,8 +610,7 @@ where
 
 fn index_of_deepest_block_from_bucket<ValueSize, Z>(
     bucket_meta: &[A8Bytes<MetaSize>],
-    leaf: u64,
-    branch_length: usize,
+    branch: &BranchCheckout<ValueSize, Z>,
 ) -> usize
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
@@ -619,12 +621,7 @@ where
     let mut deepest_target_for_level = FLOOR_INDEX;
     let mut id_of_the_deepest_target_for_level = 0usize;
     for (id, src_meta) in bucket_meta.iter().enumerate() {
-        let elem_destination: usize =
-            BranchCheckout::<ValueSize, Z>::lowest_height_legal_index_impl(
-                *meta_leaf_num(src_meta),
-                leaf,
-                branch_length,
-            );
+        let elem_destination: usize = branch.lowest_height_legal_index(*meta_leaf_num(src_meta));
         let elem_destination_64: u64 = elem_destination as u64;
         let is_elem_deeper = elem_destination_64.ct_lt(&(deepest_target_for_level as u64))
             & !meta_is_vacant(src_meta);

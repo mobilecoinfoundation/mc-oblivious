@@ -439,7 +439,7 @@ where
     ///
     /// This is required to give well-defined output even if tree_index is 0.
     /// It is not required to give well-defined output if self.leaf is 0.
-    fn lowest_height_legal_index(&self, query: u64) -> usize {
+    pub(crate) fn lowest_height_legal_index(&self, query: u64) -> usize {
         Self::lowest_height_legal_index_impl(query, self.leaf, self.data.len())
     }
 
