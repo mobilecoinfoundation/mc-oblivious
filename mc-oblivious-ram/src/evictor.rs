@@ -402,9 +402,9 @@ where
 }
 
 /// A factory which creates an CircuitOramDeterministicEvictor that evicts from
-/// the stash into an additional number_of_additional_branches_to_evict branches
-/// in addition to the currently checked out branch in reverse lexicographic
-/// order
+/// the stash into an additional `number_of_additional_branches_to_evict`
+/// branches in addition to the currently checked out branch in reverse
+/// lexicographic order
 pub struct CircuitOramDeterministicEvictorCreator {
     number_of_additional_branches_to_evict: usize,
 }
@@ -444,7 +444,7 @@ pub struct CircuitOramDeterministicEvictor {
 }
 impl CircuitOramDeterministicEvictor {
     /// Create a new deterministic branch selector that will select
-    /// num_elements_to_evict branches per access
+    /// `number_of_additional_branches_to_evict` branches per access
     pub fn new(number_of_additional_branches_to_evict: usize, tree_height: u32) -> Self {
         Self {
             number_of_additional_branches_to_evict,
@@ -485,7 +485,7 @@ where
     }
 }
 
-/// Oblivious Circuit ORAM Evictor
+/// Circuit ORAM Evictor
 fn circuit_oram_eviction_strategy<ValueSize, Z>(
     stash_data: &mut [A64Bytes<ValueSize>],
     stash_meta: &mut [A8Bytes<MetaSize>],
@@ -496,20 +496,13 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
-    //need one more for stash.
     let meta_len = branch.meta.len();
 
     let deepest_meta = prepare_deepest::<ValueSize, Z>(stash_meta, &branch.meta, branch.leaf);
     let target_meta = prepare_target::<ValueSize, Z>(&deepest_meta, &branch.meta);
 
-    // Initializing the held data and held meta with some default values.
-    let mut dummy_held_data: A64Bytes<ValueSize> = Default::default();
-    let mut dummy_held_meta: A8Bytes<MetaSize> = Default::default();
-
-    // Held data and held meta represent the elements we have picked up iterating
-    // from the stash to the leaf. Initially empty.
-    let held_data: &mut A64Bytes<ValueSize> = &mut dummy_held_data;
-    let held_meta: &mut A8Bytes<MetaSize> = &mut dummy_held_meta;
+    let held_data: &mut A64Bytes<ValueSize> = &mut Default::default();
+    let held_meta: &mut A8Bytes<MetaSize> = &mut Default::default();
     // Dest represents the bucket where we will swap the held element for a new
     // one. FLOOR_INDEX corresponds to a null value.
     let mut dest = FLOOR_INDEX;
@@ -637,7 +630,7 @@ where
 }
 
 fn find_index_of_deepest_target_for_bucket<ValueSize, Z>(
-    bucket_meta: &mut [A8Bytes<MetaSize>],
+    bucket_meta: &[A8Bytes<MetaSize>],
     leaf: u64,
     branch_length: usize,
 ) -> (usize, usize)
