@@ -995,28 +995,7 @@ mod tests {
             vec![5, 6], // 1 block for the leaf, 1 irrelevant block.
             vec![],     // leaf empty
         ];
-        for (i, bucket) in buckets.into_iter().rev().enumerate() {
-            for block in bucket {
-                let mut meta = A8Bytes::<MetaSize>::default();
-                let data = A64Bytes::<ValueSize>::default();
-                let mask = if block < 6 {
-                    1 << (zero_index_height - block)
-                } else {
-                    0
-                };
-                let destination_leaf = mask | leaf;
-                *meta_block_num_mut(&mut meta) = destination_leaf;
-                *meta_leaf_num_mut(&mut meta) = destination_leaf;
-                BranchCheckout::<ValueSize, Z>::insert_into_branch_suffix(
-                    1.into(),
-                    &data,
-                    &mut meta,
-                    i as usize,
-                    &mut branch.data,
-                    &mut branch.meta,
-                );
-            }
-        }
+        prepare_branch_from_buckets(buckets, zero_index_height, &mut branch);
 
         let mut stash_meta = vec![Default::default(); stash_size];
         for src_meta in &mut stash_meta {
@@ -1061,6 +1040,25 @@ mod tests {
             vec![],     // empty
             vec![],     // leaf empty
         ];
+        prepare_branch_from_buckets(buckets, zero_index_height, &mut branch);
+
+        let mut stash_meta = vec![Default::default(); stash_size];
+        for src_meta in &mut stash_meta {
+            *meta_block_num_mut(src_meta) = size - 1;
+            *meta_leaf_num_mut(src_meta) = size - 1;
+        }
+
+        let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
+        let expected_deepest = vec![5, 5, 5, 5, 5, 6, FLOOR_INDEX];
+        assert_eq!(deepest_meta, expected_deepest);
+    }
+
+    fn prepare_branch_from_buckets(
+        buckets: Vec<Vec<i32>>,
+        zero_index_height: i32,
+        branch: &mut BranchCheckout<ValueSize, Z>,
+    ) {
+        let leaf = branch.leaf;
         for (i, bucket) in buckets.into_iter().rev().enumerate() {
             for block in bucket {
                 let mut meta = A8Bytes::<MetaSize>::default();
@@ -1083,16 +1081,6 @@ mod tests {
                 );
             }
         }
-
-        let mut stash_meta = vec![Default::default(); stash_size];
-        for src_meta in &mut stash_meta {
-            *meta_block_num_mut(src_meta) = size - 1;
-            *meta_leaf_num_mut(src_meta) = size - 1;
-        }
-
-        let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
-        let expected_deepest = vec![5, 5, 5, 5, 5, 6, FLOOR_INDEX];
-        assert_eq!(deepest_meta, expected_deepest);
     }
 
     #[test]
