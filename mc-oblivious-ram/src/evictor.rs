@@ -511,12 +511,10 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     // putting it in the hold and setting dest to the target[STASH_INDEX]
     let (_deepest_target, id_of_the_deepest_target_for_level) =
         find_index_of_deepest_target_for_bucket::<ValueSize, Z>(stash_meta, branch.leaf, meta_len);
-    compare_and_take_held_item_if_appropriate(
-        stash_index,
-        &target_meta,
-        stash_meta,
-        stash_data,
-        id_of_the_deepest_target_for_level,
+    take_block_if_appropriate(
+        target_meta[stash_index],
+        &mut stash_meta[id_of_the_deepest_target_for_level],
+        &stash_data[id_of_the_deepest_target_for_level],
         held_meta,
         held_data,
         &mut dest,
@@ -551,12 +549,10 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
                 branch.leaf,
                 meta_len,
             );
-        compare_and_take_held_item_if_appropriate(
-            bucket_num,
-            &target_meta,
-            bucket_meta,
-            bucket_data,
-            id_of_the_deepest_target_for_level,
+        take_block_if_appropriate(
+            target_meta[bucket_num],
+            &mut bucket_meta[id_of_the_deepest_target_for_level],
+            &bucket_data[id_of_the_deepest_target_for_level],
             held_meta,
             held_data,
             &mut dest,
@@ -572,33 +568,21 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     }
 }
 
-fn compare_and_take_held_item_if_appropriate<ValueSize>(
-    bucket_index: usize,
-    target_meta: &[usize],
-    bucket_meta: &mut [A8Bytes<MetaSize>],
-    bucket_data: &mut [A64Bytes<ValueSize>],
-    id_of_the_deepest_target_for_level: usize,
+fn take_block_if_appropriate<ValueSize>(
+    block_dest: usize,
+    block_meta: &mut A8Bytes<MetaSize>,
+    block_data: &A64Bytes<ValueSize>,
     held_meta: &mut A8Bytes<MetaSize>,
     held_data: &mut A64Bytes<ValueSize>,
-    dest: &mut usize,
+    held_dest: &mut usize,
 ) where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
 {
-    let target_meta_for_bucket = target_meta[bucket_index];
-    let should_take_an_element_for_level = !(target_meta_for_bucket).ct_eq(&FLOOR_INDEX);
-    dest.cmov(should_take_an_element_for_level, &target_meta_for_bucket);
-    held_data.cmov(
-        should_take_an_element_for_level,
-        &bucket_data[id_of_the_deepest_target_for_level],
-    );
-    held_meta.cmov(
-        should_take_an_element_for_level,
-        &bucket_meta[id_of_the_deepest_target_for_level],
-    );
-    meta_set_vacant(
-        should_take_an_element_for_level,
-        &mut bucket_meta[id_of_the_deepest_target_for_level],
-    );
+    let should_take_an_element_for_level = !(block_dest).ct_eq(&FLOOR_INDEX);
+    held_dest.cmov(should_take_an_element_for_level, &block_dest);
+    held_data.cmov(should_take_an_element_for_level, block_data);
+    held_meta.cmov(should_take_an_element_for_level, block_meta);
+    meta_set_vacant(should_take_an_element_for_level, block_meta);
 }
 
 /// Checks if the current `bucket_num` is exactly the intended destination
