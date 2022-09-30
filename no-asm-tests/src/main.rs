@@ -341,6 +341,10 @@ mod tests {
                     dbg!(stash_count);
                 }
             }
+            // We do not check the correlation if we keep the stash count sufficiently
+            // small, because otherwise it is not enough elements for correlation to be
+            // reliable. If the oram is packing very efficiently, that is
+            // sufficient for our use case.
             if x_axis.len() > 5 {
                 let correlation =
                     rgsl::statistics::correlation(&x_axis, 1, &y_axis, 1, x_axis.len());
