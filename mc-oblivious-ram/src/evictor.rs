@@ -634,8 +634,6 @@ where
 #[cfg(test)]
 mod tests {
     extern crate std;
-    use std::dbg;
-
     use super::*;
     use crate::path_oram::{meta_block_num_mut, meta_leaf_num_mut, meta_set_vacant};
     use aligned_cmov::typenum::{U256, U4};
@@ -644,7 +642,9 @@ mod tests {
         log2_ceil, HeapORAMStorage, HeapORAMStorageCreator, ORAMStorageCreator,
     };
     use rand_core::SeedableRng;
+    use std::dbg;
     use test_helper::{a64_8, a8_8, run_with_one_seed, run_with_several_seeds, RngType};
+    use yare::parameterized;
     type Z = U4;
     type ValueSize = U64;
     type StorageType = HeapORAMStorage<U256, U64>;
@@ -1158,45 +1158,43 @@ mod tests {
         assert_eq!(held_data, a64_8::<ValueSize>(1));
     }
 
-    #[test]
-    fn test_index_of_deepest_block_from_bucket() {
-        let height = 6;
-        let zero_index_height = height - 1;
+    // We use a tree of height 5, (height is number of path levels, not node
+    // levels) and focus on the leftmost branch, this means the leaves of
+    // interest are
+    //
+    // 10000 | 10001 | 10011 | 10111 | 11111 |
+    //  32   |  33   |  35   |  39   |   63  |
+    //
+    #[parameterized(
+        none = {[0, 0, 0, 0], 0},
+        all_at_leaf = {[32, 32, 32, 32], 0},
+        all_at_root = {[63, 63, 63, 63], 0},
+        all_at_middle = {[39, 39, 39, 39], 0},
+        second_deepest = {[63, 35, 39, 39], 1},
+        third_deepest = {[63, 63, 39, 63], 2},
+        last_deepest = {[33, 33, 33, 32], 3},
+        // If you don't test for vacancy, this test fails
+        first_empty_others_at_root = {[0, 63, 63, 63], 1},
+        )]
+    fn test_index_of_deepest_block_from_bucket(bucket_list: [u64; 4], expected_index: usize) {
+        let height = 5;
         let mut rng = RngType::from_seed([3u8; 32]);
         let mut storage: StorageType =
-            HeapORAMStorageCreator::create(1 << height, &mut rng).expect("Storage failed");
+            HeapORAMStorageCreator::create(2 << height, &mut rng).expect("Storage failed");
         let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
-        let leaf = 1 << zero_index_height;
-        branch.checkout(&mut storage, leaf);
 
-        //Test empty bucket returns 0.
         let mut bucket_meta = A8Bytes::<Prod<Z, MetaSize>>::default();
         let meta_as_chunks = bucket_meta.as_mut_aligned_chunks();
-
-        let index = index_of_deepest_block_from_bucket(meta_as_chunks, &branch);
-
-        assert_eq!(index, 0);
-
-        //Test partially full bucket returns first index that goes to this leaf.
-        for i in 0..(meta_as_chunks.len() - 1) {
-            *meta_leaf_num_mut(&mut meta_as_chunks[i]) = leaf;
+        for (meta, destination) in meta_as_chunks.iter_mut().zip(bucket_list) {
+            *meta_leaf_num_mut(meta) = destination;
         }
-        let index = index_of_deepest_block_from_bucket(meta_as_chunks, &branch);
-        assert_eq!(index, 0);
 
-        //Test partially full bucket does not return index of vacant element.
-        meta_set_vacant(1.into(), &mut meta_as_chunks[0]);
+        let leaf = 32;
+        branch.checkout(&mut storage, leaf);
         let index = index_of_deepest_block_from_bucket(meta_as_chunks, &branch);
-        assert_eq!(index, 1);
-
-        //Test full bucket does returns the element that can go the deepest.
-        for (i, meta_chunk) in meta_as_chunks.iter_mut().enumerate() {
-            *meta_leaf_num_mut(meta_chunk) =
-                destination_leaf_for_bucket_dest((i + 1) as i32, zero_index_height, leaf);
-        }
-        let index = index_of_deepest_block_from_bucket(meta_as_chunks, &branch);
-        assert_eq!(index, meta_as_chunks.len() - 1);
+        assert_eq!(index, expected_index);
     }
+
     struct BranchDataConfig {
         leaf: u64,
         intended_leaves_for_data_to_insert: Vec<u64>,
