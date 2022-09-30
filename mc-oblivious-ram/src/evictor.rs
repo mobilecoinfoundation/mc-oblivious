@@ -536,7 +536,7 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
 
         //If held element is not vacant and bucket_num is dest. We will write this elem
         // so zero out the held/dest.
-        let held_elem_is_not_vacant_and_bucket_num_is_at_dest = drop_held_element_if_at_destination(
+        let should_write_to_bucket = drop_held_element_if_at_destination(
             held_meta,
             held_data,
             bucket_num,
@@ -563,7 +563,7 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
         );
 
         ct_insert(
-            held_elem_is_not_vacant_and_bucket_num_is_at_dest,
+            should_write_to_bucket,
             &temp_to_write_data,
             &mut temp_to_write_meta,
             bucket_data,
