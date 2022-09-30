@@ -1115,8 +1115,8 @@ mod tests {
         let bucket_has_vacancy: bool = bucket_has_empty_slot(reader).into();
         assert!(!bucket_has_vacancy);
     }
-    #[test]
 
+    #[test]
     fn test_take_block_if_appropriate() {
         let mut block_dest = FLOOR_INDEX;
         let mut held_dest = 5usize;
