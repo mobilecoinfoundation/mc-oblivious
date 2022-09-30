@@ -524,14 +524,8 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     //Go through the branch from root to leaf, holding up to one element, swapping
     // held blocks into destinations closer to the leaf.
     for bucket_num in (0..meta_len).rev() {
-        //lower contains from [0..bucket_num), upper contains from [bucket_num..len).
-        // lower is the side closer to the leaf, while upper is the side closer to the
-        // root.
-        let (_, upper_data) = branch.data.split_at_mut(bucket_num);
-        let (_, upper_meta) = branch.meta.split_at_mut(bucket_num);
-
-        let bucket_data: &mut [A64Bytes<ValueSize>] = upper_data[0].as_mut_aligned_chunks();
-        let bucket_meta: &mut [A8Bytes<MetaSize>] = upper_meta[0].as_mut_aligned_chunks();
+        let bucket_data = branch.data[bucket_num].as_mut_aligned_chunks();
+        let bucket_meta = branch.meta[bucket_num].as_mut_aligned_chunks();
 
         // This to_write dummy are being used as a temporary space to be used
         // for a 3 way swap to move the held item into the bucket that is full,
