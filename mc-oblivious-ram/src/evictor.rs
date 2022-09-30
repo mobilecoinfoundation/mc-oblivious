@@ -521,17 +521,18 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
         held_data,
         &mut dest,
     );
+
+    // This to_write dummy are being used as a temporary space to be used
+    // for a 3 way swap to move the held item into the bucket that is full,
+    // and pick up an element from the bucket at the same time.
+    let mut temp_to_write_data: A64Bytes<ValueSize> = Default::default();
+    let mut temp_to_write_meta: A8Bytes<MetaSize> = Default::default();
+
     //Go through the branch from root to leaf, holding up to one element, swapping
     // held blocks into destinations closer to the leaf.
     for bucket_num in (0..meta_len).rev() {
         let bucket_data = branch.data[bucket_num].as_mut_aligned_chunks();
         let bucket_meta = branch.meta[bucket_num].as_mut_aligned_chunks();
-
-        // This to_write dummy are being used as a temporary space to be used
-        // for a 3 way swap to move the held item into the bucket that is full,
-        // and pick up an element from the bucket at the same time.
-        let mut temp_to_write_data: A64Bytes<ValueSize> = Default::default();
-        let mut temp_to_write_meta: A8Bytes<MetaSize> = Default::default();
 
         //If held element is not vacant and bucket_num is dest. We will write this elem
         // so zero out the held/dest.
