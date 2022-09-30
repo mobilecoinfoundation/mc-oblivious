@@ -584,9 +584,9 @@ fn compare_and_take_held_item_if_appropriate<ValueSize>(
 ) where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
 {
-    let target_meta_for_bucket = target_meta.get(bucket_index).unwrap();
+    let target_meta_for_bucket = target_meta[bucket_index];
     let should_take_an_element_for_level = !(target_meta_for_bucket).ct_eq(&FLOOR_INDEX);
-    dest.cmov(should_take_an_element_for_level, target_meta_for_bucket);
+    dest.cmov(should_take_an_element_for_level, &target_meta_for_bucket);
     held_data.cmov(
         should_take_an_element_for_level,
         &bucket_data[id_of_the_deepest_target_for_level],
