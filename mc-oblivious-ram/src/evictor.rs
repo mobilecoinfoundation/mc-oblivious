@@ -617,16 +617,12 @@ fn drop_held_element_if_at_destination<ValueSize>(
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
 {
-    let held_elem_is_not_vacant_and_bucket_num_is_at_dest =
-        !meta_is_vacant(held_meta) & bucket_num.ct_eq(dest);
-    to_write_data.cmov(held_elem_is_not_vacant_and_bucket_num_is_at_dest, held_data);
-    to_write_meta.cmov(held_elem_is_not_vacant_and_bucket_num_is_at_dest, held_meta);
-    dest.cmov(
-        held_elem_is_not_vacant_and_bucket_num_is_at_dest,
-        &FLOOR_INDEX,
-    );
-    meta_set_vacant(held_elem_is_not_vacant_and_bucket_num_is_at_dest, held_meta);
-    held_elem_is_not_vacant_and_bucket_num_is_at_dest
+    let should_drop = !meta_is_vacant(held_meta) & bucket_num.ct_eq(dest);
+    to_write_data.cmov(should_drop, held_data);
+    to_write_meta.cmov(should_drop, held_meta);
+    dest.cmov(should_drop, &FLOOR_INDEX);
+    meta_set_vacant(should_drop, held_meta);
+    should_drop
 }
 
 fn find_index_of_deepest_target_for_bucket<ValueSize, Z>(
