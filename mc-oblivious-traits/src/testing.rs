@@ -9,8 +9,6 @@ use alloc::{
     vec::Vec,
 };
 use rand_core::{CryptoRng, RngCore};
-extern crate std;
-use std::panic::{catch_unwind, AssertUnwindSafe};
 
 /// Exercise an ORAM by writing, reading, and rewriting, a progressively larger
 /// set of random locations
@@ -113,18 +111,7 @@ where
     }
 
     while num_rounds > 0 {
-        let result = catch_unwind(AssertUnwindSafe(|| {
-            query_oram_and_randomize(&mut expected, probe_idx, oram, rng);
-        }));
-        if result.is_err() {
-            std::eprintln!(
-                "Panic when attempting to access: {:?}, remaining rounds: {:?}: Error was {:?}",
-                probe_idx,
-                num_rounds,
-                result
-            );
-            return stash_size_by_count;
-        }
+        query_oram_and_randomize(&mut expected, probe_idx, oram, rng);
         *stash_size_by_count.entry(oram.stash_size()).or_default() += 1;
         probe_idx = (probe_idx + 1) & (len - 1);
         num_rounds -= 1;

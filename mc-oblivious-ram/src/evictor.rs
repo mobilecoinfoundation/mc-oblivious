@@ -18,7 +18,9 @@ use balanced_tree_index::TreeIndex;
 use core::ops::Mul;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::path_oram::{meta_is_vacant, meta_leaf_num, BranchCheckout, MetaSize};
+use crate::path_oram::{
+    details::ct_insert, meta_is_vacant, meta_leaf_num, meta_set_vacant, BranchCheckout, MetaSize,
+};
 
 // FLOOR_INDEX corresponds to ⊥ from the Circuit ORAM paper, and is treated
 // similarly as one might a null value.
@@ -266,7 +268,7 @@ impl PathOramDeterministicEvictor {
         Self {
             number_of_additional_branches_to_evict,
             tree_height,
-            tree_breadth: 2u64 ^ (tree_height as u64),
+            tree_breadth: 2u64 << (tree_height as u64),
             branches_evicted: 0,
         }
     }
@@ -376,7 +378,8 @@ pub struct PathOramDeterministicEvictorCreator {
 }
 impl PathOramDeterministicEvictorCreator {
     /// Create a factory for a deterministic branch selector that will evict
-    /// `number_of_additional_branches_to_evict` branches per access
+    /// number_of_additional_branches_to_evict branches per access in addition
+    /// to the checked out branch
     pub fn new(number_of_additional_branches_to_evict: usize) -> Self {
         Self {
             number_of_additional_branches_to_evict,
@@ -398,11 +401,239 @@ where
     }
 }
 
+/// A factory which creates an CircuitOramDeterministicEvictor that evicts from
+/// the stash into an additional `number_of_additional_branches_to_evict`
+/// branches in addition to the currently checked out branch in reverse
+/// lexicographic order
+pub struct CircuitOramDeterministicEvictorCreator {
+    number_of_additional_branches_to_evict: usize,
+}
+impl CircuitOramDeterministicEvictorCreator {
+    /// Create a factory for a deterministic branch selector that will evict
+    /// `number_of_additional_branches_to_evict` branches per access in addition
+    /// to the checked out branch
+    pub fn new(number_of_additional_branches_to_evict: usize) -> Self {
+        Self {
+            number_of_additional_branches_to_evict,
+        }
+    }
+}
+
+impl<ValueSize, Z> EvictorCreator<ValueSize, Z> for CircuitOramDeterministicEvictorCreator
+where
+    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+{
+    type Output = CircuitOramDeterministicEvictor;
+
+    fn create(&self, height: u32) -> Self::Output {
+        CircuitOramDeterministicEvictor::new(self.number_of_additional_branches_to_evict, height)
+    }
+}
+
+/// An evictor that implements a deterministic branch selection in reverse
+/// lexicographic order and using the Circuit
+/// ORAM eviction strategy
+pub struct CircuitOramDeterministicEvictor {
+    number_of_additional_branches_to_evict: usize,
+    branches_evicted: u64,
+    tree_height: u32,
+    tree_breadth: u64,
+}
+impl CircuitOramDeterministicEvictor {
+    /// Create a new deterministic branch selector that will select
+    /// `number_of_additional_branches_to_evict` branches per access
+    pub fn new(number_of_additional_branches_to_evict: usize, tree_height: u32) -> Self {
+        Self {
+            number_of_additional_branches_to_evict,
+            tree_height,
+            tree_breadth: 2u64 << (tree_height as u64),
+            branches_evicted: 0,
+        }
+    }
+}
+
+impl BranchSelector for CircuitOramDeterministicEvictor {
+    fn get_next_branch_to_evict(&mut self) -> u64 {
+        //The height of the root is 0, so the number of bits needed for the leaves is
+        // just the height
+        let iteration = self.branches_evicted;
+        self.branches_evicted = (self.branches_evicted + 1) % self.tree_breadth;
+        deterministic_get_next_branch_to_evict(self.tree_height, iteration)
+    }
+
+    fn get_number_of_additional_branches_to_evict(&self) -> usize {
+        self.number_of_additional_branches_to_evict
+    }
+}
+impl<ValueSize, Z> EvictionStrategy<ValueSize, Z> for CircuitOramDeterministicEvictor
+where
+    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+{
+    fn evict_from_stash_to_branch(
+        &self,
+        stash_data: &mut [A64Bytes<ValueSize>],
+        stash_meta: &mut [A8Bytes<MetaSize>],
+        branch: &mut BranchCheckout<ValueSize, Z>,
+    ) {
+        circuit_oram_eviction_strategy::<ValueSize, Z>(stash_data, stash_meta, branch);
+    }
+}
+
+/// Circuit ORAM Evictor
+fn circuit_oram_eviction_strategy<ValueSize, Z>(
+    stash_data: &mut [A64Bytes<ValueSize>],
+    stash_meta: &mut [A8Bytes<MetaSize>],
+    branch: &mut BranchCheckout<ValueSize, Z>,
+) where
+    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+{
+    let meta_len = branch.meta.len();
+
+    let deepest_meta = prepare_deepest::<ValueSize, Z>(stash_meta, &branch.meta, branch.leaf);
+    let target_meta = prepare_target::<ValueSize, Z>(&deepest_meta, &branch.meta);
+
+    let held_data: &mut A64Bytes<ValueSize> = &mut Default::default();
+    let held_meta: &mut A8Bytes<MetaSize> = &mut Default::default();
+    // Dest represents the bucket where we will swap the held element for a new
+    // one. FLOOR_INDEX corresponds to a null value.
+    let mut dest = FLOOR_INDEX;
+    let stash_index = meta_len;
+    //Look through the stash to find the element that can go the deepest, then
+    // putting it in the hold and setting dest to the target[STASH_INDEX]
+    let index_of_deepest_block =
+        index_of_deepest_block_from_bucket::<ValueSize, Z>(stash_meta, branch);
+    take_block_if_appropriate(
+        target_meta[stash_index],
+        &mut stash_meta[index_of_deepest_block],
+        &stash_data[index_of_deepest_block],
+        held_meta,
+        held_data,
+        &mut dest,
+    );
+
+    // This to_write dummy are being used as a temporary space to be used
+    // for a 3 way swap to move the held item into the bucket that is full,
+    // and pick up an element from the bucket at the same time.
+    let mut temp_to_write_data: A64Bytes<ValueSize> = Default::default();
+    let mut temp_to_write_meta: A8Bytes<MetaSize> = Default::default();
+
+    //Go through the branch from root to leaf, holding up to one element, swapping
+    // held blocks into destinations closer to the leaf.
+    for bucket_num in (0..meta_len).rev() {
+        //If held element is not vacant and bucket_num is dest. We will write this elem
+        // so zero out the held/dest.
+        let should_write_to_bucket = drop_held_element_if_at_destination(
+            held_meta,
+            held_data,
+            bucket_num,
+            &mut dest,
+            &mut temp_to_write_meta,
+            &mut temp_to_write_data,
+        );
+
+        let index_of_deepest_block = index_of_deepest_block_from_bucket::<ValueSize, Z>(
+            branch.meta[bucket_num].as_aligned_chunks(),
+            branch,
+        );
+
+        let bucket_data = branch.data[bucket_num].as_mut_aligned_chunks();
+        let bucket_meta = branch.meta[bucket_num].as_mut_aligned_chunks();
+
+        debug_assert!(bucket_data.len() == bucket_meta.len());
+
+        take_block_if_appropriate(
+            target_meta[bucket_num],
+            &mut bucket_meta[index_of_deepest_block],
+            &bucket_data[index_of_deepest_block],
+            held_meta,
+            held_data,
+            &mut dest,
+        );
+
+        ct_insert(
+            should_write_to_bucket,
+            &temp_to_write_data,
+            &mut temp_to_write_meta,
+            bucket_data,
+            bucket_meta,
+        );
+    }
+}
+
+fn take_block_if_appropriate<ValueSize>(
+    block_dest: usize,
+    block_meta: &mut A8Bytes<MetaSize>,
+    block_data: &A64Bytes<ValueSize>,
+    held_meta: &mut A8Bytes<MetaSize>,
+    held_data: &mut A64Bytes<ValueSize>,
+    held_dest: &mut usize,
+) where
+    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+{
+    let should_take_an_element_for_level = !(block_dest).ct_eq(&FLOOR_INDEX);
+    held_dest.cmov(should_take_an_element_for_level, &block_dest);
+    held_data.cmov(should_take_an_element_for_level, block_data);
+    held_meta.cmov(should_take_an_element_for_level, block_meta);
+    meta_set_vacant(should_take_an_element_for_level, block_meta);
+}
+
+/// Checks if the current `bucket_num` is exactly the intended destination
+/// `dest` if so, do the appropriate cmovs into of the held element into the
+/// write elements. Dest will be set to `FLOOR_INDEX` in that case but the held
+/// element will not be vacated for efficiency.
+fn drop_held_element_if_at_destination<ValueSize>(
+    held_meta: &mut A8Bytes<MetaSize>,
+    held_data: &mut A64Bytes<ValueSize>,
+    bucket_num: usize,
+    dest: &mut usize,
+    to_write_meta: &mut A8Bytes<MetaSize>,
+    to_write_data: &mut A64Bytes<ValueSize>,
+) -> Choice
+where
+    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+{
+    let should_drop = bucket_num.ct_eq(dest);
+    to_write_data.cmov(should_drop, held_data);
+    to_write_meta.cmov(should_drop, held_meta);
+    dest.cmov(should_drop, &FLOOR_INDEX);
+    should_drop
+}
+
+fn index_of_deepest_block_from_bucket<ValueSize, Z>(
+    bucket_meta: &[A8Bytes<MetaSize>],
+    branch: &BranchCheckout<ValueSize, Z>,
+) -> usize
+where
+    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
+    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+{
+    let mut deepest_target_for_level = FLOOR_INDEX;
+    let mut id_of_the_deepest_target_for_level = 0usize;
+    for (id, src_meta) in bucket_meta.iter().enumerate() {
+        let elem_destination: usize = branch.lowest_height_legal_index(*meta_leaf_num(src_meta));
+        let elem_destination_64: u64 = elem_destination as u64;
+        let is_elem_deeper = elem_destination_64.ct_lt(&(deepest_target_for_level as u64))
+            & !meta_is_vacant(src_meta);
+        id_of_the_deepest_target_for_level.cmov(is_elem_deeper, &id);
+        deepest_target_for_level.cmov(is_elem_deeper, &elem_destination);
+    }
+    id_of_the_deepest_target_for_level
+}
+
 #[cfg(test)]
 mod tests {
     extern crate std;
-    use std::dbg;
-
     use super::*;
     use crate::path_oram::{meta_block_num_mut, meta_leaf_num_mut, meta_set_vacant};
     use aligned_cmov::typenum::{U256, U4};
@@ -411,7 +642,9 @@ mod tests {
         log2_ceil, HeapORAMStorage, HeapORAMStorageCreator, ORAMStorageCreator,
     };
     use rand_core::SeedableRng;
-    use test_helper::{run_with_one_seed, run_with_several_seeds, RngType};
+    use std::dbg;
+    use test_helper::{a64_8, a8_8, run_with_one_seed, run_with_several_seeds, RngType};
+    use yare::parameterized;
     type Z = U4;
     type ValueSize = U64;
     type StorageType = HeapORAMStorage<U256, U64>;
@@ -762,28 +995,7 @@ mod tests {
             vec![5, 6], // 1 block for the leaf, 1 irrelevant block.
             vec![],     // leaf empty
         ];
-        for (i, bucket) in buckets.into_iter().rev().enumerate() {
-            for block in bucket {
-                let mut meta = A8Bytes::<MetaSize>::default();
-                let data = A64Bytes::<ValueSize>::default();
-                let mask = if block < 6 {
-                    1 << (zero_index_height - block)
-                } else {
-                    0
-                };
-                let destination_leaf = mask | leaf;
-                *meta_block_num_mut(&mut meta) = destination_leaf;
-                *meta_leaf_num_mut(&mut meta) = destination_leaf;
-                BranchCheckout::<ValueSize, Z>::insert_into_branch_suffix(
-                    1.into(),
-                    &data,
-                    &mut meta,
-                    i as usize,
-                    &mut branch.data,
-                    &mut branch.meta,
-                );
-            }
-        }
+        prepare_branch_from_buckets(buckets, zero_index_height, &mut branch);
 
         let mut stash_meta = vec![Default::default(); stash_size];
         for src_meta in &mut stash_meta {
@@ -828,16 +1040,31 @@ mod tests {
             vec![],     // empty
             vec![],     // leaf empty
         ];
+        prepare_branch_from_buckets(buckets, zero_index_height, &mut branch);
+
+        let mut stash_meta = vec![Default::default(); stash_size];
+        for src_meta in &mut stash_meta {
+            *meta_block_num_mut(src_meta) = size - 1;
+            *meta_leaf_num_mut(src_meta) = size - 1;
+        }
+
+        let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
+        let expected_deepest = vec![5, 5, 5, 5, 5, 6, FLOOR_INDEX];
+        assert_eq!(deepest_meta, expected_deepest);
+    }
+
+    fn prepare_branch_from_buckets(
+        buckets: Vec<Vec<i32>>,
+        zero_index_height: i32,
+        branch: &mut BranchCheckout<ValueSize, Z>,
+    ) {
+        let leaf = branch.leaf;
         for (i, bucket) in buckets.into_iter().rev().enumerate() {
             for block in bucket {
                 let mut meta = A8Bytes::<MetaSize>::default();
                 let data = A64Bytes::<ValueSize>::default();
-                let mask = if block < 6 {
-                    1 << (zero_index_height - block)
-                } else {
-                    0
-                };
-                let destination_leaf = mask | leaf;
+                let destination_leaf =
+                    destination_leaf_for_bucket_dest(block, zero_index_height, leaf);
                 *meta_block_num_mut(&mut meta) = destination_leaf;
                 *meta_leaf_num_mut(&mut meta) = destination_leaf;
                 BranchCheckout::<ValueSize, Z>::insert_into_branch_suffix(
@@ -850,16 +1077,15 @@ mod tests {
                 );
             }
         }
+    }
 
-        let mut stash_meta = vec![Default::default(); stash_size];
-        for src_meta in &mut stash_meta {
-            *meta_block_num_mut(src_meta) = size - 1;
-            *meta_leaf_num_mut(src_meta) = size - 1;
-        }
-
-        let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
-        let expected_deepest = vec![5, 5, 5, 5, 5, 6, FLOOR_INDEX];
-        assert_eq!(deepest_meta, expected_deepest);
+    fn destination_leaf_for_bucket_dest(block: i32, zero_index_height: i32, leaf: u64) -> u64 {
+        let mask = if block < zero_index_height + 1 {
+            1 << (zero_index_height - block)
+        } else {
+            0
+        };
+        mask | leaf
     }
 
     #[test]
@@ -888,6 +1114,85 @@ mod tests {
         let reader = bucket_meta.as_aligned_chunks();
         let bucket_has_vacancy: bool = bucket_has_empty_slot(reader).into();
         assert!(!bucket_has_vacancy);
+    }
+
+    #[test]
+    fn test_take_block_if_appropriate() {
+        let mut block_dest = FLOOR_INDEX;
+        let mut held_dest = 5usize;
+        let mut block_meta = a8_8::<MetaSize>(1);
+        let block_data = a64_8::<ValueSize>(1);
+        let mut held_meta = a8_8::<MetaSize>(2);
+        let mut held_data = a64_8::<ValueSize>(2);
+
+        take_block_if_appropriate(
+            block_dest,
+            &mut block_meta,
+            &block_data,
+            &mut held_meta,
+            &mut held_data,
+            &mut held_dest,
+        );
+
+        //Element should not be taken because the block_dest is the floor_index.
+        assert_eq!(held_dest, 5);
+        let block_was_moved: bool = meta_is_vacant(&block_meta).into();
+        assert!(!block_was_moved);
+        assert_eq!(held_meta, a8_8::<MetaSize>(2));
+        assert_eq!(held_data, a64_8::<ValueSize>(2));
+
+        block_dest = 0;
+        take_block_if_appropriate(
+            block_dest,
+            &mut block_meta,
+            &block_data,
+            &mut held_meta,
+            &mut held_data,
+            &mut held_dest,
+        );
+        //Element should be taken because the block dest is not the floor index
+        assert_eq!(held_dest, 0);
+        let block_was_moved: bool = meta_is_vacant(&block_meta).into();
+        assert!(block_was_moved);
+        assert_eq!(held_meta, a8_8::<MetaSize>(1));
+        assert_eq!(held_data, a64_8::<ValueSize>(1));
+    }
+
+    // We use a tree of height 5, (height is number of path levels, not node
+    // levels) and focus on the leftmost branch, this means the leaves of
+    // interest are
+    //
+    // 10000 | 10001 | 10011 | 10111 | 11111 |
+    //  32   |  33   |  35   |  39   |   63  |
+    //
+    #[parameterized(
+        none = {[0, 0, 0, 0], 0},
+        all_at_leaf = {[32, 32, 32, 32], 0},
+        all_at_root = {[63, 63, 63, 63], 0},
+        all_at_middle = {[39, 39, 39, 39], 0},
+        second_deepest = {[63, 35, 39, 39], 1},
+        third_deepest = {[63, 63, 39, 63], 2},
+        last_deepest = {[33, 33, 33, 32], 3},
+        // If you don't test for vacancy, this test fails
+        first_empty_others_at_root = {[0, 63, 63, 63], 1},
+        )]
+    fn test_index_of_deepest_block_from_bucket(bucket_list: [u64; 4], expected_index: usize) {
+        let height = 5;
+        let mut rng = RngType::from_seed([3u8; 32]);
+        let mut storage: StorageType =
+            HeapORAMStorageCreator::create(2 << height, &mut rng).expect("Storage failed");
+        let mut branch: BranchCheckout<ValueSize, Z> = Default::default();
+
+        let mut bucket_meta = A8Bytes::<Prod<Z, MetaSize>>::default();
+        let meta_as_chunks = bucket_meta.as_mut_aligned_chunks();
+        for (meta, destination) in meta_as_chunks.iter_mut().zip(bucket_list) {
+            *meta_leaf_num_mut(meta) = destination;
+        }
+
+        let leaf = 32;
+        branch.checkout(&mut storage, leaf);
+        let index = index_of_deepest_block_from_bucket(meta_as_chunks, &branch);
+        assert_eq!(index, expected_index);
     }
 
     struct BranchDataConfig {

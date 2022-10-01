@@ -1,4 +1,4 @@
-use aligned_cmov::{A8Bytes, ArrayLength};
+use aligned_cmov::{A64Bytes, A8Bytes, ArrayLength};
 pub use rand_core::{CryptoRng, RngCore, SeedableRng};
 use rand_hc::Hc128Rng;
 type Seed = <RngType as SeedableRng>::Seed;
@@ -40,6 +40,16 @@ pub fn get_seeded_rng() -> RngType {
 pub fn a8_8<N: ArrayLength<u8>>(src: u8) -> A8Bytes<N> {
     let mut result = A8Bytes::<N>::default();
     for byte in result.as_mut_slice() {
+        *byte = src;
+    }
+    result
+}
+
+/// Make a64-bytes that are initialized to a particular byte value
+/// This makes tests shorter to write
+pub fn a64_8<N: ArrayLength<u8>>(src: u8) -> A64Bytes<N> {
+    let mut result = A64Bytes::<N>::default();
+    for byte in result.iter_mut() {
         *byte = src;
     }
     result
