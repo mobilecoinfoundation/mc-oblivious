@@ -235,9 +235,7 @@ jobs:
           name: Lint/fmt
           command: |
             ./tools/lint.sh
-      - when:
-          condition: { equal: [ << pipeline.git.branch >>, master ] || true }
-          steps: [ save-cargo-cache ]
+      - save-cargo-cache
 workflows:
   version: 2
   # Build and run tests on a single container
