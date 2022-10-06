@@ -58,6 +58,7 @@ commands:
             command -v cargo-install-update >/dev/null || cargo install cargo-update
             command -v cargo-trim >/dev/null || (rustup run --install stable cargo install cargo-trim)
             cargo uninstall diesel_cli
+            rustup run --install stable cargo install cargo-cache
             cargo install-update --all
             # Configure cargo-trim with the project's Cargo.lock files
             mkdir -p ~/.config
