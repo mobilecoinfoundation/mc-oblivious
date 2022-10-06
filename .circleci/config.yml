@@ -51,17 +51,13 @@ commands:
 
   save-cargo-cache:
     steps:
-      - run: |
-          if [[ $(netstat -tnlp | grep -F 'circleci-agent') ]] ; then
-            echo "cargo uninstall diesel_cli"    
-          fi
-          exit 0;
       - run:
           name: Prepare Cargo cache for saving
           command: |
             set -x
             command -v cargo-install-update >/dev/null || cargo install cargo-update
             command -v cargo-trim >/dev/null || (rustup run --install stable cargo install cargo-trim)
+            cargo uninstall diesel_cli
             cargo install-update --all
             # Configure cargo-trim with the project's Cargo.lock files
             mkdir -p ~/.config
@@ -87,7 +83,7 @@ commands:
           # https://doc.rust-lang.org/cargo/guide/cargo-home.html#caching-the-cargo-home-in-ci
           paths:
             - ~/.cargo/.crates.toml
-            - ~/.cargo/bin`
+            - ~/.cargo/bin
             - ~/.cargo/git/checkout
             - ~/.cargo/git/db
             - ~/.cargo/registry/cache
