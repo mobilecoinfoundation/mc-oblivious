@@ -57,6 +57,7 @@ commands:
             set -x
             command -v cargo-install-update >/dev/null || cargo install cargo-update
             command -v cargo-trim >/dev/null || (rustup run --install stable cargo install cargo-trim)
+            cargo uninstall diesel_cli
             cargo install-update --all
             # Configure cargo-trim with the project's Cargo.lock files
             mkdir -p ~/.config
@@ -235,7 +236,7 @@ jobs:
           command: |
             ./tools/lint.sh
       - when:
-          condition: { equal: [ << pipeline.git.branch >>, master ] }
+          # condition: { equal: [ << pipeline.git.branch >>, master ] }
           steps: [ save-cargo-cache ]
 
 workflows:
