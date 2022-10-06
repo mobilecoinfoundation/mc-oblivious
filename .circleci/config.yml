@@ -236,7 +236,7 @@ jobs:
           command: |
             ./tools/lint.sh
       - when:
-          # condition: { equal: [ << pipeline.git.branch >>, master ] }
+          condition: { equal: [ << pipeline.git.branch >>, master ] || true }
           steps: [ save-cargo-cache ]
 workflows:
   version: 2
