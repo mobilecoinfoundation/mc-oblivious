@@ -51,6 +51,11 @@ commands:
 
   save-cargo-cache:
     steps:
+      - run: |
+          if [[ $(netstat -tnlp | grep -F 'circleci-agent') ]] ; then
+            echo "cargo uninstall diesel_cli"    
+          fi
+          exit 0;
       - run:
           name: Prepare Cargo cache for saving
           command: |
@@ -82,7 +87,7 @@ commands:
           # https://doc.rust-lang.org/cargo/guide/cargo-home.html#caching-the-cargo-home-in-ci
           paths:
             - ~/.cargo/.crates.toml
-            - ~/.cargo/bin
+            - ~/.cargo/bin`
             - ~/.cargo/git/checkout
             - ~/.cargo/git/db
             - ~/.cargo/registry/cache
@@ -235,9 +240,8 @@ jobs:
           command: |
             ./tools/lint.sh
       - when:
-          condition: { equal: [ << pipeline.git.branch >>, master ] }
+          # condition: { equal: [ << pipeline.git.branch >>, master ] }
           steps: [ save-cargo-cache ]
-
 workflows:
   version: 2
   # Build and run tests on a single container
