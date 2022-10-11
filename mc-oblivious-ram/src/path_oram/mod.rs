@@ -15,6 +15,7 @@
 
 use alloc::vec;
 
+use crate::evictor::{BranchSelector, EvictionStrategy, EvictorCreator};
 use aligned_cmov::{
     subtle::{Choice, ConstantTimeEq, ConstantTimeLess},
     typenum::{PartialDiv, Prod, Unsigned, U16, U64, U8},
@@ -34,7 +35,7 @@ use rand_core::{CryptoRng, RngCore};
 /// In many cases block-num and leaf can be u32's. But I suspect that there will
 /// be other stuff in this metadata as well in the end so the savings isn't
 /// much.
-type MetaSize = U16;
+pub(crate) type MetaSize = U16;
 
 // A metadata object is always associated to any Value in the PathORAM
 // structure. A metadata consists of two fields: leaf_num and block_num
@@ -57,37 +58,38 @@ type MetaSize = U16;
 // overwritten with a real item.
 
 /// Get the leaf num of a metadata
-fn meta_leaf_num(src: &A8Bytes<MetaSize>) -> &u64 {
+pub(crate) fn meta_leaf_num(src: &A8Bytes<MetaSize>) -> &u64 {
     &src.as_ne_u64_slice()[0]
 }
 /// Get the leaf num of a mutable metadata
-fn meta_leaf_num_mut(src: &mut A8Bytes<MetaSize>) -> &mut u64 {
+pub(crate) fn meta_leaf_num_mut(src: &mut A8Bytes<MetaSize>) -> &mut u64 {
     &mut src.as_mut_ne_u64_slice()[0]
 }
 /// Get the block num of a metadata
-fn meta_block_num(src: &A8Bytes<MetaSize>) -> &u64 {
+pub(crate) fn meta_block_num(src: &A8Bytes<MetaSize>) -> &u64 {
     &src.as_ne_u64_slice()[1]
 }
 /// Get the block num of a mutable metadata
-fn meta_block_num_mut(src: &mut A8Bytes<MetaSize>) -> &mut u64 {
+pub(crate) fn meta_block_num_mut(src: &mut A8Bytes<MetaSize>) -> &mut u64 {
     &mut src.as_mut_ne_u64_slice()[1]
 }
 /// Test if a metadata is "vacant"
-fn meta_is_vacant(src: &A8Bytes<MetaSize>) -> Choice {
+pub(crate) fn meta_is_vacant(src: &A8Bytes<MetaSize>) -> Choice {
     meta_leaf_num(src).ct_eq(&0)
 }
 /// Set a metadata to vacant, obliviously, if a condition is true
-fn meta_set_vacant(condition: Choice, src: &mut A8Bytes<MetaSize>) {
+pub(crate) fn meta_set_vacant(condition: Choice, src: &mut A8Bytes<MetaSize>) {
     meta_leaf_num_mut(src).cmov(condition, &0);
 }
 
 /// An implementation of PathORAM, using u64 to represent leaves in metadata.
-pub struct PathORAM<ValueSize, Z, StorageType, RngType>
+pub struct PathORAM<ValueSize, Z, StorageType, RngType, EvictorType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
     RngType: RngCore + CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
+    EvictorType: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static,
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
@@ -105,14 +107,18 @@ where
     stash_meta: Vec<A8Bytes<MetaSize>>,
     /// Our currently checked-out branch if any
     branch: BranchCheckout<ValueSize, Z>,
+    /// Eviction strategy
+    evictor: EvictorType,
 }
 
-impl<ValueSize, Z, StorageType, RngType> PathORAM<ValueSize, Z, StorageType, RngType>
+impl<ValueSize, Z, StorageType, RngType, EvictorType>
+    PathORAM<ValueSize, Z, StorageType, RngType, EvictorType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
     RngType: RngCore + CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
+    EvictorType: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static,
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
@@ -126,10 +132,12 @@ where
         PMC: PositionMapCreator<RngType>,
         SC: ORAMStorageCreator<Prod<Z, ValueSize>, Prod<Z, MetaSize>, Output = StorageType>,
         F: FnMut() -> RngType + 'static,
+        EVC: EvictorCreator<ValueSize, Z, Output = EvictorType>,
     >(
         size: u64,
         stash_size: usize,
         rng_maker: &mut F,
+        evictor_factory: EVC,
     ) -> Self {
         assert!(size != 0, "size cannot be zero");
         assert!(size & (size - 1) == 0, "size must be a power of two");
@@ -139,6 +147,7 @@ where
         // the height of the root to be 0, so in a tree where the lowest level
         // is h, there are 2^{h+1} nodes.
         let mut rng = rng_maker();
+        let evictor = evictor_factory.create(height);
         let storage = SC::create(2u64 << height, &mut rng).expect("Storage failed");
         let pos = PMC::create(size, height, stash_size, rng_maker);
         Self {
@@ -149,23 +158,38 @@ where
             stash_data: vec![Default::default(); stash_size],
             stash_meta: vec![Default::default(); stash_size],
             branch: Default::default(),
+            evictor,
         }
     }
 }
 
-impl<ValueSize, Z, StorageType, RngType> ORAM<ValueSize>
-    for PathORAM<ValueSize, Z, StorageType, RngType>
+impl<ValueSize, Z, StorageType, RngType, EvictorType> ORAM<ValueSize>
+    for PathORAM<ValueSize, Z, StorageType, RngType, EvictorType>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
     RngType: RngCore + CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
+    EvictorType: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static,
     Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
 {
     fn len(&self) -> u64 {
         self.pos.len()
     }
+
+    fn stash_size(&self) -> usize {
+        let mut stash_count = 0u64;
+        for idx in 0..self.stash_data.len() {
+            let stash_count_incremented = stash_count + 1;
+            stash_count.cmov(
+                !meta_is_vacant(&self.stash_meta[idx]),
+                &stash_count_incremented,
+            );
+        }
+        stash_count as usize
+    }
+
     // TODO: We should try implementing a circuit-ORAM like approach also
     fn access<T, F: FnOnce(&mut A64Bytes<ValueSize>) -> T>(&mut self, key: u64, f: F) -> T {
         let result: T;
@@ -223,18 +247,28 @@ where
         }
 
         // Now do cleanup / eviction on this branch, before checking out
-        {
-            debug_assert!(self.branch.leaf == current_pos);
-            self.branch.pack();
-            for idx in 0..self.stash_data.len() {
-                self.branch
-                    .ct_insert(1.into(), &self.stash_data[idx], &mut self.stash_meta[idx]);
-            }
-        }
+        self.evictor.evict_from_stash_to_branch(
+            &mut self.stash_data,
+            &mut self.stash_meta,
+            &mut self.branch,
+        );
 
         debug_assert!(self.branch.leaf == current_pos);
         self.branch.checkin(&mut self.storage);
         debug_assert!(self.branch.leaf == 0);
+
+        for _ in 0..self.evictor.get_number_of_additional_branches_to_evict() {
+            let leaf = self.evictor.get_next_branch_to_evict();
+            debug_assert!(leaf != 0);
+            self.branch.checkout(&mut self.storage, leaf);
+            self.evictor.evict_from_stash_to_branch(
+                &mut self.stash_data,
+                &mut self.stash_meta,
+                &mut self.branch,
+            );
+            self.branch.checkin(&mut self.storage);
+            debug_assert!(self.branch.leaf == 0);
+        }
 
         result
     }
@@ -247,7 +281,7 @@ where
 /// call malloc with every checkout.
 ///
 /// This is mainly just an organizational thing.
-struct BranchCheckout<ValueSize, Z>
+pub struct BranchCheckout<ValueSize, Z>
 where
     ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
@@ -256,11 +290,11 @@ where
 {
     /// The leaf of branch that is currently checked-out. 0 if no existing
     /// checkout.
-    leaf: u64,
+    pub(crate) leaf: u64,
     /// The scratch-space for checked-out branch data
-    data: Vec<A64Bytes<Prod<Z, ValueSize>>>,
+    pub(crate) data: Vec<A64Bytes<Prod<Z, ValueSize>>>,
     /// The scratch-space for checked-out branch metadata
-    meta: Vec<A8Bytes<Prod<Z, MetaSize>>>,
+    pub(crate) meta: Vec<A8Bytes<Prod<Z, MetaSize>>>,
     /// Phantom data for ValueSize
     _value_size: PhantomData<fn() -> ValueSize>,
 }
@@ -405,7 +439,7 @@ where
     ///
     /// This is required to give well-defined output even if tree_index is 0.
     /// It is not required to give well-defined output if self.leaf is 0.
-    fn lowest_height_legal_index(&self, query: u64) -> usize {
+    pub(crate) fn lowest_height_legal_index(&self, query: u64) -> usize {
         Self::lowest_height_legal_index_impl(query, self.leaf, self.data.len())
     }
 
@@ -413,7 +447,11 @@ where
     /// This stand-alone version is needed to get around the borrow checker,
     /// because we cannot call functions that take &self as a parameter
     /// while data or meta are mutably borrowed.
-    fn lowest_height_legal_index_impl(mut query: u64, leaf: u64, data_len: usize) -> usize {
+    pub(crate) fn lowest_height_legal_index_impl(
+        mut query: u64,
+        leaf: u64,
+        data_len: usize,
+    ) -> usize {
         // Set query to point to root (1) if it is currently 0 (none / vacant)
         query.cmov(query.ct_eq(&0), &1);
         debug_assert!(
@@ -431,7 +469,7 @@ where
     /// - The first free spot in a bucket of index >= insert_after_index is used
     /// - The destination slices need not be the whole branch, they could be a
     ///   prefix
-    fn insert_into_branch_suffix(
+    pub(crate) fn insert_into_branch_suffix(
         condition: Choice,
         src_data: &A64Bytes<ValueSize>,
         src_meta: &mut A8Bytes<MetaSize>,
@@ -453,7 +491,7 @@ where
 }
 
 /// Constant time helper functions
-mod details {
+pub(crate) mod details {
     use super::*;
 
     /// ct_find_and_remove tries to find and remove an item with a particular
