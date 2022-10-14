@@ -16,20 +16,19 @@ no_asm_insecure = ["aligned-cmov/no_asm_insecure"]
 [dependencies]
 aligned-array = { version = "1", features = ["subtle"] }
 aligned-cmov = { path = "../aligned-cmov", version = "2.2" }
-mc-oblivious-traits = { path = "../mc-oblivious-traits", version = "2.2" }
 
 generic-array = { version = "0.14", default-features = false }
+mc-oblivious-traits = { path = "../mc-oblivious-traits", version = "2.2" }
 rand_core = { version = "0.6", default-features = false }
 siphasher = "0.3"
 
 [dev-dependencies]
-mc-oblivious-ram = { path = "../mc-oblivious-ram" }
-test-helper = { path = "../test-helper" }
-
-criterion = {version = "0.3", features = ["html_reports"]}
-
+criterion = { version = "0.3", features = ["html_reports"] }
 # This is only needed by benchmarks... we should really put this on crates.io
 mc-crypto-rand = { git = "https://github.com/mobilecoinfoundation/mobilecoin", rev = "9653694d5fcd8fb9438728547467518b634d6cf5" }
+
+mc-oblivious-ram = { path = "../mc-oblivious-ram" }
+test-helper = { path = "../test-helper" }
 
 [[bench]]
 name = "ingest"
