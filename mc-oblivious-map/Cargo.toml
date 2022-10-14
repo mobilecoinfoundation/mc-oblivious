@@ -23,8 +23,8 @@ rand_core = { version = "0.6", default-features = false }
 siphasher = "0.3"
 
 [dev-dependencies]
-# This is only needed by benchmarks... we should really put this on crates.io
 criterion = { version = "0.3", features = ["html_reports"] }
+# This is only needed by benchmarks... we should really put this on crates.io
 mc-crypto-rand = { git = "https://github.com/mobilecoinfoundation/mobilecoin", rev = "9653694d5fcd8fb9438728547467518b634d6cf5" }
 
 mc-oblivious-ram = { path = "../mc-oblivious-ram" }
