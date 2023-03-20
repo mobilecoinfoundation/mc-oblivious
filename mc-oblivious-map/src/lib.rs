@@ -263,18 +263,27 @@ where
     }
 
     /// For access:
-    /// Access must be fully oblivious, unlike write
+    /// Access (without deleting) must be fully oblivious, unlike write
     /// - Checkout both buckets, scan them for the query, copying onto a stack
     ///   buffer
     /// - Run callback at the stack buffer
     /// - Scan the buckets again and overwrite the old buffer
-    fn access<F: FnOnce(u32, &mut A8Bytes<ValueSize>)>(&mut self, query: &A8Bytes<KeySize>, f: F) {
+    /// - If the callback asked to delete the item, also zero out its key.
+    ///
+    /// We would like to be constant-time about whether deletes happened or not,
+    /// but changing the number of items in the map is a side-effect which we
+    /// leak some information about, so we can't be totally principled about
+    /// that.
+    fn access_and_remove<F: FnOnce(u32, &mut A8Bytes<ValueSize>) -> Choice>(
+        &mut self,
+        query: &A8Bytes<KeySize>,
+        f: F,
+    ) {
         let mut callback_buffer = A8Bytes::<ValueSize>::default();
-        // Early return for invalid key
-        if bool::from(query.ct_eq(&A8Bytes::<KeySize>::default())) {
-            f(OMAP_INVALID_KEY, &mut callback_buffer);
-            return;
-        }
+        // All zeroes is an invalid key, because we use that as a sentinel to detect
+        // free spots in the hashmap. In this scenario, we give the callback
+        // OMAP_INVALID_KEY and pass an empty buffer which is later discarded.
+        let query_is_valid = query.ct_ne(&A8Bytes::<KeySize>::default());
 
         let hashes = self.hash_query(query);
         let oram1 = &mut self.oram1;
@@ -284,12 +293,14 @@ where
             oram2.access(hashes[1], |block2| {
                 // If we never find the item, we will pass OMAP_NOT_FOUND to callback,
                 // and we will not insert it, no matter what the callback does.
-                let mut result_code = OMAP_NOT_FOUND;
+                let mut result_code = OMAP_INVALID_KEY;
+                result_code.cmov(query_is_valid, OMAP_NOT_FOUND);
                 for block in &[&block1, &block2] {
                     let pairs: &[A8Bytes<Sum<KeySize, ValueSize>>] = block.as_aligned_chunks();
                     for pair in pairs {
                         let (key, val): (&A8Bytes<KeySize>, &A8Bytes<ValueSize>) = pair.split();
-                        let test = query.ct_eq(key);
+                        // Test if query = key, but also, always do nothing if query is invalid
+                        let test = query.ct_eq(key) & query_is_valid;
                         callback_buffer.cmov(test, val);
                         debug_assert!(
                             result_code != OMAP_FOUND || bool::from(!test),
@@ -298,7 +309,7 @@ where
                         result_code.cmov(test, &OMAP_FOUND);
                     }
                 }
-                f(result_code, &mut callback_buffer);
+                let should_delete = f(result_code, &mut callback_buffer);
 
                 for block in &mut [block1, block2] {
                     let pairs: &mut [A8Bytes<Sum<KeySize, ValueSize>>] =
@@ -306,8 +317,11 @@ where
                     for pair in pairs {
                         let (key, val): (&mut A8Bytes<KeySize>, &mut A8Bytes<ValueSize>) =
                             pair.split();
-                        let test = query.ct_eq(key);
+                        // Test if query = key, but also, always do nothing if query is invalid
+                        let test = query.ct_eq(key) & query_is_valid;
                         val.cmov(test, &callback_buffer);
+                        // Zero the key if the callback wants us to delete this item
+                        key.cmov(test & should_delete, &Default::default());
                     }
                 }
             });
