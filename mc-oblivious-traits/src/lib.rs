@@ -301,11 +301,20 @@ pub trait ObliviousHashMap<KeySize: ArrayLength<u8>, ValueSize: ArrayLength<u8>>
     /// nothing will be added. If there is a match then after the callback
     /// runs, the contents of the mutable buffer will be
     /// the value associated to this key.
+    #[inline]
     fn access<F: FnOnce(u32, &mut A8Bytes<ValueSize>)>(
         &mut self,
         key: &A8Bytes<KeySize>,
         callback: F,
-    );
+    ) {
+        // By default we call to access-and-remove and always elect not to remove.
+        // The perf consequence of this is usually very small, so this is a reasonable
+        // default implementation.
+        self.access_and_remove(key, |(code, val)| -> Choice {
+            callback(code, val);
+            Choice::from(0)
+        })
+    }
 
     /// Remove an entry from the map, by its key.
     ///
@@ -319,6 +328,51 @@ pub trait ObliviousHashMap<KeySize: ArrayLength<u8>, ValueSize: ArrayLength<u8>>
     /// - OMAP_INVALID_KEY: The key was rejected. The map is permitted to reject
     ///   an all-zeroes key.
     fn remove(&mut self, key: &A8Bytes<KeySize>) -> u32;
+
+    /// Access from the map at some position, and forward the value to a
+    /// callback, which may modify it. The callback returns a boolean, which,
+    /// if true, removes the entry.
+    ///
+    /// Note: This is strongly oblivious regardless of whether the value was
+    /// found, with the exception that we may early return if the all zeroes
+    /// key is encountered. The callback must also be oblivious for this
+    /// property to hold.
+    /// We are somewhat oblivious about whether a delete occurred, see note
+    /// below.
+    ///
+    /// Arguments:
+    /// - key: The data to query from the map
+    /// - callback: A function to call after the entry has been retrieved on the
+    ///   stack.
+    ///
+    /// Callback:
+    /// The callback is passed a status code and a mutable value.
+    /// The status code indicates if this value already existed in the map
+    /// (OMAP_FOUND) or if there was no match (OMAP_NOT_FOUND), or if the
+    /// query was illegal (OMAP_INVALID_KEY).
+    /// The return value indicates whether we should also remove the item from
+    /// the map -- if true, it is removed.
+    ///
+    /// If there was no match then it doesn't matter what the callback does,
+    /// nothing will be added or removed. If there is a match then after the
+    /// callback runs, the contents of the mutable buffer will be
+    /// the value associated to this key.
+    ///
+    /// Note: Over time, there will be some information leakage if many things
+    /// are removed or not removed by this call, because the number of items in
+    /// the map is changing, and so if there are subsequent calls to insert
+    /// things to the map, they will perform cuckoo steps with greater or
+    /// lesser probability, depending roughly on how full the map is.
+    ///
+    /// If this is unacceptable, another strategy might involve adding junk
+    /// values or not (obliviously) whenever items are deleted. (This would
+    /// be another possible call, because this has significant perf
+    /// consequences as well.)
+    fn access_and_remove<F: FnOnce(u32, &mut A8Bytes<ValueSize>) -> Choice>(
+        &mut self,
+        key: &A8Bytes<KeySize>,
+        callback: F,
+    );
 
     /// Write to the map at a position.
     ///
