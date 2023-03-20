@@ -310,7 +310,7 @@ pub trait ObliviousHashMap<KeySize: ArrayLength<u8>, ValueSize: ArrayLength<u8>>
         // By default we call to access-and-remove and always elect not to remove.
         // The perf consequence of this is usually very small, so this is a reasonable
         // default implementation.
-        self.access_and_remove(key, |(code, val)| -> Choice {
+        self.access_and_remove(key, |code, val| -> Choice {
             callback(code, val);
             Choice::from(0)
         })

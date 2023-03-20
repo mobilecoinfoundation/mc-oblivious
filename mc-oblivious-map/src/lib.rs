@@ -283,7 +283,7 @@ where
         // All zeroes is an invalid key, because we use that as a sentinel to detect
         // free spots in the hashmap. In this scenario, we give the callback
         // OMAP_INVALID_KEY and pass an empty buffer which is later discarded.
-        let query_is_valid = query.ct_ne(&A8Bytes::<KeySize>::default());
+        let query_is_valid = !query.ct_eq(&A8Bytes::<KeySize>::default());
 
         let hashes = self.hash_query(query);
         let oram1 = &mut self.oram1;
@@ -294,7 +294,7 @@ where
                 // If we never find the item, we will pass OMAP_NOT_FOUND to callback,
                 // and we will not insert it, no matter what the callback does.
                 let mut result_code = OMAP_INVALID_KEY;
-                result_code.cmov(query_is_valid, OMAP_NOT_FOUND);
+                result_code.cmov(query_is_valid, &OMAP_NOT_FOUND);
                 for block in &[&block1, &block2] {
                     let pairs: &[A8Bytes<Sum<KeySize, ValueSize>>] = block.as_aligned_chunks();
                     for pair in pairs {
