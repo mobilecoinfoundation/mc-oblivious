@@ -1,0 +1,100 @@
+---
+repository:
+  name: "mc-oblivious"
+  description: "ORAM and related for Intel SGX enclaves"
+  homepage: https://mobilecoin.foundation/
+  topics: "cryptography, no-std"
+  private: false
+  has_issues: true
+  has_projects: false
+  has_wiki: true
+  has_downloads: false
+  default_branch: main
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: false
+  allow_auto_merge: true
+  delete_branch_on_merge: true
+  use_squash_pr_title_as_default: true
+  enable_automated_security_fixes: true
+  enable_vulnerability_alerts: true
+
+labels:
+  - name: dependencies
+    color: '#0366d6'
+    description: Pull requests that update a dependency file
+
+  - name: github_actions
+    color: '#000000'
+    description: Pull requests that update github actions
+  - name: go
+    color: '#29beb0'
+    description: Pull requests that update golang code
+  - name: javascript
+    color: '#f0db4f'
+    description: Pull requests that update javascript code
+  - name: python
+    color: '#4584b6'
+    description: Pull requests that update python code
+  - name: rust
+    color: '#f74c00'
+    description: Pull requests that update rust code
+
+  - name: size/XS
+    color: '#00ed01'
+    description: Extra-Small PRs
+  - name: size/S
+    color: '#3af901'
+    description: Small PRs
+  - name: size/M
+    color: '#cefb02'
+    description: Medium-sized PRs
+  - name: size/L
+    color: '#ffde40'
+    description: Large PRs
+  - name: size/XL
+    color: '#ff9100'
+    description: Extra-Large PRs
+  - name: size/XXL
+    color: '#f24d11'
+    description: Double-wide PRs
+  - name: size/OHLAWDHECOMIN
+    color: '#ed1717'
+    description: PRs that should get broken down
+
+collaborators:
+  - username: meowblecoinbot
+    permission: triage
+  - username: cbeck88
+    permission: maintain
+  - username: jcape
+    permission: maintain
+  - username: wjuan-mob
+    permission: maintain
+
+teams:
+  - name: coredev
+    permission: push
+
+branches:
+  - name: main
+    # https://docs.github.com/en/rest/branches/branch-protection?apiVersion=2022-11-28
+    protection:
+      required_pull_request_reviews:
+        require_code_owner_reviews: true
+        required_approving_review_count: 1
+        require_last_push_approval: true
+      required_conversation_resolution: false
+      required_status_checks:
+        strict: false
+        contexts:
+          - lint
+          - deny
+          - sort
+          - clippy
+          - build
+          - test
+          - coverage
+      enforce_admins: true
+      required_linear_history: true
+      restrictions: null

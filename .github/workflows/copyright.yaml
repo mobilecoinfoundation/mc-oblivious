@@ -1,0 +1,24 @@
+---
+name: copyright
+
+"on":
+  schedule:
+    - cron: '0 3 1 1 *'  # 03:00 AM on January 1
+
+jobs:
+  update-license-year:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: FantasticFiasco/action-update-license-year@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: |
+            **/*.rs
+            **/*.proto
+          assignees: '@mobilecoinfoundation/coredev'
+          labels: "copyright"
+          transform: (?<=^\/\/ Copyright \(c\) )(?<from>\d{4})?-?(\d{4})?

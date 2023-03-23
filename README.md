@@ -3,6 +3,13 @@
 mc-oblivious
 =============
 
+[![Project Chat][chat-image]][chat-link]<!--
+-->![License][license-image]<!--
+-->[![Dependency Status][deps-image]][deps-link]<!--
+-->[![CodeCov Status][codecov-image]][codecov-link]<!--
+-->[![GitHub Workflow Status][gha-image]][gha-link]<!--
+-->[![Contributor Covenant][conduct-image]][conduct-link]
+
 Traits and implementations for Oblivious RAM inside of Intel SGX enclaves.
 
 The scope of this repository is:
@@ -86,3 +93,15 @@ Increasing the capacity will require using more memory, so we are not oblivious 
 As another example, the `access` function in PathORAM implementation takes a closure to which the accessed data is passed.
 This closure includes a function pointer -- if two different closures are passed, the code access patterns will be different. Additionally,
 if the code in the closure is not itself constant-time with respect to the query then we won't be constant-time. We don't bother documenting this since it should be clear to the user of the API.
+
+[chat-image]: https://img.shields.io/discord/844353360348971068?style=flat-square
+[chat-link]: https://discord.gg/mobilecoin
+[license-image]: https://img.shields.io/crates/l/aligned-cmov?style=flat-square
+[deps-image]: https://deps.rs/repo/github/mobilecoinfoundation/mc-oblivious/status.svg?style=flat-square
+[deps-link]: https://deps.rs/repo/github/mobilecoinfoundation/mc-oblivious
+[codecov-image]: https://img.shields.io/codecov/c/github/mobilecoinfoundation/mc-oblivious/develop?style=flat-square
+[codecov-link]: https://codecov.io/gh/mobilecoinfoundation/mc-oblivious
+[gha-image]: https://img.shields.io/github/actions/workflow/status/mobilecoinfoundation/mc-oblivious/ci.yaml?branch=main&style=flat-square
+[gha-link]: https://github.com/mobilecoinfoundation/mc-oblivious/actions/workflows/ci.yaml?query=branch%3Amain
+[conduct-link]: CODE_OF_CONDUCT.md
+[conduct-image]: https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square

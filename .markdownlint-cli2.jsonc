@@ -1,0 +1,14 @@
+{
+  // Disable some built-in rules
+  "config": {
+    "line-length": false,
+    "no-duplicate-header": {
+        // Allow multiple "Added" sections in the changelog
+        "siblings_only": true
+    }
+  },
+
+  // Define glob expressions to use (only valid at root)
+  "globs": ["**/*.md"],
+  "ignores": [".github/pull_request_template.md", "target/"]
+}
