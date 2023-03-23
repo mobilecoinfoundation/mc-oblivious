@@ -16,4 +16,4 @@ jobs:
         with:
           repo-token: ${{ secrets.MEOWBLECOIN_PAT }}
           org: "mobilecoinfoundation"
-          teams: "coredev"
+          teams: "crypto-eng"

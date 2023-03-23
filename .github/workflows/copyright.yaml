@@ -19,6 +19,6 @@ jobs:
           path: |
             **/*.rs
             **/*.proto
-          assignees: '@mobilecoinfoundation/coredev'
+          assignees: '@mobilecoinfoundation/crypto-eng'
           labels: "copyright"
           transform: (?<=^\/\/ Copyright \(c\) )(?<from>\d{4})?-?(\d{4})?
