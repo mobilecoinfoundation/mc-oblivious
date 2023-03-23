@@ -11,10 +11,6 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/add-to-project@v0.4.1
-        with:
-          github-token: "${{ secrets.MEOWBLECOIN_PAT }}"
-          project-url: https://github.com/orgs/mobilecoinfoundation/projects/7
       - uses: pascalgn/size-label-action@v0.4.3
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

@@ -16,7 +16,3 @@ jobs:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: .github/triage-labeler.yaml
           enable-versioned-regex: 0
-      - uses: actions/add-to-project@v0.4.1
-        with:
-          github-token: "${{ secrets.MEOWBLECOIN_PAT }}"
-          project-url: https://github.com/orgs/mobilecoinfoundation/projects/5
