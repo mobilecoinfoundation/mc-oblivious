@@ -31,7 +31,7 @@ The [subtle crate](https://github.com/dalek-cryptography/subtle) is the most obv
 
 This crate builds on subtle, but it introduces a new trait for conditional assignment:
 
-```
+```rust
 pub trait CMov {
     fn cmov(&mut self, condition: subtle::Choice, src: &self);
 }
@@ -39,7 +39,7 @@ pub trait CMov {
 
 We chose not to use `subtle::ConditionallySelectable` for this because that trait defines its functionality in terms of
 
-```
+```rust
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self;
 ```
 
@@ -70,6 +70,7 @@ In the long run, it might be nice to get functionality like this in subtle crate
 
 For example, the rust-crypto `aes` [crate](https://docs.rs/aes/0.6.0/aes/) uses platform detection in its Cargo.toml
 to select at compile-time between:
+
 - A portable implementation of aes (`aes-soft`)
 - A hardware-accelerated implementation of aes using x86 aesni instructions (`aesni`)
 
@@ -86,17 +87,20 @@ References
 ----------
 
 Constant-time code and side-channel resistance:
+
 - Intel's [Guidelines for mitigating timing side-channels against cryptographic implementations](https://software.intel.com/security-software-guidance/insights/guidelines-mitigating-timing-side-channels-against-cryptographic-implementations)
 - Tim McLean's [Rust-timing-shield](https://www.chosenplaintext.ca/open-source/rust-timing-shield/security)
 - isis agora lovecruft's [subtle](https://github.com/dalek-cryptography/subtle)
 - Chandler Carruth on [Spectre](https://www.youtube.com/watch?v=_f7O3IfIR2k)
 
 Using AVX instructions for cryptographic implementations
+
 - Samuel Neves and Jean-Philippe Aumasson [Implementing BLAKE with AVX, AVX2, and XOP](https://131002.net/data/papers/NA12a.pdf)
 - Henry DeValence on [AVX512 backend in curve25519-dalek](https://medium.com/@hdevalence/even-faster-edwards-curves-with-ifma-8b1e576a00e9)
 - David Wong on [SIMD Instructions in Crypto](https://www.cryptologie.net/article/405/simd-instructions-in-crypto/)
 
 x86-64 assembly:
+
 - Felix Cloutier's [x86-64 instruction reference](https://www.felixcloutier.com/x86/)
   See also his links to official Intel documentation.
 - Intel's [x86-64 intrinsics guide](https://software.intel.com/sites/landingpage/IntrinsicsGuide/)

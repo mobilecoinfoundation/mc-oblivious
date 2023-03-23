@@ -13,7 +13,7 @@ more compact and has better locality.
 In this mapping, the internal nodes and leaves of the binary tree are numbered
 in order of height, starting from 1, up to 2^n.
 
-```
+```rust
                    1
            2               3
        4       5       6       7
@@ -29,7 +29,7 @@ This works very well for ORAM because ORAM always uses a complete balanced binar
 In this scheme, it is easy to find the parent, left, or right child of a nodes,
 using bit manipulations, which are fast and constant-time.
 
-```
+```rust
     parent(x) := x >> 1
     left(x) := x << 1
     right(x) := (x << 1) + 1
@@ -40,7 +40,7 @@ In this scheme, the `0` value is unused, so it can be used as a sentinel value.
 As an alternative way to understand the scheme, consider the binary representation of
 a number.
 
-```
+```rust
 0 0 0 1 0 1 1 0 1
 ```
 
@@ -69,6 +69,7 @@ on u32 and u64 integer types, for use in ORAM implementations. This is a separat
 code can be shared, and also because it might be used in the ORAM memory engine.
 
 There are some other nice properties of the scheme:
+
 - If a level is added to the tree, the old indices don't become invalid, they just continue on.
 - Promoting from a u32 to a u64 doesn't break anything and the bit operations continue to work as before basically.
 
