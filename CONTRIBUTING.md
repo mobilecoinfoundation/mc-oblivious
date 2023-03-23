@@ -1,3 +1,5 @@
+# Contributing
+
 ## Contributing Bug Reports
 
 MobileCoin is a prototype that is being actively developed.
@@ -5,12 +7,12 @@ MobileCoin is a prototype that is being actively developed.
 `mc-oblivious` was created to meet the needs of *MobileCoin Fog*, to be used in SGX enclaves in fog servers.
 
 `mc-oblivious` is, as far as we know, the *first* oblivious RAM implementation world-wide
-that will deployed to production and serve real user requests.
+that has deployed to production and serve real user requests.
 
-Please report issues to https://github.com/mobilecoinofficial/mc-oblivious/issues.
+Please report issues to [mc-oblivious/issues](https://github.com/mobilecoinfoundation/mc-oblivious/issues).
 
 1. Search both open and closed tickets to make sure your bug report is not a duplicate.
-1. Do not use github issues as a forum. To participate in community discussions, please use the community forum at [community.mobilecoin.foundation](https://community.mobilecoin.foundation).
+1. Do not use github issues as a forum. To participate in community discussions, please use the community forum at [community.mobilecoin.foundation](https://community.mobilecoin.foundation), or join us at discord.
 
 ## Pull Requests (PRs)
 
@@ -26,7 +28,7 @@ when you develop locally.
 
 Coming soon: Code Style Guidelines
 
-### Sign the Contributor License Agreement (CLA)
+## Sign the Contributor License Agreement (CLA)
 
 You will need to sign [our CLA](./CLA.md) before your pull request can be merged. Please email [cla@mobilecoin.com](mailto://cla@mobilecoin.com) and we will send you a copy.
 
