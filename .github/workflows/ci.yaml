@@ -180,7 +180,7 @@ jobs:
       - uses: r7kamura/rust-problem-matchers@v1
       - run: cargo +${{ matrix.rust }} build --release
 
-  test-release:
+  test:
     runs-on: ubuntu-22.04
     needs:
       - lint
@@ -190,31 +190,16 @@ jobs:
           - stable
           - beta
           - nightly-2023-01-04
+        flags:
+          - ""
+          - "--release"
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} test --release
-
-  test-debug:
-    runs-on: ubuntu-22.04
-    needs:
-      - lint
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - beta
-          - nightly-2023-01-04
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-      - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} test
+      - run: cargo +${{ matrix.rust }} test ${{ matrix.flags }}
 
   bench:
     runs-on: ubuntu-22.04
