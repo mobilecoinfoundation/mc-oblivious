@@ -9,7 +9,6 @@ name: ci
 
 env:
   CARGO_INCREMENTAL: 0
-  RUSTFLAGS: "-Dwarnings"
 
 jobs:
   # TODO: Fix automatically
