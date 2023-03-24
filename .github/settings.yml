@@ -93,13 +93,13 @@ branches:
         strict: false
         contexts:
           - lint
-          - deny (bans licenses sources)
+          - "deny (bans licenses sources)"
           - sort
-          - clippy (stable)
-          - build (nightly-2023-03-23)
-          - build (nightly-2023-03-23, --release)
-          - test (nightly-2023-03-23)
-          - test (nightly-2023-03-23, --release)
+          - "clippy (stable)"
+          - "build (nightly-2023-03-23)"
+          - "build (nightly-2023-03-23, --release)"
+          - "test (nightly-2023-03-23)"
+          - "test (nightly-2023-03-23, --release)"
           - coverage
       enforce_admins: true
       required_linear_history: true
