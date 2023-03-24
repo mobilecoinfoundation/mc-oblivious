@@ -232,8 +232,8 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
       - run: |
-          apt-get update && \
-          apt-get install -y libgsl-dev && \
+          sudo apt-get update && \
+          sudo apt-get install -y libgsl-dev && \
           cd no-asm-tests && \
           cargo +${{ matrix.rust }} test --release
 
