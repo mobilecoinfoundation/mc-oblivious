@@ -3,6 +3,7 @@ name = "test-helper"
 version = "2.0.0"
 authors = ["Chris Beck <beck.ct@gmail.com>"]
 edition = "2018"
+license = "GPL-3.0"
 
 [dependencies]
 aligned-array = { version = "1", features = ["subtle"] }
