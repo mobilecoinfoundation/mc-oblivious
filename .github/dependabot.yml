@@ -1,8 +1,14 @@
+---
 version: 2
 updates:
-- package-ecosystem: cargo
-  directory: "/"
-  directory: "/no-asm-tests"
-  schedule:
-    interval: daily
-  open-pull-requests-limit: 5
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 3
+    
+  - package-ecosystem: cargo
+    directory: "/no-asm-tests"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 3
