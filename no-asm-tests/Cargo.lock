@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "aligned-cmov"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "aligned-array",
  "generic-array",
@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "balanced-tree-index"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "aligned-cmov",
  "rand_core",
@@ -66,7 +66,7 @@ checksum = "99227334921fae1a979cf0bfdfcc6b3e5ce376ef57e16fb6fb3ea2ed6095f80c"
 
 [[package]]
 name = "mc-oblivious-ram"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "aligned-cmov",
  "balanced-tree-index",
@@ -76,7 +76,7 @@ dependencies = [
 
 [[package]]
 name = "mc-oblivious-traits"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "aligned-cmov",
  "balanced-tree-index",
@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "no-asm-tests"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "GSL",
  "aligned-cmov",
@@ -130,7 +130,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "test-helper"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "aligned-array",
  "aligned-cmov",

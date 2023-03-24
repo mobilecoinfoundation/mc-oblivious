@@ -1,14 +1,14 @@
 [package]
 name = "aligned-cmov"
-version = "2.2.0"
+version = "2.3.0"
 description = "Fast constant-time conditional moves of aligned bytes"
 authors = ["MobileCoin"]
 license = "GPL-3.0"
 edition = "2018"
 readme = "README.md"
 repository = "https://github.com/mobilecoinofficial/mc-oblivious"
-keywords = ["cryptography", "crypto", "constant-time", "utilities"]
-categories = ["cryptography", "no-std"]
+keywords = ["aligned", "alignment", "cryptography", "crypto", "constant-time", "utilities"]
+categories = ["embedded", "memory-management", "cryptography", "no-std"]
 
 [features]
 no_asm_insecure = []

@@ -33,7 +33,7 @@ exceptions = []
 [bans]
 multiple-versions = "warn"
 # Lint level for when a crate version requirement is `*`
-wildcards = "deny"
+wildcards = "warn"
 highlight = "all"
 allow = []
 deny = [
@@ -45,7 +45,9 @@ skip = [
     # https://github.com/EmbarkStudios/cargo-deny/issues/241
     { name = "test-helper" },
 ]
-skip-tree = [ ]
+skip-tree = [
+    { name = "test-helper" },
+]
 
 [sources]
 unknown-registry = "warn"

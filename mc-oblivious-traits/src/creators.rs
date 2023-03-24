@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2021 The MobileCoin Foundation
+// Copyright (c) 2018-2023 The MobileCoin Foundation
 
 //! This module defines several "factory traits" that e.g. create recursive
 //! ORAMS and control the configuration of recursive children etc.

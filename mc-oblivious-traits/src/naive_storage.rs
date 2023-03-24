@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2021 The MobileCoin Foundation
+// Copyright (c) 2018-2023 The MobileCoin Foundation
 
 //! HeapORAMStorage just uses a Vec to provide access to block storage in the
 //! simplest way possible. It does not do any memory encryption or talk to

@@ -1,12 +1,12 @@
 [package]
 name = "test-helper"
-version = "2.2.0"
+version = "2.3.0"
 authors = ["Chris Beck <beck.ct@gmail.com>"]
 edition = "2018"
 license = "GPL-3.0"
 
 [dependencies]
 aligned-array = { version = "1", features = ["subtle"] }
-aligned-cmov = { path = "../aligned-cmov", version = "2.2" }
+aligned-cmov = { path = "../aligned-cmov", version = "2.3" }
 rand_core = { version = "0.6", default-features = false }
 rand_hc = "0.3"

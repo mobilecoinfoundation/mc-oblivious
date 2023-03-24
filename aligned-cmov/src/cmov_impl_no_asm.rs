@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2021 The MobileCoin Foundation
+// Copyright (c) 2018-2023 The MobileCoin Foundation
 
 //! Naive implementation of cmov using a branch
 //! This is not secure, and is meant for testing the *correctness* of large
