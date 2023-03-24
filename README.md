@@ -1,7 +1,4 @@
-![](./img/mobilecoin_logo.png)
-
-mc-oblivious
-=============
+# mc-oblivious ![mobilecoin](./img/mobilecoin_logo.png)
 
 [![Project Chat][chat-image]][chat-link]<!--
 -->![License][license-image]<!--

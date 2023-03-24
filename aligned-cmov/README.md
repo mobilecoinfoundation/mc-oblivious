@@ -1,5 +1,4 @@
-aligned-cmov
-============
+# aligned-cmov
 
 `cmov` is an abbreviation of *conditional move*. A conditional operation which takes
 a source value, a destination value, and a boolean, and overwrites the destination with
@@ -24,8 +23,7 @@ Because the scope of `mc-oblivious` is only to support *Intel x86-64 inside of S
 on relatively recent (>= skylake) CPUs,
 we provide inline assembly which does the optimal thing for the datatypes that we care about.
 
-Comparison to `subtle`
-----------------------
+## Comparison to `subtle`
 
 The [subtle crate](https://github.com/dalek-cryptography/subtle) is the most obvious other crate in the same genre.
 
@@ -63,8 +61,7 @@ happening here between portability of the code and correct assembly generation.
 
 That said, we still rely on subtle for a "shielded boolean" type that we need to be the argument of cmov.
 
-Future directions
------------------
+## Future directions
 
 In the long run, it might be nice to get functionality like this in subtle crate itself.
 
@@ -83,8 +80,7 @@ primitives that require that AFAIK. Since `subtle` is dependend on by ALOT of cr
 of functionality may be scope creep and it's not clear it's desirable to have this extra stuff in the dependency tree of many other
 cryptographic libraries.
 
-References
-----------
+## References
 
 Constant-time code and side-channel resistance:
 

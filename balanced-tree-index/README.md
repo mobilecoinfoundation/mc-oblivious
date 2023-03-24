@@ -1,5 +1,4 @@
-balanced-tree-index
-===================
+# balanced-tree-index
 
 This crate holds a very small amount of code related to the following fundamental idea:
 
@@ -51,8 +50,7 @@ from the root.
 By reading off the remaining digits, we can read off the path to reach this number:
 First go left, then right, then right, then left, then right.
 
-Additional Operations
----------------------
+## Additional Operations
 
 There are a few additional handy operations that we can do easily in constant time
 with this scheme, that we need to do in ORAM.
@@ -73,8 +71,7 @@ There are some other nice properties of the scheme:
 - If a level is added to the tree, the old indices don't become invalid, they just continue on.
 - Promoting from a u32 to a u64 doesn't break anything and the bit operations continue to work as before basically.
 
-Constant-time
--------------
+## Constant-time
 
 This code is meant to be used to implement tree-based ORAM algorithms like Path ORAM. In some cases it is important
 that one of these operations is constant-time. When it is necessary that the code provides this property, we document this.
