@@ -856,13 +856,21 @@ mod testing {
 
             omap.access_and_remove(&a8_8(2), |code, buffer| {
                 assert_eq!(code, OMAP_FOUND);
-                assert_eq!(buffer, &a8_8(20), "omap.write must not modify when overwrite is disallowed");
+                assert_eq!(
+                    buffer,
+                    &a8_8(20),
+                    "omap.write must not modify when overwrite is disallowed"
+                );
                 Choice::from(0)
             });
 
             omap.access_and_remove(&a8_8(2), |code, buffer| {
                 assert_eq!(code, OMAP_FOUND);
-                assert_eq!(buffer, &a8_8(20), "omap.access_and_remove should not delete when delete is false");
+                assert_eq!(
+                    buffer,
+                    &a8_8(20),
+                    "omap.access_and_remove should not delete when delete is false"
+                );
                 Choice::from(0)
             });
 
@@ -873,13 +881,24 @@ mod testing {
 
             omap.access_and_remove(&a8_8(2), |code, buffer| {
                 assert_eq!(code, OMAP_FOUND);
-                assert_eq!(buffer, &a8_8(30), "omap.write must modify when overwrite is allowed");
+                assert_eq!(
+                    buffer,
+                    &a8_8(30),
+                    "omap.write must modify when overwrite is allowed"
+                );
                 Choice::from(1)
             });
 
             omap.access(&a8_8(2), |code, buffer| {
-                assert_eq!(code, OMAP_NOT_FOUND, "omap.access_and_remove should delete when delete is true");
-                assert_eq!(buffer, &a8_8(0), "when data is not present, access should give us all zeroes buffer");
+                assert_eq!(
+                    code, OMAP_NOT_FOUND,
+                    "omap.access_and_remove should delete when delete is true"
+                );
+                assert_eq!(
+                    buffer,
+                    &a8_8(0),
+                    "when data is not present, access should give us all zeroes buffer"
+                );
             });
         })
     }
