@@ -78,7 +78,7 @@ else
 	exit 1
 fi
 
-CARGOFMT="cargo fmt"
+CARGOFMT="cargo fmt --"
 
 # Just check that running rustfmt doesn't do anything to the file. I do this instead of
 # modifying the file because I don't want to mess with the developer's index, which may
