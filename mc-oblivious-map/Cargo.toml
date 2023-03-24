@@ -25,10 +25,10 @@ siphasher = "0.3"
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
 # This is only needed by benchmarks... we should really put this on crates.io
-mc-crypto-rand = { git = "https://github.com/mobilecoinfoundation/mobilecoin", rev = "486dd0f962eb24106c4eab4064dee9afdcbd1af8" }
+mc-crypto-rand = { git = "https://github.com/mobilecoinfoundation/mobilecoin", rev = "486dd0f962eb24106c4eab4064dee9afdcbd1af8", version = "4.1.0-pre0" }
 
-mc-oblivious-ram = { path = "../mc-oblivious-ram" }
-test-helper = { path = "../test-helper" }
+mc-oblivious-ram = { path = "../mc-oblivious-ram", version = "2.2" }
+test-helper = { path = "../test-helper", version = "2.2" }
 
 [[bench]]
 name = "ingest"

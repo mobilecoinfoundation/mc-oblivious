@@ -21,6 +21,6 @@ mc-oblivious-traits = { path = "../mc-oblivious-traits", version = "2.2" }
 rand_core = { version = "0.6", default-features = false }
 
 [dev-dependencies]
-test-helper = { path = "../test-helper" }
+test-helper = { path = "../test-helper", version = "2.2" }
 yare = "1.0.2"
 

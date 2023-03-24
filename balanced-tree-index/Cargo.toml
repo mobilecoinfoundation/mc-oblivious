@@ -16,4 +16,4 @@ aligned-cmov = { path = "../aligned-cmov", version = "2.2" }
 rand_core = { version = "0.6", default-features = false }
 
 [dev-dependencies]
-test-helper = { path = "../test-helper" }
+test-helper = { path = "../test-helper", version = "2.2" }

@@ -8,7 +8,10 @@ unmaintained = "deny"
 unsound = "deny"
 yanked = "deny"
 notice = "warn"
-ignore = []
+# serde-cbor is unmaintained, and criterion 0.3 depends on it.
+# we don't have bandwidth to update criterion right now, so ignoring this.
+# criterion also depends on atty which has a bad pointer issue on windows
+ignore = ["RUSTSEC-2021-0127", "RUSTSEC-2021-0145"]
 
 [licenses]
 unlicensed = "deny"
