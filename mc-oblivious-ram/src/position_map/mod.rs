@@ -55,7 +55,7 @@ impl<R: RngCore + CryptoRng> PositionMap for TrivialPositionMap<R> {
         for idx in 0..self.data.len() {
             let test = (idx as u32).ct_eq(&key);
             old_val.cmov(test, &self.data[idx]);
-            (&mut self.data[idx]).cmov(test, &new_val);
+            self.data[idx].cmov(test, &new_val);
         }
         // if old_val is zero, sample a random leaf
         old_val.cmov(
@@ -130,7 +130,7 @@ where
             let u32_slice = block.as_mut_ne_u32_slice();
             for idx in 0..(1u32 << Self::L) {
                 old_val.cmov(idx.ct_eq(&lower_key), &u32_slice[idx as usize]);
-                (&mut u32_slice[idx as usize]).cmov(idx.ct_eq(&lower_key), &new_val);
+                u32_slice[idx as usize].cmov(idx.ct_eq(&lower_key), &new_val);
             }
             old_val
         });

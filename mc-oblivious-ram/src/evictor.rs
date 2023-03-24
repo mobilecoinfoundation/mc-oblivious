@@ -1071,7 +1071,7 @@ mod tests {
                     1.into(),
                     &data,
                     &mut meta,
-                    i as usize,
+                    i,
                     &mut branch.data,
                     &mut branch.meta,
                 );

@@ -40,7 +40,7 @@ pub fn path_oram_4096_z4_1mil_ingest_write_progressive(c: &mut Criterion) {
 
     c.bench_function("capacity 1 million vartime write progressive", |b| {
         b.iter(|| {
-            (&mut key[0..8]).copy_from_slice(&black_box(temp).to_le_bytes());
+            key[0..8].copy_from_slice(&black_box(temp).to_le_bytes());
             temp += 1;
             omap.vartime_write(&key, &val, 1.into())
         })
