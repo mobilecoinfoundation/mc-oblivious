@@ -96,10 +96,10 @@ branches:
           - deny
           - sort
           - clippy
-          - build (nightly-03-23)
-          - build (nightly-03-23, --release)
-          - test (nightly-03-23)
-          - test (nightly-03-23, --release)
+          - build (nightly-2023-03-23)
+          - build (nightly-2023-03-23, --release)
+          - test (nightly-2023-03-23)
+          - test (nightly-2023-03-23, --release)
           - coverage
       enforce_admins: true
       required_linear_history: true
