@@ -171,7 +171,7 @@ jobs:
         rust:
           - stable
           - beta
-          - nightly-2023-01-04
+          - nightly-2023-03-23
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
@@ -189,7 +189,7 @@ jobs:
         rust:
           - stable
           - beta
-          - nightly-2023-01-04
+          - nightly-2023-03-23
         flags:
           - ""
           - "--release"
@@ -208,7 +208,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - nightly-2023-01-04
+          - nightly-2023-03-23
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
