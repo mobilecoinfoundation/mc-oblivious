@@ -93,7 +93,7 @@ branches:
         strict: false
         contexts:
           - lint
-          - deny
+          - deny (bans licenses sources)
           - sort
           - clippy (stable)
           - build (nightly-2023-03-23)
