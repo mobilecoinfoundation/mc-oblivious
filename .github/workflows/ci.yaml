@@ -137,7 +137,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-sort
-      - run: cargo sort --workspace --check >/dev/null
+      - run: cargo sort --workspace --grouped --check >/dev/null
       # TODO: Fix automatically
 
   clippy:
