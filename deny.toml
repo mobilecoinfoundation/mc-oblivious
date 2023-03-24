@@ -8,11 +8,7 @@ unmaintained = "deny"
 unsound = "deny"
 yanked = "deny"
 notice = "warn"
-# serde-cbor is unmaintained, and criterion 0.3 depends on it.
-# we don't have bandwidth to update criterion right now, so ignoring this.
-# criterion is only used for tests and benchmarks.
-# criterion also depends on atty which has a bad pointer issue on windows
-ignore = ["RUSTSEC-2021-0127", "RUSTSEC-2021-0145"]
+ignore = []
 
 [licenses]
 unlicensed = "deny"
@@ -46,7 +42,7 @@ deny = [
 skip = [
     # Workaround for path only dependencies,
     # https://github.com/EmbarkStudios/cargo-deny/issues/241
-    # { name = "some/dev/only/path" },
+    { name = "test-helper" },
 ]
 skip-tree = [ ]
 
