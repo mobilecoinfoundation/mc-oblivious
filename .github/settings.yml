@@ -96,8 +96,10 @@ branches:
           - deny
           - sort
           - clippy
-          - build
-          - test
+          - build (nightly-03-23)
+          - build (nightly-03-23, --release)
+          - test (nightly-03-23)
+          - test (nightly-03-23, --release)
           - coverage
       enforce_admins: true
       required_linear_history: true

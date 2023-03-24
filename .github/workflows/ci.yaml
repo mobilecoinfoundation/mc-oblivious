@@ -148,7 +148,6 @@ jobs:
       matrix:
         rust:
           - stable
-          - beta
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -169,7 +168,6 @@ jobs:
       matrix:
         rust:
           - stable
-          - beta
           - nightly-2023-03-23
     steps:
       - uses: actions/checkout@v3
@@ -187,7 +185,6 @@ jobs:
       matrix:
         rust:
           - stable
-          - beta
           - nightly-2023-03-23
         flags:
           - ""
