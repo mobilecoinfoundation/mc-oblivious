@@ -66,13 +66,17 @@ collaborators:
   - username: meowblecoinbot
     permission: triage
   - username: cbeck88
-    permission: maintain
+    permission: admin
   - username: jcape
-    permission: maintain
+    permission: admin
   - username: wjuan-mob
+    permission: maintain
+  - username: nick-santana
     permission: maintain
 
 teams:
+  - name: coredev
+    permission: push
   - name: crypto-eng
     permission: push
 
