@@ -39,6 +39,7 @@ The first oblivious RAM algorithm that attracted significant interest from pract
 Path ORAM [Shi, Stefanov, Li '13]. Circuit ORAM appeared in [Wang, Chan, Shi '16].
 
 ORAM can in principle be used in several ways, and many papers in ORAM consider several of the application modes:
+
 - A user can use it to interact with (untrusted) cloud storage and make use of storage without leaking access patterns.
 - It can be implemented in hardware in the "secure processor" setting, such that the "ORAM controller / client" is
   implemented in silicon, and the main memory corresponds to the "server".
