@@ -95,7 +95,7 @@ branches:
           - lint
           - deny
           - sort
-          - clippy
+          - clippy (stable)
           - build (nightly-2023-03-23)
           - build (nightly-2023-03-23, --release)
           - test (nightly-2023-03-23)
