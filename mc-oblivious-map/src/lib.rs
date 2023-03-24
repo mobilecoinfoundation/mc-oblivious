@@ -805,6 +805,86 @@ mod testing {
     }
 
     #[test]
+    fn sanity_check_omap_access_api_z4_256() {
+        run_with_several_seeds(|rng| {
+            // This should be ~ 4 underlying buckets
+            let mut omap = <CuckooCreatorZ4 as OMapCreator<U8, U8, RngType>>::create(
+                256,
+                STASH_SIZE,
+                rng_maker(rng),
+            );
+
+            omap.access(&a8_8(1), |code, _buffer| {
+                assert_eq!(code, OMAP_NOT_FOUND);
+            });
+
+            assert_eq!(
+                OMAP_NOT_FOUND,
+                omap.vartime_write(&a8_8(1), &a8_8(2), 0.into())
+            );
+
+            omap.access(&a8_8(1), |code, buffer| {
+                assert_eq!(code, OMAP_FOUND);
+                assert_eq!(buffer, &a8_8(2));
+            });
+
+            assert_eq!(OMAP_FOUND, omap.vartime_write(&a8_8(1), &a8_8(3), 1.into()));
+
+            omap.access(&a8_8(1), |code, buffer| {
+                assert_eq!(code, OMAP_FOUND);
+                assert_eq!(buffer, &a8_8(3));
+            });
+
+            omap.access(&a8_8(2), |code, _buffer| {
+                assert_eq!(code, OMAP_NOT_FOUND);
+            });
+
+            assert_eq!(
+                OMAP_NOT_FOUND,
+                omap.vartime_write(&a8_8(2), &a8_8(20), 1.into())
+            );
+
+            omap.access(&a8_8(2), |code, buffer| {
+                assert_eq!(code, OMAP_FOUND);
+                assert_eq!(buffer, &a8_8(20));
+            });
+
+            assert_eq!(
+                OMAP_FOUND,
+                omap.vartime_write(&a8_8(2), &a8_8(30), 0.into())
+            );
+
+            omap.access_and_remove(&a8_8(2), |code, buffer| {
+                assert_eq!(code, OMAP_FOUND);
+                assert_eq!(buffer, &a8_8(20), "omap.write must not modify when overwrite is disallowed");
+                Choice::from(0)
+            });
+
+            omap.access_and_remove(&a8_8(2), |code, buffer| {
+                assert_eq!(code, OMAP_FOUND);
+                assert_eq!(buffer, &a8_8(20), "omap.access_and_remove should not delete when delete is false");
+                Choice::from(0)
+            });
+
+            assert_eq!(
+                OMAP_FOUND,
+                omap.vartime_write(&a8_8(2), &a8_8(30), 1.into())
+            );
+
+            omap.access_and_remove(&a8_8(2), |code, buffer| {
+                assert_eq!(code, OMAP_FOUND);
+                assert_eq!(buffer, &a8_8(30), "omap.write must modify when overwrite is allowed");
+                Choice::from(1)
+            });
+
+            omap.access(&a8_8(2), |code, buffer| {
+                assert_eq!(code, OMAP_NOT_FOUND, "omap.access_and_remove should delete when delete is true");
+                assert_eq!(buffer, &a8_8(0), "when data is not present, access should give us all zeroes buffer");
+            });
+        })
+    }
+
+    #[test]
     fn sanity_check_omap_z4_524288() {
         run_with_several_seeds(|rng| {
             // This should be ~ 8192 underlying buckets
