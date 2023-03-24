@@ -10,6 +10,7 @@
 Traits and implementations for Oblivious RAM inside of Intel SGX enclaves.
 
 The scope of this repository is:
+
 - Traits for fast constant-time conditional moves of aligned memory in x86-64
 - Traits for "untrusted block storage" and "memory encryption engine" to support a backing store that exceeds enclave memory limits
 - Traits for Oblivious RAM, and implementations
@@ -25,8 +26,7 @@ so that we can use inline assembly if needed, to ensure that we get CMOV etc.,
 because obliviously moving large blocks of memory is expected to be a bottleneck.
 If and when inline assembly is stabilized in rust, we expect not to need nightly anymore.
 
-What is oblivious RAM?
-----------------------
+## What is oblivious RAM?
 
 Oblivious RAM is a class of data structures designed to avoid information leaks
 over memory access pattern side-channels, introduced in [Goldreich '96].
@@ -49,16 +49,15 @@ ORAM can in principle be used in several ways, and many papers in ORAM consider 
 
 As explained, in this repository we are focused on the SGX-based approach, which was first described in the ZeroTrace paper [Sasy, Gorbunuv, Fletcher '17].
 
-What is oblivious / constant-time?
-----------------------------------
+## What is oblivious / constant-time?
 
 A great exposition from Intel appears in [Guidelines for Mitigating Timing Side Channels Against Cryptographic Implementations](https://software.intel.com/security-software-guidance/secure-coding/guidelines-mitigating-timing-side-channels-against-cryptographic-implementations).
 
 > Most traditional side channels—regardless of technique—can be mitigated by applying all three of the following general "constant time"[2] principles, listed here at a high level. We discuss details and examples of these principles later.
 >
-> -  Ensure runtime is independent of secret values.
-> -  Ensure code access patterns[3] are independent of secret values.
-> -  Ensure data access patterns[4] are independent of secret values.
+> - Ensure runtime is independent of secret values.
+> - Ensure code access patterns[3] are independent of secret values.
+> - Ensure data access patterns[4] are independent of secret values.
 >
 > ...
 >
@@ -69,6 +68,7 @@ A great exposition from Intel appears in [Guidelines for Mitigating Timing Side 
 These crates provide functions and data structures that have the "data-oblivious" property.
 
 A function is completely constant-time / data-oblivious if for any two sets of arguments you might pass it, the code and data access patterns are:
+
 - the same, or
 - identically distributed, or
 - distributed according to distributions that are computationally indistinguishable.
