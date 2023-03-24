@@ -1,5 +1,4 @@
-aligned-cmov
-============
+# aligned-cmov
 
 `cmov` is an abbreviation of *conditional move*. A conditional operation which takes
 a source value, a destination value, and a boolean, and overwrites the destination with
@@ -24,14 +23,13 @@ Because the scope of `mc-oblivious` is only to support *Intel x86-64 inside of S
 on relatively recent (>= skylake) CPUs,
 we provide inline assembly which does the optimal thing for the datatypes that we care about.
 
-Comparison to `subtle`
-----------------------
+## Comparison to `subtle`
 
 The [subtle crate](https://github.com/dalek-cryptography/subtle) is the most obvious other crate in the same genre.
 
 This crate builds on subtle, but it introduces a new trait for conditional assignment:
 
-```
+```rust
 pub trait CMov {
     fn cmov(&mut self, condition: subtle::Choice, src: &self);
 }
@@ -39,7 +37,7 @@ pub trait CMov {
 
 We chose not to use `subtle::ConditionallySelectable` for this because that trait defines its functionality in terms of
 
-```
+```rust
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self;
 ```
 
@@ -63,13 +61,13 @@ happening here between portability of the code and correct assembly generation.
 
 That said, we still rely on subtle for a "shielded boolean" type that we need to be the argument of cmov.
 
-Future directions
------------------
+## Future directions
 
 In the long run, it might be nice to get functionality like this in subtle crate itself.
 
 For example, the rust-crypto `aes` [crate](https://docs.rs/aes/0.6.0/aes/) uses platform detection in its Cargo.toml
 to select at compile-time between:
+
 - A portable implementation of aes (`aes-soft`)
 - A hardware-accelerated implementation of aes using x86 aesni instructions (`aesni`)
 
@@ -82,21 +80,23 @@ primitives that require that AFAIK. Since `subtle` is dependend on by ALOT of cr
 of functionality may be scope creep and it's not clear it's desirable to have this extra stuff in the dependency tree of many other
 cryptographic libraries.
 
-References
-----------
+## References
 
 Constant-time code and side-channel resistance:
+
 - Intel's [Guidelines for mitigating timing side-channels against cryptographic implementations](https://software.intel.com/security-software-guidance/insights/guidelines-mitigating-timing-side-channels-against-cryptographic-implementations)
 - Tim McLean's [Rust-timing-shield](https://www.chosenplaintext.ca/open-source/rust-timing-shield/security)
 - isis agora lovecruft's [subtle](https://github.com/dalek-cryptography/subtle)
 - Chandler Carruth on [Spectre](https://www.youtube.com/watch?v=_f7O3IfIR2k)
 
 Using AVX instructions for cryptographic implementations
+
 - Samuel Neves and Jean-Philippe Aumasson [Implementing BLAKE with AVX, AVX2, and XOP](https://131002.net/data/papers/NA12a.pdf)
 - Henry DeValence on [AVX512 backend in curve25519-dalek](https://medium.com/@hdevalence/even-faster-edwards-curves-with-ifma-8b1e576a00e9)
 - David Wong on [SIMD Instructions in Crypto](https://www.cryptologie.net/article/405/simd-instructions-in-crypto/)
 
 x86-64 assembly:
+
 - Felix Cloutier's [x86-64 instruction reference](https://www.felixcloutier.com/x86/)
   See also his links to official Intel documentation.
 - Intel's [x86-64 intrinsics guide](https://software.intel.com/sites/landingpage/IntrinsicsGuide/)

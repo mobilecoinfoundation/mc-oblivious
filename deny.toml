@@ -1,0 +1,62 @@
+targets = []
+
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+vulnerability = "deny"
+unmaintained = "deny"
+unsound = "deny"
+yanked = "deny"
+notice = "warn"
+# serde-cbor is unmaintained, and criterion 0.3 depends on it.
+# we don't have bandwidth to update criterion right now, so ignoring this.
+# criterion is only used for tests and benchmarks.
+# criterion also depends on atty which has a bad pointer issue on windows
+ignore = ["RUSTSEC-2021-0127", "RUSTSEC-2021-0145"]
+
+[licenses]
+unlicensed = "deny"
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT",
+    "Unicode-DFS-2016",
+    "GPL-3.0",
+    "LGPL-3.0",
+]
+deny = []
+copyleft = "allow"
+allow-osi-fsf-free = "both"
+default = "deny"
+confidence-threshold = 0.8
+exceptions = []
+
+[bans]
+multiple-versions = "warn"
+# Lint level for when a crate version requirement is `*`
+wildcards = "deny"
+highlight = "all"
+allow = []
+deny = [
+    # https://github.com/briansmith/ring/issues/774
+    { name = "ring" },
+]
+skip = [
+    # Workaround for path only dependencies,
+    # https://github.com/EmbarkStudios/cargo-deny/issues/241
+    # { name = "some/dev/only/path" },
+]
+skip-tree = [ ]
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+
+[sources.allow-org]
+github = []
+gitlab = []
+bitbucket = []

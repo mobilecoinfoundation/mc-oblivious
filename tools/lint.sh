@@ -18,7 +18,7 @@ for toml in $(grep --exclude-dir cargo --exclude-dir rust-mbedtls --include=Carg
   pushd $(dirname $toml) >/dev/null
   echo "Linting in $PWD"
   cargo sort --workspace --grouped --check
-  cargo fmt -- --unstable-features --check
+  cargo fmt -- --check
   cargo clippy --all --all-features
   echo "Linting in $PWD complete."
   popd >/dev/null

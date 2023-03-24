@@ -591,7 +591,7 @@ where
                     oram.access(evicted_from, |block| {
                         let pairs: &mut [A8Bytes<Sum<KeySize, ValueSize>>] =
                             block.as_mut_aligned_chunks();
-                        let pair = &mut pairs[evicted_index as usize];
+                        let pair = &mut pairs[evicted_index];
                         let (key, val): (&mut A8Bytes<KeySize>, &mut A8Bytes<ValueSize>) =
                             pair.split();
 

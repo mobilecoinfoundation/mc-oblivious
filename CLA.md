@@ -1,4 +1,4 @@
-## Contributor License Agreement
+# Contributor License Agreement
 
 Thank you for your contribution to the MobileCoin project from MoblieCoin Inc. and the MobileCoin Foundation (“MobileCoin”).
 
@@ -15,7 +15,6 @@ In exchange for the ability to participate in the MobileCoin community and for o
 1. Grant of Copyright License. Subject to the terms and conditions of this Agreement, You hereby grant to MobileCoin and to recipients of software distributed by MobileCoin a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare derivative works of, publicly display, publicly perform, and distribute Your Contributions and such derivative works, as well as the right to sublicense and have sublicensed all of the foregoing rights, through multiple tiers of sublicensees, provided that in all cases, MobileCoin will make Your Contributions available under an open source license.
 
     a. Moral Rights. If moral rights apply to the Contribution, to the maximum extent permitted by law, You waive and agree not to assert such moral rights against MobileCoin or its successors in interest, or any of MobileCoin’s licensees, either direct or indirect.
-
 
 1. Grant of Patent License. Subject to the terms and conditions of this Agreement, You hereby grant to MobileCoin and to recipients of software distributed by MobileCoin a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except as stated in this section) patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Work, where such license applies only to those patent claims licensable by You that are necessarily infringed by Your Contribution(s) alone or by combination of Your Contribution(s) with the Work to which such Contribution(s) was submitted. If any entity institutes patent litigation against You or any other entity (including a cross-claim or counterclaim in a lawsuit) alleging that your Contribution, or the Work to which you have contributed, constitutes direct or contributory patent infringement, then any patent licenses granted to that entity under this Agreement for that Contribution or Work shall terminate as of the date such litigation is filed.
 

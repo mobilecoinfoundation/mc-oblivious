@@ -1,10 +1,10 @@
-mc-oblivious-map
-=================
+# mc-oblivious-map
 
 This crate provides an implementation of an oblivious hashmap on top of oblivious RAM,
 meeting the requirements in the trait described in `mc-oblivious-traits`.
 
 In crate right now:
+
 - An implementation of Cuckoo hashing with buckets, using Oblivious RAM as the
   cuckoo hashing arena.
   See [wikipedia](https://en.wikipedia.org/wiki/Cuckoo_hashing) for background.

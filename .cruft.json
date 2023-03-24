@@ -1,0 +1,30 @@
+{
+  "template": "https://github.com/mobilecoinfoundation/cookiecutters",
+  "commit": "0c90944d70114c1b74944a935e800aef2f6c9f09",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "_copy_without_render": [
+        ".github/workflows/*"
+      ],
+      "repo_name": "mc-oblivious",
+      "github_username": "@cbeck88",
+      "owners": "@cbeck88 @jcape @wjuan-mob",
+      "type": "workspace",
+      "license": "GPL-3.0-only",
+      "arch": "x86_64",
+      "workspace_description": "ORAM and related for Intel SGX enclaves",
+      "workspace_readme_title": "mc-oblivious: Traits and implementations for Oblivious RAM inside of Intel SGX enclaves.",
+      "crate_name": "mc-oblivious-ram",
+      "crate_namespace_prefix": "mc-",
+      "crate_description": "Implementations of Oblivious RAM data structures",
+      "crate_readme_title": "This crate provides implementations of Oblivious RAM data structures, suitable",
+      "crate_sub_dir": "for use in an Intel SGX environment.",
+      "version": "2.2.0",
+      "crate_keywords": "\"cryptography\", \"crypto\", \"constant-time\", \"oblivious-ram\"",
+      "crate_categories": "\"cryptography\", \"data-structures\", \"no-std\"",
+      "_template": "https://github.com/mobilecoinfoundation/cookiecutters"
+    }
+  },
+  "directory": "rust/repo"
+}

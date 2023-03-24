@@ -271,8 +271,8 @@ where
 
     loop {
         assert_eq!(omap.len(), idx - 1, "unexpected omap.len()");
-        (&mut key[0..8]).copy_from_slice(&idx.to_le_bytes());
-        (&mut val[0..8]).copy_from_slice(&idx.to_le_bytes());
+        key[0..8].copy_from_slice(&idx.to_le_bytes());
+        val[0..8].copy_from_slice(&idx.to_le_bytes());
         let result_code = omap.vartime_write(&key, &val, Choice::from(0));
 
         if result_code == OMAP_FOUND {
@@ -288,8 +288,8 @@ where
             );
             let mut temp = A8Bytes::<ValSize>::default();
             for idx2 in 1u64..idx {
-                (&mut key[0..8]).copy_from_slice(&idx2.to_le_bytes());
-                (&mut val[0..8]).copy_from_slice(&idx2.to_le_bytes());
+                key[0..8].copy_from_slice(&idx2.to_le_bytes());
+                val[0..8].copy_from_slice(&idx2.to_le_bytes());
                 let result_code = omap.read(&key, &mut temp);
                 assert_eq!(
                     result_code, OMAP_FOUND,
