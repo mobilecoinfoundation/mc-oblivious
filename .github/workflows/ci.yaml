@@ -169,13 +169,16 @@ jobs:
         rust:
           - stable
           - nightly-2023-03-23
+        flags:
+          - ""
+          - "--release"
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} build --release
+      - run: cargo +${{ matrix.rust }} build ${{ matrix.flags }}
 
   test:
     runs-on: ubuntu-22.04
