@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2021 The MobileCoin Foundation
+// Copyright (c) 2018-2023 The MobileCoin Foundation
 
 use aligned_cmov::{typenum, A8Bytes};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
