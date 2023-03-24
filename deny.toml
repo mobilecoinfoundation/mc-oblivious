@@ -8,7 +8,8 @@ unmaintained = "deny"
 unsound = "deny"
 yanked = "deny"
 notice = "warn"
-ignore = []
+# criterion depends on atty, which is unmaintained, but criterion is just for tests
+ignore = ["RUSTSEC-2021-0145"]
 
 [licenses]
 unlicensed = "deny"
