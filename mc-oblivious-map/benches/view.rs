@@ -2,10 +2,10 @@
 
 use aligned_cmov::{typenum, A8Bytes};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use mc_crypto_rand::McRng;
 use mc_oblivious_map::{CuckooHashTable, CuckooHashTableCreator};
 use mc_oblivious_ram::PathORAM4096Z4Creator;
 use mc_oblivious_traits::{HeapORAMStorageCreator, OMapCreator, ORAMCreator, ObliviousHashMap};
+use mc_rand::McRng;
 use std::time::Duration;
 use test_helper::a8_8;
 use typenum::{U1024, U16, U240};

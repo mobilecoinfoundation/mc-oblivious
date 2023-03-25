@@ -306,16 +306,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mc-crypto-rand"
-version = "4.1.0-pre0"
-source = "git+https://github.com/mobilecoinfoundation/mobilecoin?rev=486dd0f962eb24106c4eab4064dee9afdcbd1af8#486dd0f962eb24106c4eab4064dee9afdcbd1af8"
-dependencies = [
- "cfg-if",
- "rand",
- "rand_core",
-]
-
-[[package]]
 name = "mc-oblivious-map"
 version = "2.3.0"
 dependencies = [
@@ -323,9 +313,9 @@ dependencies = [
  "aligned-cmov",
  "criterion",
  "generic-array",
- "mc-crypto-rand",
  "mc-oblivious-ram",
  "mc-oblivious-traits",
+ "mc-rand",
  "rand_core",
  "siphasher",
  "test-helper",
@@ -349,6 +339,17 @@ version = "2.3.0"
 dependencies = [
  "aligned-cmov",
  "balanced-tree-index",
+ "rand_core",
+]
+
+[[package]]
+name = "mc-rand"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38bcaf65701dad419f0361d0a7ada1b19e92b69d0a7656833aad4916895bfcb6"
+dependencies = [
+ "cfg-if",
+ "rand",
  "rand_core",
 ]
 
