@@ -97,9 +97,9 @@ if the code in the closure is not itself constant-time with respect to the query
 [license-image]: https://img.shields.io/crates/l/aligned-cmov?style=flat-square
 [deps-image]: https://deps.rs/repo/github/mobilecoinfoundation/mc-oblivious/status.svg?style=flat-square
 [deps-link]: https://deps.rs/repo/github/mobilecoinfoundation/mc-oblivious
-[codecov-image]: https://img.shields.io/codecov/c/github/mobilecoinfoundation/mc-oblivious/develop?style=flat-square
+[codecov-image]: https://img.shields.io/codecov/c/github/mobilecoinfoundation/mc-oblivious/master?style=flat-square
 [codecov-link]: https://codecov.io/gh/mobilecoinfoundation/mc-oblivious
-[gha-image]: https://img.shields.io/github/actions/workflow/status/mobilecoinfoundation/mc-oblivious/ci.yaml?branch=main&style=flat-square
-[gha-link]: https://github.com/mobilecoinfoundation/mc-oblivious/actions/workflows/ci.yaml?query=branch%3Amain
+[gha-image]: https://img.shields.io/github/actions/workflow/status/mobilecoinfoundation/mc-oblivious/ci.yaml?branch=master&style=flat-square
+[gha-link]: https://github.com/mobilecoinfoundation/mc-oblivious/actions/workflows/ci.yaml?query=branch%master
 [conduct-link]: CODE_OF_CONDUCT.md
 [conduct-image]: https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square

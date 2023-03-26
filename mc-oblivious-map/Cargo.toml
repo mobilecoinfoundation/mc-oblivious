@@ -25,8 +25,8 @@ siphasher = "0.3"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
-mc-rand = { version = "1" }
 mc-oblivious-ram = { path = "../mc-oblivious-ram", version = "2.3" }
+mc-rand = { version = "1" }
 test-helper = { path = "../test-helper" }
 
 [[bench]]
