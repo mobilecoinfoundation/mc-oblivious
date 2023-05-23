@@ -18,7 +18,7 @@ aligned-array = { version = "1", features = ["subtle"] }
 generic-array = { version = "0.14", default-features = false }
 
 [dev-dependencies]
-criterion = "0.4"
+criterion = "0.5"
 
 [[bench]]
 name = "large_cmov"
