@@ -24,7 +24,7 @@ rand_core = { version = "0.6", default-features = false }
 siphasher = "0.3"
 
 [dev-dependencies]
-criterion = { version = "0.4", features = ["html_reports"] }
+criterion = { version = "0.5", features = ["html_reports"] }
 mc-oblivious-ram = { path = "../mc-oblivious-ram", version = "2.3" }
 mc-rand = { version = "1" }
 test-helper = { path = "../test-helper" }
