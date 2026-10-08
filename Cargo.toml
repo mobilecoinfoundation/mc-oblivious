@@ -21,3 +21,4 @@ debug-assertions = true
 
 [patch.crates-io]
 aligned-array = { git = "https://github.com/eranrund/aligned-array", branch = "eran/update-deps" }
+mc-rand = { git = "https://github.com/mobilecoinfoundation/rand", branch = "eran/rand-10" }

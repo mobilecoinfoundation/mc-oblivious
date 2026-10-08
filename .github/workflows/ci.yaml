@@ -10,26 +10,33 @@ name: ci
 env:
   CARGO_INCREMENTAL: 0
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # TODO: Fix automatically
   lint:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
       - uses: r7kamura/rust-problem-matchers@v1
       - run: cargo fmt --all -- --check
-      - uses: xt0rted/markdownlint-problem-matcher@v2
-      - uses: DavidAnson/markdownlint-cli2-action@v10
+      - uses: xt0rted/markdownlint-problem-matcher@v3
+      - uses: DavidAnson/markdownlint-cli2-action@v24
         with:
           globs: "**/*.md"
       # FIXME: Add yamllint problem matcher
       - run: yamllint -s .
 
   deny:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - lint
     strategy:
@@ -39,18 +46,19 @@ jobs:
           - bans licenses sources
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
-      - uses: EmbarkStudios/cargo-deny-action@v1
+      - uses: EmbarkStudios/cargo-deny-action@v2
         with:
-          command: check ${{ matrix.checks }}
+          command: check
+          command-arguments: ${{ matrix.checks }}
 
   sort:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - lint
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@v2
         with:
@@ -59,7 +67,7 @@ jobs:
       # TODO: Fix automatically
 
   clippy:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - lint
     strategy:
@@ -68,74 +76,75 @@ jobs:
           - stable
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
           components: clippy
       - uses: r7kamura/rust-problem-matchers@v1
       - run: |
-          cargo +${{ matrix.rust }} clippy --all --all-features -- -D warnings
+          cargo +${{ matrix.rust }} clippy \
+            --workspace --all-targets --all-features --locked -- -D warnings
       # TODO: Fix automatically, or post GH-suggestions comments
 
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - lint
     strategy:
       matrix:
         rust:
           - stable
-          - nightly-2023-03-23
+          - nightly-2026-10-08
         flags:
           - ""
           - "--release"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} build ${{ matrix.flags }}
+      - run: cargo +${{ matrix.rust }} build --workspace --locked ${{ matrix.flags }}
 
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - lint
     strategy:
       matrix:
         rust:
           - stable
-          - nightly-2023-03-23
+          - nightly-2026-10-08
         flags:
           - ""
           - "--release"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} test ${{ matrix.flags }}
+      - run: cargo +${{ matrix.rust }} test --workspace --locked ${{ matrix.flags }}
 
   bench:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - lint
     strategy:
       matrix:
         rust:
-          - nightly-2023-03-23
+          - nightly-2026-10-08
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} bench
+      - run: cargo +${{ matrix.rust }} bench --workspace --locked
 
   no-asm-tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - lint
     strategy:
@@ -143,19 +152,18 @@ jobs:
         rust:
           - stable
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: |
-          sudo apt-get update && \
-          sudo apt-get install -y libgsl-dev && \
-          cd no-asm-tests && \
-          cargo +${{ matrix.rust }} test --release
+      - run: sudo apt-get update
+      - run: sudo apt-get install --yes libgsl-dev
+      - run: cargo +${{ matrix.rust }} test --release --locked
+        working-directory: no-asm-tests
 
   doc:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - lint
     strategy:
@@ -166,32 +174,32 @@ jobs:
     # Prevent beta docs warnings from causing CI failure
     continue-on-error: ${{ matrix.rust == 'beta' }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} doc --release --no-deps
+      - run: cargo +${{ matrix.rust }} doc --workspace --release --no-deps --locked
 
   coverage:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - lint
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov
-      - run: cargo llvm-cov --workspace --lcov --output-path lcov.info
-      - uses: codecov/codecov-action@v3
+      - run: cargo llvm-cov --workspace --locked --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v7
         with:
           files: lcov.info
 
   notify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name == 'push' && failure()
     needs:
       - lint
@@ -200,6 +208,8 @@ jobs:
       - clippy
       - build
       - test
+      - bench
+      - no-asm-tests
       - doc
       - coverage
     steps:

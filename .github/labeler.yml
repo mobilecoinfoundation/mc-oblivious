@@ -1,20 +1,27 @@
 ---
 rust:
-  - '**.rs'
-  - '**/Cargo.lock'
-  - '**/Cargo.toml'
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.rs'
+          - '**/Cargo.lock'
+          - '**/Cargo.toml'
 
 github_actions:
-  - '.github/workflows/**'
-  - '.github/labeler.yaml'
-  - '.github/triage-labeler.yaml'
-  - '.github/auto_assign.yaml'
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/labeler.yml'
+          - '.github/triage-labeler.yaml'
+          - '.github/auto_assign.yml'
 
 python:
-  - '**.py'
-  - '**/poetry.lock'
-  - '**/pyproject.toml'
-  - '**/requirements.txt'
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.py'
+          - '**/poetry.lock'
+          - '**/pyproject.toml'
+          - '**/requirements.txt'
 
 javascript:
-  - '**.js'
+  - changed-files:
+      - any-glob-to-any-file: '**/*.js'

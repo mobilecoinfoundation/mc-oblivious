@@ -6,12 +6,12 @@ name: pr
 
 jobs:
   update-metadata:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: write
     steps:
-      - uses: pascalgn/size-label-action@v0.5.0
+      - uses: pascalgn/size-label-action@v0.5.7
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           IGNORED: "Cargo.lock"
@@ -25,6 +25,6 @@ jobs:
               "1000": "XXL",
               "1500": "OHLAWDHECOMIN"
             }
-      - uses: actions/labeler@v4
+      - uses: actions/labeler@v7
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
