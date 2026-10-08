@@ -105,7 +105,9 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} build --workspace --locked ${{ matrix.flags }}
+      - run: |
+          cargo +${{ matrix.rust }} build \
+            --workspace --locked ${{ matrix.flags }}
 
   test:
     runs-on: ubuntu-24.04
@@ -125,7 +127,9 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} test --workspace --locked ${{ matrix.flags }}
+      - run: |
+          cargo +${{ matrix.rust }} test \
+            --workspace --locked ${{ matrix.flags }}
 
   bench:
     runs-on: ubuntu-24.04
@@ -179,7 +183,9 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: r7kamura/rust-problem-matchers@v1
-      - run: cargo +${{ matrix.rust }} doc --workspace --release --no-deps --locked
+      - run: |
+          cargo +${{ matrix.rust }} doc \
+            --workspace --release --no-deps --locked
 
   coverage:
     runs-on: ubuntu-24.04
