@@ -1,22 +1,21 @@
 // Copyright (c) 2018-2023 The MobileCoin Foundation
 
 use aligned_cmov::{typenum, A8Bytes};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use mc_oblivious_map::{CuckooHashTable, CuckooHashTableCreator};
 use mc_oblivious_ram::PathORAM4096Z4Creator;
 use mc_oblivious_traits::{HeapORAMStorageCreator, OMapCreator, ORAMCreator, ObliviousHashMap};
-use mc_rand::McRng;
-use std::time::Duration;
-use test_helper::a8_8;
+use std::{hint::black_box, time::Duration};
+use test_helper::{a8_8, get_seeded_rng, RngType};
 use typenum::{U1024, U16, U240};
 
-type ORAMCreatorZ4 = PathORAM4096Z4Creator<McRng, HeapORAMStorageCreator>;
-type PathORAMZ4 = <ORAMCreatorZ4 as ORAMCreator<U1024, McRng>>::Output;
-type Table = CuckooHashTable<U16, U240, U1024, McRng, PathORAMZ4>;
-type CuckooCreatorZ4 = CuckooHashTableCreator<U1024, McRng, ORAMCreatorZ4>;
+type ORAMCreatorZ4 = PathORAM4096Z4Creator<RngType, HeapORAMStorageCreator>;
+type PathORAMZ4 = <ORAMCreatorZ4 as ORAMCreator<U1024, RngType>>::Output;
+type Table = CuckooHashTable<U16, U240, U1024, RngType, PathORAMZ4>;
+type CuckooCreatorZ4 = CuckooHashTableCreator<U1024, RngType, ORAMCreatorZ4>;
 
 fn make_omap(capacity: u64) -> Table {
-    CuckooCreatorZ4::create(capacity, 32, || McRng {})
+    CuckooCreatorZ4::create(capacity, 32, get_seeded_rng)
 }
 
 pub fn path_oram_4096_z4_1mil_view_write(c: &mut Criterion) {

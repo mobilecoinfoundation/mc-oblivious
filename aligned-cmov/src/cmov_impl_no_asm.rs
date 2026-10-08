@@ -42,18 +42,14 @@ pub fn cmov_usize(condition: bool, src: &usize, dest: &mut usize) {
 }
 
 #[inline]
-pub fn cmov_a8_bytes<N: ArrayLength<u8>>(condition: bool, src: &A8Bytes<N>, dest: &mut A8Bytes<N>) {
+pub fn cmov_a8_bytes<N: ArrayLength>(condition: bool, src: &A8Bytes<N>, dest: &mut A8Bytes<N>) {
     if condition {
         *dest = src.clone()
     }
 }
 
 #[inline]
-pub fn cmov_a64_bytes<N: ArrayLength<u8>>(
-    condition: bool,
-    src: &A64Bytes<N>,
-    dest: &mut A64Bytes<N>,
-) {
+pub fn cmov_a64_bytes<N: ArrayLength>(condition: bool, src: &A64Bytes<N>, dest: &mut A64Bytes<N>) {
     if condition {
         *dest = src.clone()
     }

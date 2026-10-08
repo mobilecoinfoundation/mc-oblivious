@@ -20,7 +20,7 @@ use alloc::vec::Vec;
 pub use aligned_cmov::{
     cswap, subtle, typenum, A64Bytes, A8Bytes, ArrayLength, CMov, GenericArray,
 };
-pub use rand_core::{CryptoRng, RngCore};
+pub use rand_core::{CryptoRng, Rng};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 mod naive_storage;
@@ -53,7 +53,7 @@ pub mod testing;
 /// TODO: Create an API that allows checking out from two branches
 /// simultaneously.
 #[allow(clippy::len_without_is_empty)]
-pub trait ORAMStorage<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> {
+pub trait ORAMStorage<BlockSize: ArrayLength, MetaSize: ArrayLength> {
     /// Get the number of blocks represented by this block storage
     /// This is also the bound of the largest valid index
     fn len(&self) -> u64;
@@ -115,7 +115,7 @@ pub trait ORAMStorage<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> {
 /// We don't have a good way for the OMAP to take advantage of that right now.
 #[allow(clippy::len_without_is_empty)]
 #[allow(clippy::upper_case_acronyms)]
-pub trait ORAM<ValueSize: ArrayLength<u8>> {
+pub trait ORAM<ValueSize: ArrayLength> {
     /// Get the number of values logically in the ORAM.
     /// This is also one more than the largest index that can be legally
     /// accessed.
@@ -163,7 +163,7 @@ pub trait ORAM<ValueSize: ArrayLength<u8>> {
 /// This should never be called in production. IMO the best practice is that
 /// implementations of this trait should be gated by `#[cfg(test)]`, or perhaps
 /// `#[cfg(debug_assertions)]`.
-pub trait ORAMDebug<ValueSize: ArrayLength<u8>> {
+pub trait ORAMDebug<ValueSize: ArrayLength> {
     /// Systematically check the data structure invariants, asserting that they
     /// hold. Also, produce an array representation of the logical state of
     /// the ORAM.
@@ -242,7 +242,7 @@ pub trait PositionMap {
 /// access are sufficient.
 ///
 /// TODO: Should there be an explicit resize API? How should that work?
-pub trait ObliviousHashMap<KeySize: ArrayLength<u8>, ValueSize: ArrayLength<u8>> {
+pub trait ObliviousHashMap<KeySize: ArrayLength, ValueSize: ArrayLength> {
     /// Get the number of items in the map.
     fn len(&self) -> u64;
 
@@ -489,6 +489,7 @@ pub trait ObliviousHashMap<KeySize: ArrayLength<u8>, ValueSize: ArrayLength<u8>>
     /// was
     /// - not found (OMAP_NOT_FOUND), and so was added successfully,
     /// - found (OMAP_FOUND), and so was overwritten,
+    ///
     /// And, it is passed the mutable buffer on the stack.
     /// This buffer either contains the value associated with this key in the
     /// map, or contains default_value. This buffer will be stored to the
@@ -523,7 +524,7 @@ pub trait ObliviousHashMap<KeySize: ArrayLength<u8>, ValueSize: ArrayLength<u8>>
     ///   That is, the adversary can get at most this much advantage in distinguishing the two
     ///   scenarios based on access patterns. This analysis requires the assumption that
     ///   the hash function used in the map is a PRF. (https://en.wikipedia.org/wiki/SipHash).
-    fn access_and_insert<F: FnOnce(u32, &mut A8Bytes<ValueSize>), R: RngCore + CryptoRng>(
+    fn access_and_insert<F: FnOnce(u32, &mut A8Bytes<ValueSize>), R: Rng + CryptoRng>(
         &mut self,
         key: &A8Bytes<KeySize>,
         default_value: &A8Bytes<ValueSize>,

@@ -33,7 +33,7 @@ use aligned_cmov::{
 };
 use alloc::vec::Vec;
 use core::{
-    hash::{BuildHasher, Hash, Hasher},
+    hash::BuildHasher,
     marker::PhantomData,
     ops::{Add, Sub},
 };
@@ -42,7 +42,7 @@ use mc_oblivious_traits::{
     log2_ceil, OMapCreator, ORAMCreator, ObliviousHashMap, OMAP_FOUND, OMAP_INVALID_KEY,
     OMAP_NOT_FOUND, OMAP_OVERFLOW, ORAM,
 };
-use rand_core::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, Rng};
 use typenum::{PartialDiv, Sum, U8};
 
 mod build_hasher;
@@ -62,12 +62,12 @@ const MAX_EVICTION_RETRIES: usize = 6;
 /// so the number of items in a bucket is BlockSize / (KeySize + ValueSize)
 pub struct CuckooHashTable<KeySize, ValueSize, BlockSize, RngType, O>
 where
-    KeySize: ArrayLength<u8> + Add<ValueSize> + PartialDiv<U8> + 'static,
-    ValueSize: ArrayLength<u8> + PartialDiv<U8>,
-    BlockSize: ArrayLength<u8> + PartialDiv<U8>,
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    KeySize: ArrayLength + Add<ValueSize> + PartialDiv<U8> + 'static,
+    ValueSize: ArrayLength + PartialDiv<U8>,
+    BlockSize: ArrayLength + PartialDiv<U8>,
+    RngType: Rng + CryptoRng + Send + Sync + 'static,
     O: ORAM<BlockSize> + Send + Sync + 'static,
-    Sum<KeySize, ValueSize>: ArrayLength<u8> + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
+    Sum<KeySize, ValueSize>: ArrayLength + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
 {
     /// The number of items in the table right now
     num_items: u64,
@@ -92,12 +92,12 @@ where
 impl<KeySize, ValueSize, BlockSize, RngType, O>
     CuckooHashTable<KeySize, ValueSize, BlockSize, RngType, O>
 where
-    KeySize: ArrayLength<u8> + Add<ValueSize> + PartialDiv<U8> + 'static,
-    ValueSize: ArrayLength<u8> + PartialDiv<U8>,
-    BlockSize: ArrayLength<u8> + PartialDiv<U8>,
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    KeySize: ArrayLength + Add<ValueSize> + PartialDiv<U8> + 'static,
+    ValueSize: ArrayLength + PartialDiv<U8>,
+    BlockSize: ArrayLength + PartialDiv<U8>,
+    RngType: Rng + CryptoRng + Send + Sync + 'static,
     O: ORAM<BlockSize> + Send + Sync + 'static,
-    Sum<KeySize, ValueSize>: ArrayLength<u8> + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
+    Sum<KeySize, ValueSize>: ArrayLength + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
 {
     /// Create a new hashmap
     /// The ORAM should be default initialized or bad things will happen
@@ -145,17 +145,8 @@ where
     }
 
     fn hash_query(&self, query: &A8Bytes<KeySize>) -> [u64; 2] {
-        let result1 = {
-            let mut hasher = self.hash1.build_hasher();
-            query.as_slice().hash(&mut hasher);
-            hasher.finish() & (self.num_buckets - 1)
-        };
-
-        let result2 = {
-            let mut hasher = self.hash2.build_hasher();
-            query.as_slice().hash(&mut hasher);
-            hasher.finish() & (self.num_buckets - 1)
-        };
+        let result1 = self.hash1.hash_one(query.as_slice()) & (self.num_buckets - 1);
+        let result2 = self.hash2.hash_one(query.as_slice()) & (self.num_buckets - 1);
 
         [result1, result2]
     }
@@ -210,12 +201,12 @@ where
 impl<KeySize, ValueSize, BlockSize, RngType, O> ObliviousHashMap<KeySize, ValueSize>
     for CuckooHashTable<KeySize, ValueSize, BlockSize, RngType, O>
 where
-    KeySize: ArrayLength<u8> + Add<ValueSize> + PartialDiv<U8> + 'static,
-    ValueSize: ArrayLength<u8> + PartialDiv<U8>,
-    BlockSize: ArrayLength<u8> + PartialDiv<U8>,
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    KeySize: ArrayLength + Add<ValueSize> + PartialDiv<U8> + 'static,
+    ValueSize: ArrayLength + PartialDiv<U8>,
+    BlockSize: ArrayLength + PartialDiv<U8>,
+    RngType: Rng + CryptoRng + Send + Sync + 'static,
     O: ORAM<BlockSize> + Send + Sync + 'static,
-    Sum<KeySize, ValueSize>: ArrayLength<u8> + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
+    Sum<KeySize, ValueSize>: ArrayLength + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
 {
     fn len(&self) -> u64 {
         self.num_items
@@ -391,7 +382,6 @@ where
     ///   oblivious write-or-insert operation, the caller should use the
     ///   access_and_insert function from the
     ///   [`ObliviousHashMap::access_and_insert()`] trait.
-
     fn vartime_write_extended(
         &mut self,
         query: &A8Bytes<KeySize>,
@@ -637,8 +627,8 @@ where
 /// Otherwise it is very difficult to invoke CuckooHashTable::new() generically
 pub struct CuckooHashTableCreator<BlockSize, RngType, OC>
 where
-    BlockSize: ArrayLength<u8>,
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    BlockSize: ArrayLength,
+    RngType: Rng + CryptoRng + Send + Sync + 'static,
     OC: ORAMCreator<BlockSize, RngType>,
     OC::Output: ORAM<BlockSize> + Send + Sync + 'static,
 {
@@ -650,13 +640,13 @@ where
 impl<KeySize, ValueSize, BlockSize, RngType, OC> OMapCreator<KeySize, ValueSize, RngType>
     for CuckooHashTableCreator<BlockSize, RngType, OC>
 where
-    KeySize: ArrayLength<u8> + Add<ValueSize> + PartialDiv<U8> + 'static,
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + 'static,
-    BlockSize: ArrayLength<u8> + PartialDiv<U8> + 'static,
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    KeySize: ArrayLength + Add<ValueSize> + PartialDiv<U8> + 'static,
+    ValueSize: ArrayLength + PartialDiv<U8> + 'static,
+    BlockSize: ArrayLength + PartialDiv<U8> + 'static,
+    RngType: Rng + CryptoRng + Send + Sync + 'static,
     OC: ORAMCreator<BlockSize, RngType>,
     OC::Output: ORAM<BlockSize> + Send + Sync + 'static,
-    Sum<KeySize, ValueSize>: ArrayLength<u8> + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
+    Sum<KeySize, ValueSize>: ArrayLength + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
 {
     type Output = CuckooHashTable<KeySize, ValueSize, BlockSize, RngType, OC::Output>;
 
@@ -688,7 +678,7 @@ mod testing {
 
     /// Make a8-bytes that are initialized to a particular byte value
     /// This makes tests shorter to write
-    fn a8_8<N: ArrayLength<u8>>(src: u8) -> A8Bytes<N> {
+    fn a8_8<N: ArrayLength>(src: u8) -> A8Bytes<N> {
         let mut result = A8Bytes::<N>::default();
         for byte in result.as_mut_slice() {
             *byte = src;

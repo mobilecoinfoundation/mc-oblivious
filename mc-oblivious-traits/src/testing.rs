@@ -8,15 +8,15 @@ use alloc::{
     collections::{btree_map::Entry, BTreeMap},
     vec::Vec,
 };
-use rand_core::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, Rng};
 
 /// Exercise an ORAM by writing, reading, and rewriting, a progressively larger
 /// set of random locations
 pub fn exercise_oram<BlockSize, O, R>(mut num_rounds: usize, oram: &mut O, rng: &mut R)
 where
-    BlockSize: ArrayLength<u8>,
+    BlockSize: ArrayLength,
     O: ORAM<BlockSize>,
-    R: RngCore + CryptoRng,
+    R: Rng + CryptoRng,
 {
     let len = oram.len();
     assert!(len != 0, "len is zero");
@@ -43,9 +43,9 @@ where
 /// consecutively
 pub fn exercise_oram_consecutive<BlockSize, O, R>(mut num_rounds: usize, oram: &mut O, rng: &mut R)
 where
-    BlockSize: ArrayLength<u8>,
+    BlockSize: ArrayLength,
     O: ORAM<BlockSize>,
-    R: RngCore + CryptoRng,
+    R: Rng + CryptoRng,
 {
     let len = oram.len();
     assert!(len != 0, "len is zero");
@@ -69,9 +69,9 @@ fn query_oram_and_randomize<BlockSize, O, R>(
     oram: &mut O,
     rng: &mut R,
 ) where
-    BlockSize: ArrayLength<u8>,
+    BlockSize: ArrayLength,
     O: ORAM<BlockSize>,
-    R: RngCore + CryptoRng,
+    R: Rng + CryptoRng,
 {
     let expected_ent = expected.entry(query).or_default();
     oram.access(query, |val| {
@@ -92,9 +92,9 @@ pub fn measure_oram_stash_size_distribution<BlockSize, O, R>(
     rng: &mut R,
 ) -> BTreeMap<usize, usize>
 where
-    BlockSize: ArrayLength<u8>,
+    BlockSize: ArrayLength,
     O: ORAM<BlockSize>,
-    R: RngCore + CryptoRng,
+    R: Rng + CryptoRng,
 {
     let len = oram.len();
     assert!(len != 0, "len is zero");
@@ -123,10 +123,10 @@ where
 /// progressively larger set of random locations
 pub fn exercise_omap<KeySize, ValSize, O, R>(mut num_rounds: usize, omap: &mut O, rng: &mut R)
 where
-    KeySize: ArrayLength<u8>,
-    ValSize: ArrayLength<u8>,
+    KeySize: ArrayLength,
+    ValSize: ArrayLength,
     O: ObliviousHashMap<KeySize, ValSize>,
-    R: RngCore + CryptoRng,
+    R: Rng + CryptoRng,
 {
     let mut expected = BTreeMap::<A8Bytes<KeySize>, A8Bytes<ValSize>>::default();
     let mut probe_positions = Vec::<A8Bytes<KeySize>>::new();
@@ -260,8 +260,8 @@ where
 /// all of the items that we added.
 pub fn test_omap_overflow<KeySize, ValSize, O>(omap: &mut O) -> u64
 where
-    KeySize: ArrayLength<u8>,
-    ValSize: ArrayLength<u8>,
+    KeySize: ArrayLength,
+    ValSize: ArrayLength,
     O: ObliviousHashMap<KeySize, ValSize>,
 {
     // count from 1 because 0 is an invalid key
@@ -315,9 +315,9 @@ where
 /// access_and_insert operation
 pub fn exercise_omap_counter_table<KeySize, O, R>(mut num_rounds: usize, omap: &mut O, rng: &mut R)
 where
-    KeySize: ArrayLength<u8>,
+    KeySize: ArrayLength,
     O: ObliviousHashMap<KeySize, U8>,
-    R: RngCore + CryptoRng,
+    R: Rng + CryptoRng,
 {
     type ValSize = U8;
     let zero: A8Bytes<ValSize> = Default::default();

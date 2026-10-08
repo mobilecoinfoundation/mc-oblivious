@@ -16,7 +16,7 @@ use aligned_cmov::{
 use alloc::vec;
 use balanced_tree_index::TreeIndex;
 use core::ops::Mul;
-use rand_core::{CryptoRng, RngCore};
+use rand_core::{CryptoRng, Rng};
 
 use crate::path_oram::{
     details::ct_insert, meta_is_vacant, meta_leaf_num, meta_set_vacant, BranchCheckout, MetaSize,
@@ -60,10 +60,10 @@ fn prepare_deepest<ValueSize, Z>(
     leaf: u64,
 ) -> alloc::vec::Vec<usize>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     let meta_len = branch_meta.len();
     let meta_len_with_stash = meta_len + 1;
@@ -112,10 +112,10 @@ where
         leaf: u64,
         meta_len: usize,
     ) where
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
     {
         // Take the src and insert into deepest if our current bucket num is at the
         // same level as our goal or closer to the root.
@@ -149,10 +149,10 @@ fn prepare_target<ValueSize, Z>(
     branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
 ) -> alloc::vec::Vec<usize>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     let meta_len = branch_meta.len();
     let meta_len_with_stash = meta_len + 1;
@@ -210,7 +210,7 @@ fn bucket_has_empty_slot(bucket_meta: &[A8Bytes<MetaSize>]) -> Choice {
 /// eviction strategy
 pub struct PathOramRandomEvictor<RngType>
 where
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    RngType: Rng + CryptoRng + Send + Sync + 'static,
 {
     rng: RngType,
     number_of_additional_branches_to_evict: usize,
@@ -220,7 +220,7 @@ where
 
 impl<RngType> BranchSelector for PathOramRandomEvictor<RngType>
 where
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    RngType: Rng + CryptoRng + Send + Sync + 'static,
 {
     fn get_next_branch_to_evict(&mut self) -> u64 {
         self.branches_evicted += 1;
@@ -233,11 +233,11 @@ where
 }
 impl<ValueSize, Z, RngType> EvictionStrategy<ValueSize, Z> for PathOramRandomEvictor<RngType>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
+    RngType: Rng + CryptoRng + Send + Sync + 'static,
 {
     /// Method that takes a branch and a stash and moves elements from the
     /// stash into the branch.
@@ -289,10 +289,10 @@ impl BranchSelector for PathOramDeterministicEvictor {
 }
 impl<ValueSize, Z> EvictionStrategy<ValueSize, Z> for PathOramDeterministicEvictor
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     fn evict_from_stash_to_branch(
         &self,
@@ -311,10 +311,10 @@ fn path_oram_eviction_strategy<ValueSize, Z>(
     stash_meta: &mut [A8Bytes<MetaSize>],
     branch: &mut BranchCheckout<ValueSize, Z>,
 ) where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     branch.pack();
     //Greedily place elements of the stash into the branch as close to the leaf as
@@ -338,10 +338,10 @@ pub trait BranchSelector {
 /// the ORAM.
 pub trait EvictionStrategy<ValueSize, Z>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     /// Method that takes a branch and a stash and moves elements from the
     /// stash into the branch.
@@ -356,10 +356,10 @@ where
 /// A factory which creates an Evictor
 pub trait EvictorCreator<ValueSize, Z>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     type Output: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static;
 
@@ -389,10 +389,10 @@ impl PathOramDeterministicEvictorCreator {
 
 impl<ValueSize, Z> EvictorCreator<ValueSize, Z> for PathOramDeterministicEvictorCreator
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     type Output = PathOramDeterministicEvictor;
 
@@ -421,10 +421,10 @@ impl CircuitOramDeterministicEvictorCreator {
 
 impl<ValueSize, Z> EvictorCreator<ValueSize, Z> for CircuitOramDeterministicEvictorCreator
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     type Output = CircuitOramDeterministicEvictor;
 
@@ -470,10 +470,10 @@ impl BranchSelector for CircuitOramDeterministicEvictor {
 }
 impl<ValueSize, Z> EvictionStrategy<ValueSize, Z> for CircuitOramDeterministicEvictor
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     fn evict_from_stash_to_branch(
         &self,
@@ -491,10 +491,10 @@ fn circuit_oram_eviction_strategy<ValueSize, Z>(
     stash_meta: &mut [A8Bytes<MetaSize>],
     branch: &mut BranchCheckout<ValueSize, Z>,
 ) where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     let meta_len = branch.meta.len();
 
@@ -577,7 +577,7 @@ fn take_block_if_appropriate<ValueSize>(
     held_data: &mut A64Bytes<ValueSize>,
     held_dest: &mut usize,
 ) where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
 {
     let should_take_an_element_for_level = !(block_dest).ct_eq(&FLOOR_INDEX);
     held_dest.cmov(should_take_an_element_for_level, &block_dest);
@@ -599,7 +599,7 @@ fn drop_held_element_if_at_destination<ValueSize>(
     to_write_data: &mut A64Bytes<ValueSize>,
 ) -> Choice
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
 {
     let should_drop = bucket_num.ct_eq(dest);
     to_write_data.cmov(should_drop, held_data);
@@ -613,10 +613,10 @@ fn index_of_deepest_block_from_bucket<ValueSize, Z>(
     branch: &BranchCheckout<ValueSize, Z>,
 ) -> usize
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     let mut deepest_target_for_level = FLOOR_INDEX;
     let mut id_of_the_deepest_target_for_level = 0usize;
@@ -656,10 +656,10 @@ mod tests {
         leaf: u64,
     ) -> alloc::vec::Vec<usize>
     where
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
     {
         let meta_len = branch_meta.len();
         let meta_len_with_stash = meta_len + 1;
@@ -710,10 +710,10 @@ mod tests {
         test_level: usize,
     ) -> LowestHeightAndSource
     where
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
     {
         let mut lowest_so_far = FLOOR_INDEX;
         let mut source_of_lowest_so_far = FLOOR_INDEX;
@@ -754,10 +754,10 @@ mod tests {
         branch_meta: &[A8Bytes<Prod<Z, MetaSize>>],
     ) -> alloc::vec::Vec<usize>
     where
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+        ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
         Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-        Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-        Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+        Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+        Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
     {
         let meta_len = branch_meta.len();
         let meta_len_with_stash = meta_len + 1;
@@ -834,11 +834,9 @@ mod tests {
             populate_branch_with_random_data(&mut branch, &mut rng, height, 4);
 
             let mut stash_meta = vec![Default::default(); stash_size];
-            let mut key_value = 2;
-            for src_meta in &mut stash_meta {
+            for (key_value, src_meta) in (2u64..).zip(&mut stash_meta) {
                 *meta_block_num_mut(src_meta) = key_value;
                 *meta_leaf_num_mut(src_meta) = 1u64.random_child_at_height(height, &mut rng);
-                key_value += 1;
             }
 
             let deepest_meta = prepare_deepest::<U64, U4>(&stash_meta, &branch.meta, branch.leaf);
@@ -895,7 +893,7 @@ mod tests {
 
             populate_branch_with_fixed_data(&mut branch, &mut rng);
 
-            let intended_leaves_for_stash = vec![26, 23, 21, 21];
+            let intended_leaves_for_stash = [26, 23, 21, 21];
             let mut stash_meta = vec![Default::default(); intended_leaves_for_stash.len()];
 
             for (key_value, src_meta) in stash_meta.iter_mut().enumerate() {
@@ -948,7 +946,7 @@ mod tests {
 
             populate_branch_with_fixed_data(&mut branch, &mut rng);
 
-            let intended_leaves_for_stash = vec![26, 23, 21, 21];
+            let intended_leaves_for_stash = [26, 23, 21, 21];
             let mut stash_meta = vec![Default::default(); intended_leaves_for_stash.len()];
 
             for (key_value, src_meta) in stash_meta.iter_mut().enumerate() {

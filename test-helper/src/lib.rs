@@ -1,12 +1,12 @@
 use aligned_cmov::{A64Bytes, A8Bytes, ArrayLength};
-pub use rand_core::{CryptoRng, RngCore, SeedableRng};
-use rand_hc::Hc128Rng;
+use rand::rngs::ChaCha20Rng;
+pub use rand_core::{CryptoRng, Rng, SeedableRng};
 type Seed = <RngType as SeedableRng>::Seed;
 
 const NUM_TRIALS: usize = 3;
 
 // Sometimes you need to have the type in scope to call trait functions
-pub type RngType = Hc128Rng;
+pub type RngType = ChaCha20Rng;
 
 // Helper for running a unit test that requires randomness, but doing it
 // seeded and deterministically
@@ -37,7 +37,7 @@ pub fn get_seeded_rng() -> RngType {
 
 /// Make a8-bytes that are initialized to a particular byte value
 /// This makes tests shorter to write
-pub fn a8_8<N: ArrayLength<u8>>(src: u8) -> A8Bytes<N> {
+pub fn a8_8<N: ArrayLength>(src: u8) -> A8Bytes<N> {
     let mut result = A8Bytes::<N>::default();
     for byte in result.as_mut_slice() {
         *byte = src;
@@ -47,7 +47,7 @@ pub fn a8_8<N: ArrayLength<u8>>(src: u8) -> A8Bytes<N> {
 
 /// Make a64-bytes that are initialized to a particular byte value
 /// This makes tests shorter to write
-pub fn a64_8<N: ArrayLength<u8>>(src: u8) -> A64Bytes<N> {
+pub fn a64_8<N: ArrayLength>(src: u8) -> A64Bytes<N> {
     let mut result = A64Bytes::<N>::default();
     for byte in result.iter_mut() {
         *byte = src;

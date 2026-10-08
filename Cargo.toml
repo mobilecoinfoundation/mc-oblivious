@@ -18,3 +18,6 @@ exclude = [
 opt-level = 2
 debug = 2
 debug-assertions = true
+
+[patch.crates-io]
+aligned-array = { git = "https://github.com/eranrund/aligned-array", branch = "eran/update-deps" }
