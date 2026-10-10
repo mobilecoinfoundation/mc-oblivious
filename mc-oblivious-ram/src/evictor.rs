@@ -834,8 +834,8 @@ mod tests {
             populate_branch_with_random_data(&mut branch, &mut rng, height, 4);
 
             let mut stash_meta = vec![Default::default(); stash_size];
-            for (key_value, src_meta) in (2u64..).zip(&mut stash_meta) {
-                *meta_block_num_mut(src_meta) = key_value;
+            for (key_value, src_meta) in stash_meta.iter_mut().enumerate() {
+                *meta_block_num_mut(src_meta) = key_value as u64 + 2;
                 *meta_leaf_num_mut(src_meta) = 1u64.random_child_at_height(height, &mut rng);
             }
 
