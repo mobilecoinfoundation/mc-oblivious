@@ -20,7 +20,7 @@ use alloc::vec::Vec;
 pub use aligned_cmov::{
     cswap, subtle, typenum, A64Bytes, A8Bytes, ArrayLength, CMov, GenericArray,
 };
-pub use rand_core::{CryptoRng, Rng};
+pub use rand_core::CryptoRng;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 mod naive_storage;
@@ -524,7 +524,7 @@ pub trait ObliviousHashMap<KeySize: ArrayLength, ValueSize: ArrayLength> {
     ///   That is, the adversary can get at most this much advantage in distinguishing the two
     ///   scenarios based on access patterns. This analysis requires the assumption that
     ///   the hash function used in the map is a PRF. (https://en.wikipedia.org/wiki/SipHash).
-    fn access_and_insert<F: FnOnce(u32, &mut A8Bytes<ValueSize>), R: Rng + CryptoRng>(
+    fn access_and_insert<F: FnOnce(u32, &mut A8Bytes<ValueSize>), R: CryptoRng>(
         &mut self,
         key: &A8Bytes<KeySize>,
         default_value: &A8Bytes<ValueSize>,

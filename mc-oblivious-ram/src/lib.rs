@@ -27,7 +27,7 @@ extern crate alloc;
 use aligned_cmov::typenum::{U1024, U2, U2048, U32, U4, U4096, U64};
 use core::marker::PhantomData;
 use mc_oblivious_traits::{ORAMCreator, ORAMStorageCreator};
-use rand_core::{CryptoRng, Rng};
+use rand_core::CryptoRng;
 
 mod position_map;
 pub use position_map::{ORAMU32PositionMap, TrivialPositionMap, U32PositionMapCreator};
@@ -53,7 +53,7 @@ const CIRCUIT_ORAM_ADDITIONAL_BRANCHES_TO_EVICT: usize = 2;
 #[cfg(test)]
 struct PathORAM4096Z2Creator<R, SC>
 where
-    R: Rng + CryptoRng + 'static,
+    R: CryptoRng + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
     _rng: PhantomData<fn() -> R>,
@@ -63,7 +63,7 @@ where
 #[cfg(test)]
 impl<R, SC> ORAMCreator<U2048, R> for PathORAM4096Z2Creator<R, SC>
 where
-    R: Rng + CryptoRng + Send + Sync + 'static,
+    R: CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
     type Output = PathORAM<U2048, U2, SC::Output, R, PathOramDeterministicEvictor>;
@@ -91,7 +91,7 @@ where
 /// (Z) of 4, and a basic recursive position map implementation
 pub struct PathORAM4096Z4Creator<R, SC>
 where
-    R: Rng + CryptoRng + 'static,
+    R: CryptoRng + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
     _rng: PhantomData<fn() -> R>,
@@ -100,7 +100,7 @@ where
 
 impl<R, SC> ORAMCreator<U1024, R> for PathORAM4096Z4Creator<R, SC>
 where
-    R: Rng + CryptoRng + Send + Sync + 'static,
+    R: CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
     type Output = PathORAM<U1024, U4, SC::Output, R, PathOramDeterministicEvictor>;
@@ -128,7 +128,7 @@ where
 /// and bucket size (Z) of 4, and a basic recursive position map implementation
 pub struct CircuitORAM4096Z4Creator<R, SC>
 where
-    R: Rng + CryptoRng + 'static,
+    R: CryptoRng + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
     _rng: PhantomData<fn() -> R>,
@@ -137,7 +137,7 @@ where
 
 impl<R, SC> ORAMCreator<U1024, R> for CircuitORAM4096Z4Creator<R, SC>
 where
-    R: Rng + CryptoRng + Send + Sync + 'static,
+    R: CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U64>,
 {
     type Output = PathORAM<U1024, U4, SC::Output, R, CircuitOramDeterministicEvictor>;
@@ -162,7 +162,7 @@ where
 /// and bucket size (Z) of 2, and a basic recursive position map implementation
 pub struct CircuitORAM4096Z2Creator<R, SC>
 where
-    R: Rng + CryptoRng + 'static,
+    R: CryptoRng + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
     _rng: PhantomData<fn() -> R>,
@@ -171,7 +171,7 @@ where
 
 impl<R, SC> ORAMCreator<U2048, R> for CircuitORAM4096Z2Creator<R, SC>
 where
-    R: Rng + CryptoRng + Send + Sync + 'static,
+    R: CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
     type Output = PathORAM<U2048, U2, SC::Output, R, CircuitOramDeterministicEvictor>;

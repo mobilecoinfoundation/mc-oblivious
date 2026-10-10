@@ -13,7 +13,7 @@ use mc_oblivious_traits::{
     rng_maker, HeapORAMStorageCreator, ORAMCreator, ORAMStorageCreator, ORAM,
 };
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use test_helper::{CryptoRng, Rng, RngType, SeedableRng};
+use test_helper::{CryptoRng, RngType, SeedableRng};
 extern crate alloc;
 extern crate std;
 mod insecure_position_map;
@@ -39,7 +39,7 @@ pub fn measure_stash_overflow<OC, ValueSize, RngType>(
 ) -> Option<usize>
 where
     ValueSize: ArrayLength,
-    RngType: Rng + CryptoRng + SeedableRng + 'static,
+    RngType: CryptoRng + SeedableRng + 'static,
     OC: ORAMCreator<ValueSize, RngType>,
 {
     let mut oram = OC::create(size, stash_size, &mut rng_maker(rng));
@@ -128,7 +128,7 @@ impl<SC: ORAMStorageCreator<U4096, U64>> ORAMCreator<U1024, RngType>
 /// This is used to determine calibrate circuit oram
 pub struct InsecureCircuitORAM4096Z2Creator<R, SC: ORAMStorageCreator<U4096, U32>>
 where
-    R: Rng + CryptoRng + 'static,
+    R: CryptoRng + 'static,
 {
     _sc: PhantomData<fn() -> SC>,
     _rng: PhantomData<fn() -> R>,
@@ -137,7 +137,7 @@ where
 impl<R, SC: ORAMStorageCreator<U4096, U32>> ORAMCreator<U2048, R>
     for InsecureCircuitORAM4096Z2Creator<R, SC>
 where
-    R: Rng + CryptoRng + Send + Sync + 'static,
+    R: CryptoRng + Send + Sync + 'static,
     SC: ORAMStorageCreator<U4096, U32>,
 {
     type Output = PathORAM<U2048, U2, SC::Output, R, CircuitOramDeterministicEvictor>;

@@ -1,7 +1,7 @@
 // Copyright (c) 2018-2023 The MobileCoin Foundation
 
 use core::hash::BuildHasher;
-use rand_core::{CryptoRng, Rng};
+use rand_core::CryptoRng;
 use siphasher::sip::SipHasher13;
 
 pub struct SipBuildHasher {
@@ -17,7 +17,7 @@ impl BuildHasher for SipBuildHasher {
 }
 
 impl SipBuildHasher {
-    pub fn from_rng<R: Rng + CryptoRng>(rng: &mut R) -> Self {
+    pub fn from_rng<R: CryptoRng>(rng: &mut R) -> Self {
         Self {
             k0: rng.next_u64(),
             k1: rng.next_u64(),

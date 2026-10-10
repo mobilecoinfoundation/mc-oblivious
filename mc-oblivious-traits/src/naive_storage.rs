@@ -89,7 +89,7 @@ impl<BlockSize: ArrayLength + 'static, MetaSize: ArrayLength + 'static>
     type Output = HeapORAMStorage<BlockSize, MetaSize>;
     type Error = HeapORAMStorageCreatorError;
 
-    fn create<R: Rng + CryptoRng>(size: u64, _rng: &mut R) -> Result<Self::Output, Self::Error> {
+    fn create<R: CryptoRng>(size: u64, _rng: &mut R) -> Result<Self::Output, Self::Error> {
         Ok(Self::Output::new(size))
     }
 }

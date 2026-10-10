@@ -42,7 +42,7 @@ use mc_oblivious_traits::{
     log2_ceil, OMapCreator, ORAMCreator, ObliviousHashMap, OMAP_FOUND, OMAP_INVALID_KEY,
     OMAP_NOT_FOUND, OMAP_OVERFLOW, ORAM,
 };
-use rand_core::{CryptoRng, Rng};
+use rand_core::CryptoRng;
 use typenum::{PartialDiv, Sum, U8};
 
 mod build_hasher;
@@ -65,7 +65,7 @@ where
     KeySize: ArrayLength + Add<ValueSize> + PartialDiv<U8> + 'static,
     ValueSize: ArrayLength + PartialDiv<U8>,
     BlockSize: ArrayLength + PartialDiv<U8>,
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     O: ORAM<BlockSize> + Send + Sync + 'static,
     Sum<KeySize, ValueSize>: ArrayLength + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
 {
@@ -95,7 +95,7 @@ where
     KeySize: ArrayLength + Add<ValueSize> + PartialDiv<U8> + 'static,
     ValueSize: ArrayLength + PartialDiv<U8>,
     BlockSize: ArrayLength + PartialDiv<U8>,
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     O: ORAM<BlockSize> + Send + Sync + 'static,
     Sum<KeySize, ValueSize>: ArrayLength + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
 {
@@ -204,7 +204,7 @@ where
     KeySize: ArrayLength + Add<ValueSize> + PartialDiv<U8> + 'static,
     ValueSize: ArrayLength + PartialDiv<U8>,
     BlockSize: ArrayLength + PartialDiv<U8>,
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     O: ORAM<BlockSize> + Send + Sync + 'static,
     Sum<KeySize, ValueSize>: ArrayLength + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,
 {
@@ -628,7 +628,7 @@ where
 pub struct CuckooHashTableCreator<BlockSize, RngType, OC>
 where
     BlockSize: ArrayLength,
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     OC: ORAMCreator<BlockSize, RngType>,
     OC::Output: ORAM<BlockSize> + Send + Sync + 'static,
 {
@@ -643,7 +643,7 @@ where
     KeySize: ArrayLength + Add<ValueSize> + PartialDiv<U8> + 'static,
     ValueSize: ArrayLength + PartialDiv<U8> + 'static,
     BlockSize: ArrayLength + PartialDiv<U8> + 'static,
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     OC: ORAMCreator<BlockSize, RngType>,
     OC::Output: ORAM<BlockSize> + Send + Sync + 'static,
     Sum<KeySize, ValueSize>: ArrayLength + Sub<KeySize, Output = ValueSize> + PartialDiv<U8>,

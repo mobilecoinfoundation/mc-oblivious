@@ -27,7 +27,7 @@ use core::{marker::PhantomData, ops::Mul};
 use mc_oblivious_traits::{
     log2_ceil, ORAMStorage, ORAMStorageCreator, PositionMap, PositionMapCreator, ORAM,
 };
-use rand_core::{CryptoRng, Rng};
+use rand_core::CryptoRng;
 
 /// In this implementation, a value is expected to be an aligned 4096 byte page.
 /// The metadata associated to a value is two u64's (block num and leaf), so 16
@@ -87,7 +87,7 @@ pub struct PathORAM<ValueSize, Z, StorageType, RngType, EvictorType>
 where
     ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
     EvictorType: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static,
     Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
@@ -116,7 +116,7 @@ impl<ValueSize, Z, StorageType, RngType, EvictorType>
 where
     ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
     EvictorType: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static,
     Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
@@ -168,7 +168,7 @@ impl<ValueSize, Z, StorageType, RngType, EvictorType> ORAM<ValueSize>
 where
     ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
     EvictorType: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static,
     Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,

@@ -21,7 +21,7 @@ use rand_core::SeedableRng;
 /// A factory which creates an ORAM of arbitrary size using recursive strategy.
 /// The result is required to have the 'static lifetime, and not be tied to the
 /// factory.
-pub trait ORAMCreator<ValueSize: ArrayLength, RngType: Rng + CryptoRng> {
+pub trait ORAMCreator<ValueSize: ArrayLength, RngType: CryptoRng> {
     type Output: ORAM<ValueSize> + Send + Sync + 'static;
 
     fn create<M: 'static + FnMut() -> RngType>(
@@ -32,7 +32,7 @@ pub trait ORAMCreator<ValueSize: ArrayLength, RngType: Rng + CryptoRng> {
 }
 
 /// A factory which creates a PositionMap
-pub trait PositionMapCreator<RngType: Rng + CryptoRng> {
+pub trait PositionMapCreator<RngType: CryptoRng> {
     fn create<M: 'static + FnMut() -> RngType>(
         size: u64,
         height: u32,
@@ -63,11 +63,11 @@ pub trait ORAMStorageCreator<BlockSize: ArrayLength, MetaSize: ArrayLength> {
     ///
     /// It is expected that all storage will be zeroed from the caller's point
     /// of view, the first time that they access any of it.
-    fn create<R: Rng + CryptoRng>(size: u64, csprng: &mut R) -> Result<Self::Output, Self::Error>;
+    fn create<R: CryptoRng>(size: u64, csprng: &mut R) -> Result<Self::Output, Self::Error>;
 }
 
 /// A factory which makes ObliviousMap objects of some type, based on an ORAM
-pub trait OMapCreator<KeySize: ArrayLength, ValueSize: ArrayLength, R: Rng + CryptoRng> {
+pub trait OMapCreator<KeySize: ArrayLength, ValueSize: ArrayLength, R: CryptoRng> {
     /// The storage type produced
     type Output: ObliviousHashMap<KeySize, ValueSize> + Send + Sync + 'static;
 
@@ -84,7 +84,7 @@ pub trait OMapCreator<KeySize: ArrayLength, ValueSize: ArrayLength, R: Rng + Cry
 /// which returns newly seeded Rng's with seeds derived from this one.
 /// This matches the `rng_maker` constraints in the above traits, and can be
 /// used in tests when we want all the Rng's to be seeded.
-pub fn rng_maker<R: Rng + CryptoRng + SeedableRng + 'static>(
+pub fn rng_maker<R: CryptoRng + SeedableRng + 'static>(
     mut source: R,
 ) -> impl FnMut() -> R + 'static {
     move || {

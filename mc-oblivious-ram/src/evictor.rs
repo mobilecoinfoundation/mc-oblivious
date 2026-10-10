@@ -16,7 +16,7 @@ use aligned_cmov::{
 use alloc::vec;
 use balanced_tree_index::TreeIndex;
 use core::ops::Mul;
-use rand_core::{CryptoRng, Rng};
+use rand_core::CryptoRng;
 
 use crate::path_oram::{
     details::ct_insert, meta_is_vacant, meta_leaf_num, meta_set_vacant, BranchCheckout, MetaSize,
@@ -210,7 +210,7 @@ fn bucket_has_empty_slot(bucket_meta: &[A8Bytes<MetaSize>]) -> Choice {
 /// eviction strategy
 pub struct PathOramRandomEvictor<RngType>
 where
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
 {
     rng: RngType,
     number_of_additional_branches_to_evict: usize,
@@ -220,7 +220,7 @@ where
 
 impl<RngType> BranchSelector for PathOramRandomEvictor<RngType>
 where
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
 {
     fn get_next_branch_to_evict(&mut self) -> u64 {
         self.branches_evicted += 1;
@@ -237,7 +237,7 @@ where
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
     Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
     Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
-    RngType: Rng + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
 {
     /// Method that takes a branch and a stash and moves elements from the
     /// stash into the branch.
