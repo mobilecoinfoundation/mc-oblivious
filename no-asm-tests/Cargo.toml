@@ -8,9 +8,6 @@ readme = "README.md"
 
 [workspace]
 
-[patch.crates-io]
-aligned-array = { git = "https://github.com/eranrund/aligned-array", branch = "eran/update-deps" }
-
 [dependencies]
 aligned-cmov = { path = "../aligned-cmov", features = ["no_asm_insecure"] }
 balanced-tree-index = { path = "../balanced-tree-index" }

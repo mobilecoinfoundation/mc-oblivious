@@ -47,10 +47,7 @@ skip-tree = [
 unknown-registry = "warn"
 unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = [
-    "https://github.com/eranrund/aligned-array",
-    "https://github.com/mobilecoinfoundation/rand",
-]
+allow-git = []
 
 [sources.allow-org]
 github = []

@@ -25,7 +25,8 @@ dependencies = [
 [[package]]
 name = "aligned-array"
 version = "2.0.0"
-source = "git+https://github.com/eranrund/aligned-array?branch=eran%2Fupdate-deps#fa257e47b3a05ed885a57d2a71c134908734621b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34fcfb36622354ff5ff2bcb7e4216273564825726f4df16cb1e6af7547b66069"
 dependencies = [
  "generic-array",
  "subtle",
