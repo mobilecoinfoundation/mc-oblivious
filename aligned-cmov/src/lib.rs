@@ -76,14 +76,14 @@ impl CMov for bool {
     }
 }
 
-impl<N: ArrayLength<u8>> CMov for A8Bytes<N> {
+impl<N: ArrayLength> CMov for A8Bytes<N> {
     #[inline]
     fn cmov(&mut self, condition: Choice, src: &A8Bytes<N>) {
         cmov_impl::cmov_a8_bytes(condition.unwrap_u8() != 0, src, self)
     }
 }
 
-impl<N: ArrayLength<u8>> CMov for A64Bytes<N> {
+impl<N: ArrayLength> CMov for A64Bytes<N> {
     #[inline]
     fn cmov(&mut self, condition: Choice, src: &A64Bytes<N>) {
         cmov_impl::cmov_a64_bytes(condition.unwrap_u8() != 0, src, self)
@@ -110,11 +110,11 @@ mod testing {
     // Helper to reduce boilerplate.
     // This panics if the slice is not the right length, so it's not a good API
     // outside of tests.
-    fn to_a8_bytes<N: ArrayLength<u8>>(src: &[u8]) -> A8Bytes<N> {
+    fn to_a8_bytes<N: ArrayLength>(src: &[u8]) -> A8Bytes<N> {
         Aligned(GenericArray::from_slice(src).clone())
     }
 
-    fn to_a64_bytes<N: ArrayLength<u8>>(src: &[u8]) -> A64Bytes<N> {
+    fn to_a64_bytes<N: ArrayLength>(src: &[u8]) -> A64Bytes<N> {
         Aligned(GenericArray::from_slice(src).clone())
     }
 

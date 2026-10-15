@@ -27,7 +27,7 @@ use core::{marker::PhantomData, ops::Mul};
 use mc_oblivious_traits::{
     log2_ceil, ORAMStorage, ORAMStorageCreator, PositionMap, PositionMapCreator, ORAM,
 };
-use rand_core::{CryptoRng, RngCore};
+use rand_core::CryptoRng;
 
 /// In this implementation, a value is expected to be an aligned 4096 byte page.
 /// The metadata associated to a value is two u64's (block num and leaf), so 16
@@ -85,13 +85,13 @@ pub(crate) fn meta_set_vacant(condition: Choice, src: &mut A8Bytes<MetaSize>) {
 /// An implementation of PathORAM, using u64 to represent leaves in metadata.
 pub struct PathORAM<ValueSize, Z, StorageType, RngType, EvictorType>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
     EvictorType: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     /// The height of the binary tree used for storage
     height: u32,
@@ -114,13 +114,13 @@ where
 impl<ValueSize, Z, StorageType, RngType, EvictorType>
     PathORAM<ValueSize, Z, StorageType, RngType, EvictorType>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
     EvictorType: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     /// New function creates this ORAM given a position map creator and a
     /// storage type creator and an Rng creator.
@@ -166,13 +166,13 @@ where
 impl<ValueSize, Z, StorageType, RngType, EvictorType> ORAM<ValueSize>
     for PathORAM<ValueSize, Z, StorageType, RngType, EvictorType>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    RngType: RngCore + CryptoRng + Send + Sync + 'static,
+    RngType: CryptoRng + Send + Sync + 'static,
     StorageType: ORAMStorage<Prod<Z, ValueSize>, Prod<Z, MetaSize>> + Send + Sync + 'static,
     EvictorType: EvictionStrategy<ValueSize, Z> + BranchSelector + Send + Sync + 'static,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     fn len(&self) -> u64 {
         self.pos.len()
@@ -283,10 +283,10 @@ where
 /// This is mainly just an organizational thing.
 pub struct BranchCheckout<ValueSize, Z>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     /// The leaf of branch that is currently checked-out. 0 if no existing
     /// checkout.
@@ -301,10 +301,10 @@ where
 
 impl<ValueSize, Z> Default for BranchCheckout<ValueSize, Z>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     fn default() -> Self {
         Self {
@@ -318,10 +318,10 @@ where
 
 impl<ValueSize, Z> BranchCheckout<ValueSize, Z>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + PartialDiv<U64>,
+    ValueSize: ArrayLength + PartialDiv<U8> + PartialDiv<U64>,
     Z: Unsigned + Mul<ValueSize> + Mul<MetaSize>,
-    Prod<Z, ValueSize>: ArrayLength<u8> + PartialDiv<U8>,
-    Prod<Z, MetaSize>: ArrayLength<u8> + PartialDiv<U8>,
+    Prod<Z, ValueSize>: ArrayLength + PartialDiv<U8>,
+    Prod<Z, MetaSize>: ArrayLength + PartialDiv<U8>,
 {
     /// Try to extract an item from the branch
     pub fn ct_find_and_remove(
@@ -509,7 +509,7 @@ pub(crate) mod details {
     ///            Also set source to vacant.
     ///
     /// The whole operation must be constant time.
-    pub fn ct_find_and_remove<ValueSize: ArrayLength<u8>>(
+    pub fn ct_find_and_remove<ValueSize: ArrayLength>(
         mut condition: Choice,
         query: &u64,
         dest_data: &mut A64Bytes<ValueSize>,
@@ -546,7 +546,7 @@ pub(crate) mod details {
     ///            Also set source to vacant.
     ///
     /// The whole operation must be constant time.
-    pub fn ct_insert<ValueSize: ArrayLength<u8>>(
+    pub fn ct_insert<ValueSize: ArrayLength>(
         mut condition: Choice,
         src_data: &A64Bytes<ValueSize>,
         src_meta: &mut A8Bytes<MetaSize>,

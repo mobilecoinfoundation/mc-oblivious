@@ -5,17 +5,17 @@ use std::vec;
 use balanced_tree_index::TreeIndex;
 use mc_oblivious_traits::{PositionMap, PositionMapCreator};
 use std::vec::Vec;
-use test_helper::{CryptoRng, RngCore};
+use test_helper::CryptoRng;
 
 /// An insecure position map implemented via direct lookup
 /// Positions are represented as 32 bytes inside a page.
-pub struct InsecurePositionMap<R: RngCore + CryptoRng> {
+pub struct InsecurePositionMap<R: CryptoRng> {
     data: Vec<u32>,
     height: u32,
     rng: R,
 }
 
-impl<R: RngCore + CryptoRng> InsecurePositionMap<R> {
+impl<R: CryptoRng> InsecurePositionMap<R> {
     /// Create trivial position map
     pub fn new(size: u64, height: u32, rng_maker: &mut impl FnMut() -> R) -> Self {
         assert!(
@@ -30,7 +30,7 @@ impl<R: RngCore + CryptoRng> InsecurePositionMap<R> {
     }
 }
 
-impl<R: RngCore + CryptoRng> PositionMap for InsecurePositionMap<R> {
+impl<R: CryptoRng> PositionMap for InsecurePositionMap<R> {
     fn len(&self) -> u64 {
         self.data.len() as u64
     }
@@ -46,11 +46,11 @@ impl<R: RngCore + CryptoRng> PositionMap for InsecurePositionMap<R> {
     }
 }
 
-pub struct InsecurePositionMapCreator<R: RngCore + CryptoRng + Send + Sync + 'static> {
+pub struct InsecurePositionMapCreator<R: CryptoRng + Send + Sync + 'static> {
     _r: core::marker::PhantomData<fn() -> R>,
 }
 
-impl<R: RngCore + CryptoRng + Send + Sync + 'static> PositionMapCreator<R>
+impl<R: CryptoRng + Send + Sync + 'static> PositionMapCreator<R>
     for InsecurePositionMapCreator<R>
 {
     fn create<M: 'static + FnMut() -> R>(

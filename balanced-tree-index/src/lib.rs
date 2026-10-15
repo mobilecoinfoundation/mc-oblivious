@@ -19,7 +19,7 @@ use aligned_cmov::{
     subtle::{ConstantTimeEq, ConstantTimeLess},
     CMov,
 };
-use rand_core::RngCore;
+use rand_core::Rng;
 
 /// Trait representing a type that can represent a tree index in a balanced
 /// binary tree, using the numbering where the root is 1, and nodes are labelled
@@ -82,7 +82,7 @@ pub trait TreeIndex: Copy + Eq + PartialEq + CMov {
     /// otherwise the call is illegal.
     /// It is legal to call this on the NONE value, it will be as if ROOT was
     /// passed.
-    fn random_child_at_height<R: RngCore>(&self, height: u32, rng: &mut R) -> Self;
+    fn random_child_at_height<R: Rng>(&self, height: u32, rng: &mut R) -> Self;
 
     /// Iterate over the parents of this node, including self.
     /// Access patterns when evaluating this iterator reveal the height of self,
@@ -144,7 +144,7 @@ macro_rules! implement_tree_index_for_primitive {
                 // and is constant time.
                 DIGITS.wrapping_sub((self ^ other).leading_zeros())
             }
-            fn random_child_at_height<R: RngCore>(&self, height: u32, rng: &mut R) -> Self {
+            fn random_child_at_height<R: Rng>(&self, height: u32, rng: &mut R) -> Self {
                 // Make a copy of self that we can conditionally overwrite in case of none
                 let mut myself = *self;
                 myself.cmov(myself.ct_eq(&Self::NONE), &Self::ROOT);

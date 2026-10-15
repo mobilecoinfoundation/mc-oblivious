@@ -11,7 +11,7 @@ use alloc::vec;
 use balanced_tree_index::TreeIndex;
 
 /// The HeapORAMStorage is simply vector
-pub struct HeapORAMStorage<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> {
+pub struct HeapORAMStorage<BlockSize: ArrayLength, MetaSize: ArrayLength> {
     /// The storage for the blocks
     data: Vec<A64Bytes<BlockSize>>,
     /// The storage for the metadata
@@ -21,7 +21,7 @@ pub struct HeapORAMStorage<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>
     checkout_index: Option<u64>,
 }
 
-impl<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> HeapORAMStorage<BlockSize, MetaSize> {
+impl<BlockSize: ArrayLength, MetaSize: ArrayLength> HeapORAMStorage<BlockSize, MetaSize> {
     pub fn new(size: u64) -> Self {
         Self {
             data: vec![Default::default(); size as usize],
@@ -31,7 +31,7 @@ impl<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> HeapORAMStorage<Bloc
     }
 }
 
-impl<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> ORAMStorage<BlockSize, MetaSize>
+impl<BlockSize: ArrayLength, MetaSize: ArrayLength> ORAMStorage<BlockSize, MetaSize>
     for HeapORAMStorage<BlockSize, MetaSize>
 {
     fn len(&self) -> u64 {
@@ -83,16 +83,13 @@ impl<BlockSize: ArrayLength<u8>, MetaSize: ArrayLength<u8>> ORAMStorage<BlockSiz
 /// initialization support
 pub struct HeapORAMStorageCreator {}
 
-impl<BlockSize: ArrayLength<u8> + 'static, MetaSize: ArrayLength<u8> + 'static>
+impl<BlockSize: ArrayLength + 'static, MetaSize: ArrayLength + 'static>
     ORAMStorageCreator<BlockSize, MetaSize> for HeapORAMStorageCreator
 {
     type Output = HeapORAMStorage<BlockSize, MetaSize>;
     type Error = HeapORAMStorageCreatorError;
 
-    fn create<R: RngCore + CryptoRng>(
-        size: u64,
-        _rng: &mut R,
-    ) -> Result<Self::Output, Self::Error> {
+    fn create<R: CryptoRng>(size: u64, _rng: &mut R) -> Result<Self::Output, Self::Error> {
         Ok(Self::Output::new(size))
     }
 }

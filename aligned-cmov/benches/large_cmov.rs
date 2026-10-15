@@ -1,10 +1,11 @@
 use aligned_cmov::{typenum, A64Bytes, A8Bytes, ArrayLength, CMov};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
 use typenum::{U1024, U2048, U256, U4096};
 
 /// Make a8-bytes that are initialized to a particular byte value
 /// This makes tests shorter to write
-fn a8_8<N: ArrayLength<u8>>(src: u8) -> A8Bytes<N> {
+fn a8_8<N: ArrayLength>(src: u8) -> A8Bytes<N> {
     let mut result = A8Bytes::<N>::default();
     for byte in result.as_mut_slice() {
         *byte = src;
@@ -12,7 +13,7 @@ fn a8_8<N: ArrayLength<u8>>(src: u8) -> A8Bytes<N> {
     result
 }
 
-fn a64_8<N: ArrayLength<u8>>(src: u8) -> A64Bytes<N> {
+fn a64_8<N: ArrayLength>(src: u8) -> A64Bytes<N> {
     let mut result = A64Bytes::<N>::default();
     for byte in result.as_mut_slice() {
         *byte = src;

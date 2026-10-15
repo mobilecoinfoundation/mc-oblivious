@@ -18,17 +18,17 @@ use alloc::{boxed::Box, vec::Vec};
 use balanced_tree_index::TreeIndex;
 use core::marker::PhantomData;
 use mc_oblivious_traits::{log2_ceil, ORAMCreator, PositionMap, PositionMapCreator, ORAM};
-use rand_core::{CryptoRng, RngCore};
+use rand_core::CryptoRng;
 
 /// A trivial position map implemented via linear scanning.
 /// Positions are represented as 32 bytes inside a page.
-pub struct TrivialPositionMap<R: RngCore + CryptoRng> {
+pub struct TrivialPositionMap<R: CryptoRng> {
     data: Vec<u32>,
     height: u32,
     rng: R,
 }
 
-impl<R: RngCore + CryptoRng> TrivialPositionMap<R> {
+impl<R: CryptoRng> TrivialPositionMap<R> {
     /// Create trivial position map
     pub fn new(size: u64, height: u32, rng_maker: &mut impl FnMut() -> R) -> Self {
         assert!(
@@ -43,7 +43,7 @@ impl<R: RngCore + CryptoRng> TrivialPositionMap<R> {
     }
 }
 
-impl<R: RngCore + CryptoRng> PositionMap for TrivialPositionMap<R> {
+impl<R: CryptoRng> PositionMap for TrivialPositionMap<R> {
     fn len(&self) -> u64 {
         self.data.len() as u64
     }
@@ -71,9 +71,9 @@ impl<R: RngCore + CryptoRng> PositionMap for TrivialPositionMap<R> {
 ///
 /// Value size represents the chunk of 32 byte values that we scan across.
 pub struct ORAMU32PositionMap<
-    ValueSize: ArrayLength<u8> + PartialDiv<U8>,
+    ValueSize: ArrayLength + PartialDiv<U8>,
     O: ORAM<ValueSize> + Send + Sync + 'static,
-    R: RngCore + CryptoRng + Send + Sync + 'static,
+    R: CryptoRng + Send + Sync + 'static,
 > {
     oram: O,
     height: u32,
@@ -83,9 +83,9 @@ pub struct ORAMU32PositionMap<
 
 impl<ValueSize, O, R> ORAMU32PositionMap<ValueSize, O, R>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8>,
+    ValueSize: ArrayLength + PartialDiv<U8>,
     O: ORAM<ValueSize> + Send + Sync + 'static,
-    R: RngCore + CryptoRng + Send + Sync + 'static,
+    R: CryptoRng + Send + Sync + 'static,
 {
     // We subtract 2 over ValueSize because u32 is 4 bytes
     const L: u32 = log2_ceil(ValueSize::U64) - 2;
@@ -113,9 +113,9 @@ where
 
 impl<ValueSize, O, R> PositionMap for ORAMU32PositionMap<ValueSize, O, R>
 where
-    ValueSize: ArrayLength<u8> + PartialDiv<U8>,
+    ValueSize: ArrayLength + PartialDiv<U8>,
     O: ORAM<ValueSize> + Send + Sync + 'static,
-    R: RngCore + CryptoRng + Send + Sync + 'static,
+    R: CryptoRng + Send + Sync + 'static,
 {
     fn len(&self) -> u64 {
         self.oram.len() << Self::L
@@ -147,8 +147,8 @@ where
 /// ORAMs. The value size times the Z value determines the size of an ORAM
 /// bucket
 pub struct U32PositionMapCreator<
-    ValueSize: ArrayLength<u8> + PartialDiv<U8> + 'static,
-    R: RngCore + CryptoRng + Send + Sync + 'static,
+    ValueSize: ArrayLength + PartialDiv<U8> + 'static,
+    R: CryptoRng + Send + Sync + 'static,
     OC: ORAMCreator<ValueSize, R>,
 > {
     _value: PhantomData<fn() -> ValueSize>,
@@ -157,8 +157,8 @@ pub struct U32PositionMapCreator<
 }
 
 impl<
-        ValueSize: ArrayLength<u8> + PartialDiv<U8> + 'static,
-        R: RngCore + CryptoRng + Send + Sync + 'static,
+        ValueSize: ArrayLength + PartialDiv<U8> + 'static,
+        R: CryptoRng + Send + Sync + 'static,
         OC: ORAMCreator<ValueSize, R>,
     > PositionMapCreator<R> for U32PositionMapCreator<ValueSize, R, OC>
 {

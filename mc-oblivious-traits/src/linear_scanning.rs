@@ -5,11 +5,11 @@
 use super::*;
 use alloc::vec;
 
-pub struct LinearScanningORAM<ValueSize: ArrayLength<u8>> {
+pub struct LinearScanningORAM<ValueSize: ArrayLength> {
     data: Vec<A64Bytes<ValueSize>>,
 }
 
-impl<ValueSize: ArrayLength<u8>> LinearScanningORAM<ValueSize> {
+impl<ValueSize: ArrayLength> LinearScanningORAM<ValueSize> {
     pub fn new(size: u64) -> Self {
         Self {
             data: vec![Default::default(); size as usize],
@@ -17,7 +17,7 @@ impl<ValueSize: ArrayLength<u8>> LinearScanningORAM<ValueSize> {
     }
 }
 
-impl<ValueSize: ArrayLength<u8>> ORAM<ValueSize> for LinearScanningORAM<ValueSize> {
+impl<ValueSize: ArrayLength> ORAM<ValueSize> for LinearScanningORAM<ValueSize> {
     fn len(&self) -> u64 {
         self.data.len() as u64
     }

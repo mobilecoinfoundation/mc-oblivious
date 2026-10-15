@@ -95,7 +95,7 @@ pub fn cmov_i64(condition: bool, src: &i64, dest: &mut i64) {
 
 // CMov for blocks aligned to 8-byte boundary
 #[inline]
-pub fn cmov_a8_bytes<N: ArrayLength<u8>>(condition: bool, src: &A8Bytes<N>, dest: &mut A8Bytes<N>) {
+pub fn cmov_a8_bytes<N: ArrayLength>(condition: bool, src: &A8Bytes<N>, dest: &mut A8Bytes<N>) {
     // This test is expected to be optimized away but avoids UB if N == 0.
     if N::USIZE != 0 {
         // View the A8Bytes ref as pointers to u64.
@@ -118,11 +118,7 @@ pub fn cmov_a8_bytes<N: ArrayLength<u8>>(condition: bool, src: &A8Bytes<N>, dest
 // Without avx2, fallback to cmov_byte_slice_a8
 #[cfg(not(target_feature = "avx2"))]
 #[inline]
-pub fn cmov_a64_bytes<N: ArrayLength<u8>>(
-    condition: bool,
-    src: &A64Bytes<N>,
-    dest: &mut A64Bytes<N>,
-) {
+pub fn cmov_a64_bytes<N: ArrayLength>(condition: bool, src: &A64Bytes<N>, dest: &mut A64Bytes<N>) {
     if N::USIZE != 0 {
         let count = (N::USIZE / 8) + (if 0 == N::USIZE % 8 { 0 } else { 1 });
         unsafe {
@@ -139,11 +135,7 @@ pub fn cmov_a64_bytes<N: ArrayLength<u8>>(
 // If we have avx2 then we can use cmov_byte_slice_a64 implementation
 #[cfg(target_feature = "avx2")]
 #[inline]
-pub fn cmov_a64_bytes<N: ArrayLength<u8>>(
-    condition: bool,
-    src: &A64Bytes<N>,
-    dest: &mut A64Bytes<N>,
-) {
+pub fn cmov_a64_bytes<N: ArrayLength>(condition: bool, src: &A64Bytes<N>, dest: &mut A64Bytes<N>) {
     if N::USIZE != 0 {
         let count = (N::USIZE / 64) + (if 0 == N::USIZE % 64 { 0 } else { 1 });
         unsafe {
@@ -218,7 +210,10 @@ unsafe fn cmov_byte_slice_a8(condition: bool, src: *const u64, dest: *mut u64, c
 #[inline]
 unsafe fn cmov_byte_slice_a64(condition: bool, src: *const u64, dest: *mut u64, num_bytes: usize) {
     debug_assert!(num_bytes > 0, "num_bytes cannot be 0");
-    debug_assert!(num_bytes % 64 == 0, "num_bytes must be divisible by 64");
+    debug_assert!(
+        num_bytes.is_multiple_of(64),
+        "num_bytes must be divisible by 64"
+    );
 
     // Notes:
     // temp = {0} is the scratch register

@@ -16,4 +16,4 @@ mc-oblivious-traits = { path = "../mc-oblivious-traits", features = ["no_asm_ins
 test-helper = { path = "../test-helper" }
 
 [dev-dependencies]
-GSL = "6.0.0"
+GSL = "7"

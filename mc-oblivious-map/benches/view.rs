@@ -1,12 +1,12 @@
 // Copyright (c) 2018-2023 The MobileCoin Foundation
 
 use aligned_cmov::{typenum, A8Bytes};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use mc_oblivious_map::{CuckooHashTable, CuckooHashTableCreator};
 use mc_oblivious_ram::PathORAM4096Z4Creator;
 use mc_oblivious_traits::{HeapORAMStorageCreator, OMapCreator, ORAMCreator, ObliviousHashMap};
 use mc_rand::McRng;
-use std::time::Duration;
+use std::{hint::black_box, time::Duration};
 use test_helper::a8_8;
 use typenum::{U1024, U16, U240};
 
@@ -16,7 +16,7 @@ type Table = CuckooHashTable<U16, U240, U1024, McRng, PathORAMZ4>;
 type CuckooCreatorZ4 = CuckooHashTableCreator<U1024, McRng, ORAMCreatorZ4>;
 
 fn make_omap(capacity: u64) -> Table {
-    CuckooCreatorZ4::create(capacity, 32, || McRng {})
+    CuckooCreatorZ4::create(capacity, 32, McRng::default)
 }
 
 pub fn path_oram_4096_z4_1mil_view_write(c: &mut Criterion) {

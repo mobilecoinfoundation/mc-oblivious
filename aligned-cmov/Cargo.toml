@@ -1,6 +1,6 @@
 [package]
 name = "aligned-cmov"
-version = "2.3.0"
+version = "3.0.0"
 description = "Fast constant-time conditional moves of aligned bytes"
 authors = ["MobileCoin"]
 license = "GPL-3.0"
@@ -14,11 +14,11 @@ categories = ["embedded", "memory-management", "cryptography", "no-std"]
 no_asm_insecure = []
 
 [dependencies]
-aligned-array = { version = "1", features = ["subtle"] }
-generic-array = { version = "0.14", default-features = false }
+aligned-array = { version = "2", features = ["subtle"] }
+generic-array = { version = "1", default-features = false }
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 
 [[bench]]
 name = "large_cmov"

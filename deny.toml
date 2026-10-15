@@ -1,32 +1,26 @@
+[graph]
 targets = []
 
 [advisories]
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "deny"
-unsound = "deny"
+unmaintained = "all"
+unsound = "all"
 yanked = "deny"
-notice = "warn"
-# criterion depends on atty, which is unmaintained, but criterion is just for tests
-ignore = ["RUSTSEC-2021-0145"]
+ignore = []
 
 [licenses]
-unlicensed = "deny"
 allow = [
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
     "BSD-3-Clause",
     "ISC",
     "MIT",
+    "Unicode-3.0",
     "Unicode-DFS-2016",
     "GPL-3.0",
     "LGPL-3.0",
 ]
-deny = []
-copyleft = "allow"
-allow-osi-fsf-free = "both"
-default = "deny"
 confidence-threshold = 0.8
 exceptions = []
 
